@@ -1,23 +1,57 @@
-name: Run Jest Tests
+name: Checks
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
+    # A real Postgres, so the claim rules are tested against the database:
+    # the publish gate, the append-only history table and its trigger.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fatebook
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fatebook_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fatebook -d fatebook_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://fatebook:postgres@localhost:5432/fatebook_test
+      DATABASE_DIRECT_URL: postgresql://fatebook:postgres@localhost:5432/fatebook_test
+      RUN_DB_TESTS: "1"
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
 
       - name: Run tests
         run: npm run test
