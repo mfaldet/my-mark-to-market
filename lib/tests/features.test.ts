@@ -68,7 +68,7 @@ describe("feature switches", () => {
       source.indexOf("matcher: ["),
       source.indexOf("]", source.indexOf("matcher: [")),
     )
-    const patterns = [...matcher.matchAll(/"([^"]+)"/g)].map((m) =>
+    const patterns = Array.from(matcher.matchAll(/"([^"]+)"/g)).map((m) =>
       m[1].replace("/:path*", ""),
     )
     for (const route of ALL_FEATURE_ROUTES) {
