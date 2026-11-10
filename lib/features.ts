@@ -39,6 +39,8 @@ export const FEATURES = {
   sageEmails: on(process.env.NEXT_PUBLIC_ENABLE_SAGE_EMAILS),
   /** Google Analytics page tracking */
   analytics: on(process.env.NEXT_PUBLIC_ENABLE_ANALYTICS),
+  /** Fatebook's original question form on the home page (the claim box replaces it) */
+  classicForm: on(process.env.NEXT_PUBLIC_ENABLE_CLASSIC_FORM),
   /** The "give feedback" box, which posts to Sage's Slack */
   feedback: on(process.env.NEXT_PUBLIC_ENABLE_FEEDBACK),
 } as const
@@ -76,6 +78,7 @@ export const FEATURE_ROUTES: Record<Feature, readonly string[]> = {
   sageEmails: [],
   analytics: [],
   feedback: [],
+  classicForm: [],
 }
 
 /** Every path prefix that belongs to some feature (used by middleware.ts). */

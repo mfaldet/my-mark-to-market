@@ -23,7 +23,6 @@ import {
   backendAnalyticsEvent,
   updateForecastQuestionMessages,
 } from "../_utils_server"
-import { deleteQuestion } from "../interactive_handlers/edit_question_modal"
 import { syncToSlackIfNeeded } from "../interactive_handlers/postFromWeb"
 import {
   handleQuestionResolution,
@@ -31,6 +30,8 @@ import {
   undoQuestionResolution,
 } from "../interactive_handlers/resolve"
 import { findUserByApiKey } from "../api_keys"
+import { setPart, setPublic, withdrawClaim } from "../claims/service"
+import { toTrpcError } from "./claims_router"
 import prisma from "../prisma"
 import { questionsToCsv } from "./export"
 import {
@@ -490,6 +491,14 @@ export const questionRouter = router({
         })
       }
 
+      if (input.sharedPublicly) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Claims start private. Share it publicly once it is grade 4 or 5 and every part is confirmed.",
+        })
+      }
+
       const isMultiChoice = input.options && input.options.length > 0
 
       const question = await prisma.question.create({
@@ -708,17 +717,32 @@ export const questionRouter = router({
     })
     .output(z.undefined())
     .mutation(async ({ input, ctx }) => {
-      await getQuestionAssertAuthor(ctx, input.questionId, input.apiKey)
+      const question = await getQuestionAssertAuthor(
+        ctx,
+        input.questionId,
+        input.apiKey,
+      )
 
-      await prisma.question.update({
-        where: {
-          id: input.questionId,
-        },
-        data: {
-          sharedPublicly: input.sharedPublicly,
-          unlisted: input.unlisted,
-        },
-      })
+      // Making a claim public goes through the publish gate
+      // (grade 4+, every part confirmed) in lib/claims/service.ts.
+      if (input.sharedPublicly !== undefined) {
+        await setPublic(
+          question.userId,
+          input.questionId,
+          input.sharedPublicly,
+          input.apiKey || ctx.apiKeyHeader ? "API" : "WEB",
+        ).catch(toTrpcError)
+      }
+      if (input.unlisted !== undefined) {
+        await prisma.question.update({
+          where: {
+            id: input.questionId,
+          },
+          data: {
+            unlisted: input.unlisted,
+          },
+        })
+      }
     }),
 
   setHideForecasts: publicProcedure
@@ -1310,9 +1334,19 @@ export const questionRouter = router({
     .output(z.undefined())
     .meta({ openapi: { method: "DELETE", path: "/v0/deleteQuestion" } })
     .mutation(async ({ input, ctx }) => {
-      await getQuestionAssertAuthor(ctx, input.questionId, input.apiKey)
+      const question = await getQuestionAssertAuthor(
+        ctx,
+        input.questionId,
+        input.apiKey,
+      )
 
-      await deleteQuestion(input.questionId)
+      // Claims are never deleted: this withdraws the claim (hidden
+      // everywhere, kept with its history). See lib/claims/service.ts.
+      await withdrawClaim(
+        question.userId,
+        input.questionId,
+        input.apiKey || ctx.apiKeyHeader ? "API" : "WEB",
+      ).catch(toTrpcError)
 
       await backendAnalyticsEvent("question_deleted", {
         platform: input.apiKey ? "api" : "web",
@@ -1333,7 +1367,23 @@ export const questionRouter = router({
     .output(z.undefined())
     .meta({ openapi: { method: "PATCH", path: "/v0/editQuestion" } })
     .mutation(async ({ input, ctx }) => {
-      await getQuestionAssertAuthor(ctx, input.questionId, input.apiKey)
+      const existing = await getQuestionAssertAuthor(
+        ctx,
+        input.questionId,
+        input.apiKey,
+      )
+
+      // A date I set by hand is a stated deadline. Going through the claim
+      // service keeps the claim's deadline part and grade in step.
+      if (input.resolveBy) {
+        await setPart(
+          existing.userId,
+          input.questionId,
+          "deadline",
+          input.resolveBy.toISOString().slice(0, 10),
+          input.apiKey || ctx.apiKeyHeader ? "API" : "WEB",
+        ).catch(toTrpcError)
+      }
 
       const question = await prisma.question.update({
         where: {
@@ -1436,6 +1486,8 @@ async function getQuestionsUserCreatedOrForecastedOnOrIsSharedWith(
             createdAt: "desc",
           },
     where: {
+      // withdrawn claims are hidden everywhere
+      withdrawnAt: null,
       AND: [
         input.extraFilters?.showAllPublic
           ? {
@@ -1721,6 +1773,11 @@ export function assertHasAccess(
   }
 
   const userId = user?.id || "NO MATCH"
+
+  // a withdrawn claim is hidden from everyone but its owner
+  if (question.withdrawnAt && question.userId !== userId) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Question not found" })
+  }
 
   if (
     question.sharedPublicly ||

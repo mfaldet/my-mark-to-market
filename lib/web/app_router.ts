@@ -8,6 +8,7 @@ import {
 } from "../_utils_server"
 import { generateApiKey, hashApiKey, lastFour } from "../api_keys"
 import prisma from "../prisma"
+import { claimsRouter } from "./claims_router"
 import { feedbackRouter } from "./feedback_router"
 import { importRouter } from "./import_router"
 import { questionRouter } from "./question_router"
@@ -20,6 +21,7 @@ import { APP_NAME } from "../app_name"
 
 export const appRouter = router({
   question: questionRouter,
+  claims: claimsRouter,
   userList: userListRouter,
   tags: tagsRouter,
   import: importRouter,
