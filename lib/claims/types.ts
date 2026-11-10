@@ -38,8 +38,11 @@ export type OutcomePart = z.infer<typeof outcomePartSchema>
 
 /**
  * The parts each shape can have.
- * "required" parts must be present for the claim to be complete;
- * "optional" parts are stored if given but never asked about.
+ *   core     - the thing being observed. Without it there is nothing to check.
+ *   required - everything needed for the claim to be complete (includes core).
+ *              Listed most important first: the engine asks about gaps in
+ *              this order.
+ *   optional - stored if given but never asked about.
  *
  * "deadline" appears in every shape. Its value lives in Question.resolveBy
  * (Fatebook requires that column), so the part here only records the
@@ -48,34 +51,44 @@ export type OutcomePart = z.infer<typeof outcomePartSchema>
  */
 export const SHAPE_PARTS = {
   NUMBER_BY_DATE: {
-    required: ["measure", "comparison", "value", "unit", "deadline"],
-    // valueHigh: upper bound when comparison is "between"
+    core: ["measure"],
+    required: ["measure", "deadline", "value", "comparison", "unit"],
+    // valueHigh: upper bound when comparison is "between" (required then)
     // baseline: what a change is measured from ("today's close")
     optional: ["valueHigh", "baseline"],
   },
   EVENT_BY_DATE: {
+    core: ["event"],
     required: ["event", "deadline"],
     optional: [],
   },
   A_BEATS_B: {
-    required: ["a", "b", "metric", "deadline"],
+    core: ["a", "b"],
+    required: ["a", "b", "deadline", "metric"],
     optional: [],
   },
   RANK_OR_AWARD: {
-    required: ["subject", "rankOrAward", "deadline"],
+    core: ["subject"],
+    required: ["subject", "deadline", "rankOrAward"],
     optional: [],
   },
   FREE_TEXT: {
+    core: [],
     required: [],
     optional: ["deadline"],
   },
 } as const satisfies Record<
   ClaimShape,
-  { required: readonly string[]; optional: readonly string[] }
+  {
+    core: readonly string[]
+    required: readonly string[]
+    optional: readonly string[]
+  }
 >
 
-export type PartName =
-  (typeof SHAPE_PARTS)[ClaimShape][keyof (typeof SHAPE_PARTS)[ClaimShape]][number]
+export type PartName = (typeof SHAPE_PARTS)[ClaimShape][
+  | "required"
+  | "optional"][number]
 
 export type OutcomeParts = Partial<Record<PartName, OutcomePart>>
 
