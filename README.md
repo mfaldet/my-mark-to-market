@@ -1,3 +1,13 @@
+# My Mark-to-Market
+
+A personal log of my claims and predictions: what I said, when, how sure I was, and how it turned out.
+
+This is a fork of [Fatebook](https://fatebook.io) by [Sage](https://sage-future.org), used under the [MIT license](LICENSE). Fatebook does the forecasting, scoring and calibration; this fork adds a standard for what counts as a checkable claim, a grading engine, and an append-only history. A full write-up of what was added will replace this note once the work is finished.
+
+Everything below is Fatebook's original README.
+
+---
+
 # [Fatebook](https://fatebook.io)
 
 The fastest way to make and track predictions.

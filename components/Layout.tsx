@@ -8,7 +8,7 @@ import clsx from "clsx"
 import { useRouter } from "next/router"
 import { ReactNode } from "react"
 import { useUserId } from "../lib/web/utils"
-import Footer from "./Footer"
+import Footer, { Credit } from "./Footer"
 import { Navbar } from "./Navbar"
 
 export function Layout({
@@ -43,7 +43,10 @@ export function Layout({
         <div className="hidden lg:block">
           <Footer />
         </div>
-        <div className="py-12 lg:hidden bg-neutral-50"></div>
+        {/* small screens have no footer, so the credit goes here */}
+        <div className="pt-4 pb-20 lg:hidden bg-neutral-50 text-center">
+          <Credit />
+        </div>
       </div>
     </>
   )

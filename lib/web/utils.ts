@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast"
 import { QuestionWithForecasts } from "../../prisma/additional"
 import { getQuestionUrl } from "./question_url"
 import { getClientBaseUrl } from "./trpc"
+import { APP_NAME } from "../app_name"
 
 export function useUserId() {
   const session = useSession()
@@ -16,7 +17,7 @@ export function useUserId() {
 export async function signInToFatebook() {
   if (isWebview(window.navigator.userAgent)) {
     toast(
-      "Open Fatebook in Safari or Chrome to sign in.\n\nGoogle does not support this browser.",
+      `Open ${APP_NAME} in Safari or Chrome to sign in.\n\nGoogle does not support this browser.`,
       {
         duration: 10000,
       },

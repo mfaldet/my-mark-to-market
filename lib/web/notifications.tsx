@@ -2,8 +2,8 @@ import { ServerClient } from "postmark"
 import { postmarkApiToken } from "../_constants"
 import { backendAnalyticsEvent } from "../_utils_server"
 import prisma from "../prisma"
-import { webFeedbackUrl } from "./utils"
 import { getBaseUrl, getEmailFrom, getEmailReplyTo } from "../base_url"
+import { APP_NAME, UPSTREAM } from "../app_name"
 
 export async function createNotification({
   title,
@@ -161,7 +161,7 @@ export async function sendEmailWithTemplateUnbatched({
       TemplateAlias: templateAlias,
       TemplateModel: {
         product_url: getBaseUrl(),
-        product_name: "Fatebook",
+        product_name: APP_NAME,
         ...templateParams,
       },
       MessageStream: "outbound",
@@ -223,7 +223,7 @@ export async function sendEmailUnbatched({
       TemplateAlias: "blank-transactional",
       TemplateModel: {
         product_url: getBaseUrl(),
-        product_name: "Fatebook",
+        product_name: APP_NAME,
         subject:
           subject.length >= 1999 ? `${subject.slice(0, 1995)}...` : subject,
         html_body: htmlBody,
@@ -256,7 +256,6 @@ export async function sendEmailUnbatched({
 
 export function fatebookEmailFooter() {
   return `\n
-<p><i><a href="${getBaseUrl()}">Fatebook</a> helps you rapidly make and track predictions about the future.</i></p>
-<p><a href=${webFeedbackUrl}>Give feedback on Fatebook</a></p>
+<p><i>Sent by <a href="${getBaseUrl()}">${APP_NAME}</a>, built on <a href="${UPSTREAM.url}">${UPSTREAM.name}</a> by ${UPSTREAM.author}.</i></p>
 `
 }

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { FEATURES } from "../lib/features"
+import { APP_NAME, LICENSE_URL, REPO_URL, UPSTREAM } from "../lib/app_name"
 
 export default function Footer({
   showReportProblem = false,
@@ -11,13 +12,8 @@ export default function Footer({
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 md:flex md:items-center md:justify-between lg:px-8">
         {FEATURES.sagePages && SocialIcons(showReportProblem)}
         <div className="mt-4 text-center md:mt-0 md:order-1 md:ml-8 md:text-left">
-          <Link
-            href="https://sage-future.org"
-            className="no-underline text-base text-neutral-500 hover:underline"
-            target="_blank"
-          >
-            Sage Future Inc
-          </Link>
+          <p className="text-neutral-500 my-0 text-base">{APP_NAME}</p>
+          <Credit />
           {FEATURES.sagePages && (
             <p className="text-neutral-400 my-1 text-sm max-sm:text-xs">
               <Link
@@ -36,6 +32,30 @@ export default function Footer({
         </div>
       </div>
     </footer>
+  )
+}
+
+/** The credit line: shown in the footer, and on its own on small screens. */
+export function Credit() {
+  return (
+    <p className="text-neutral-400 my-1 text-sm max-sm:text-xs">
+      Built on{" "}
+      <Link href={UPSTREAM.url} target="_blank">
+        {UPSTREAM.name}
+      </Link>{" "}
+      by{" "}
+      <Link href={UPSTREAM.authorUrl} target="_blank">
+        {UPSTREAM.author}
+      </Link>
+      {" · "}
+      <Link href={LICENSE_URL} target="_blank">
+        MIT license
+      </Link>
+      {" · "}
+      <Link href={REPO_URL} target="_blank">
+        Source
+      </Link>
+    </p>
   )
 }
 

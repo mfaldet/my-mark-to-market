@@ -46,6 +46,7 @@ import {
   matchesAnEmailDomain,
 } from "./utils"
 import { getBaseHost } from "../base_url"
+import { APP_NAME } from "../app_name"
 
 function calculateUniqueForecasterCount(
   question: QuestionWithForecasts | QuestionWithForecastsAndOptions,
@@ -1673,7 +1674,7 @@ export async function emailNewlySharedWithUsers(
           )}</p>
 <p><a href=${getQuestionUrl(
             question,
-          )}>See ${author}'s prediction and add your own on Fatebook.</a></p>
+          )}>See ${author}'s prediction and add your own on ${APP_NAME}.</a></p>
 ${fatebookEmailFooter()}`,
         })
       }

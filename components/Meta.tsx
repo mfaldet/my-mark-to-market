@@ -1,20 +1,21 @@
 import { DefaultSeo } from "next-seo"
 import { getBaseUrl } from "../lib/base_url"
+import { APP_NAME, APP_TAGLINE } from "../lib/app_name"
 
 export default function Meta() {
   return (
     <DefaultSeo
-      titleTemplate="%s - Fatebook"
-      defaultTitle="Fatebook"
-      description="Track your predictions, make better decisions."
+      titleTemplate={`%s - ${APP_NAME}`}
+      defaultTitle={APP_NAME}
+      description={APP_TAGLINE}
       canonical={`${getBaseUrl()}/`}
       openGraph={{
         type: "website",
         locale: "en_US",
         url: `${getBaseUrl()}/`,
-        title: "Fatebook",
-        description: "Track your predictions, make better decisions.",
-        siteName: "Fatebook",
+        title: APP_NAME,
+        description: APP_TAGLINE,
+        siteName: APP_NAME,
         images: [
           {
             url: `${getBaseUrl()}/telescope_future_1200_white.png`,
@@ -30,9 +31,6 @@ export default function Meta() {
           href: `${getBaseUrl()}/scale.svg`,
         },
       ]}
-      twitter={{
-        handle: "@sage_future_",
-      }}
     />
   )
 }

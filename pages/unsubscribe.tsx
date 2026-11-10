@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { api, getClientBaseUrl } from "../lib/web/trpc"
 import { webFeedbackUrl } from "../lib/web/utils"
 import { NextSeo } from "next-seo"
+import { APP_NAME } from "../lib/app_name"
 
 export function getUnsubscribeUrl(
   userEmail?: string,
@@ -34,8 +35,8 @@ export default function UnsubscribePage() {
       <div className="prose mx-auto">
         <p>
           {isUnsubscribed
-            ? "You have unsubscribed from Fatebook emails. Click below to resubscribe."
-            : "Unsubscribe below to stop receiving emails from Fatebook."}
+            ? `You have unsubscribed from ${APP_NAME} emails. Click below to resubscribe.`
+            : `Unsubscribe below to stop receiving emails from ${APP_NAME}.`}
         </p>
         <div className="flex flex-col gap-4">
           <input

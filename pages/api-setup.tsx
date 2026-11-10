@@ -7,6 +7,7 @@ import { CopyToClipboard } from "../components/ui/CopyToClipboard"
 import { api } from "../lib/web/trpc"
 import { signInToFatebook, useUserId } from "../lib/web/utils"
 import { getBaseUrl } from "../lib/base_url"
+import { APP_NAME } from "../lib/app_name"
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const SwaggerUI = dynamic(() => import("swagger-ui-react"), { ssr: false })
@@ -33,11 +34,11 @@ export default function ApiPage() {
     <div className="px-4 pt-12 lg:pt-16 mx-auto max-w-6xl">
       <NextSeo
         title="API"
-        description="Use the API to create Fatebook questions from a URL"
+        description={`Use the ${APP_NAME} API`}
       />
       <div className="mx-auto prose">
-        <h2>Fatebook API</h2>
-        <h3>Use the API to create Fatebook questions from a URL</h3>
+        <h2>{APP_NAME} API</h2>
+        <h3>Use the API to create questions from a URL</h3>
         {!userId && (
           <div className="flex w-full p-4">
             <button
