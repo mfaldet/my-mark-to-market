@@ -33,6 +33,7 @@ import {
   startOfToday,
 } from "./due"
 import { extractClaim, Extraction } from "./extract"
+import { isImported, Kind, kindChanges, kindForGrade } from "./kind"
 import { canPublish, gradeClaim } from "./grade"
 import {
   ChainCheck,
@@ -111,6 +112,10 @@ function engineClaim(row: Question): EngineClaim {
 export type ClaimView = {
   id: string
   url: string
+  /** "hunch" (grades 1-3) or "prediction" (grades 4-5) */
+  kind: Kind
+  /** true for entries brought in by an importer: not logged here in advance */
+  imported: boolean
   /** my words, never rewritten */
   text: string
   claimDate: string
@@ -169,6 +174,8 @@ export function toClaimView(row: ClaimRow, now = new Date()): ClaimView {
   return {
     id: row.id,
     url: getQuestionUrl(row, false),
+    kind: kindForGrade(grade.grade),
+    imported: isImported(row.id),
     text: row.title,
     claimDate: isoDay(claimDate),
     loggedAt: row.createdAt.toISOString(),
@@ -338,6 +345,12 @@ export type TimelineEvent =
       word: ConfidenceWord | null
       note: string | null
     }
+  | {
+      /** the item changed kind: "Became a prediction" / back to a hunch */
+      kind: "became"
+      at: string
+      became: Kind
+    }
 
 /** Every version and every confidence change, oldest first. */
 export async function getTimeline(
@@ -376,6 +389,19 @@ export async function getTimeline(
     })
     previous = state
   }
+  // "Became a prediction": read from the grades already in the history
+  for (const change of kindChanges(
+    versions.map((v) => ({
+      grade: (v.state as unknown as ClaimState).grade,
+      at: v.createdAt,
+    })),
+  )) {
+    events.push({
+      kind: "became",
+      at: change.entry.at.toISOString(),
+      became: change.became,
+    })
+  }
   for (const f of forecasts) {
     events.push({
       kind: "confidence",
@@ -385,7 +411,12 @@ export async function getTimeline(
       note: f.comment,
     })
   }
-  return events.sort((a, b) => a.at.localeCompare(b.at))
+  // same-instant events keep the order they were added in:
+  // the version first, then "became a prediction"
+  return events
+    .map((event, index) => ({ event, index }))
+    .sort((a, b) => a.event.at.localeCompare(b.event.at) || a.index - b.index)
+    .map(({ event }) => event)
 }
 
 async function loadOwned(userId: string, claimId: string): Promise<ClaimRow> {
@@ -627,8 +658,14 @@ export async function notifyReadyToResolve(
     await prisma.$transaction([
       prisma.notification.create({
         data: {
-          title: `Ready to resolve: ${claim.title}`,
-          content: `This claim came due on ${isoDay(claim.resolveBy)}. How did it turn out?`,
+          title:
+            kindForGrade(claim.grade) === "prediction" || isImported(claim.id)
+              ? `Ready to resolve: ${claim.title}`
+              : `Time to check back: ${claim.title}`,
+          content:
+            kindForGrade(claim.grade) === "prediction" || isImported(claim.id)
+              ? `This prediction came due on ${isoDay(claim.resolveBy)}. How did it turn out?`
+              : `This hunch's check-back date was ${isoDay(claim.resolveBy)}. Sharpen it into a prediction, move the date, or withdraw it.`,
           url: getQuestionUrl(claim),
           tags: ["ready_to_resolve"],
           userId: claim.userId,
@@ -869,6 +906,28 @@ export async function withdrawClaim(
 
 // --- Resolving ---------------------------------------------------------------
 
+/**
+ * Only predictions can be resolved and scored. A hunch has nothing agreed
+ * to check it against: sharpen it into a prediction, move its "check back
+ * by" date, or withdraw it. Imported entries are exempt - they arrive
+ * without an outcome and may still need their result recorded.
+ */
+export function assertCanResolve(row: Question) {
+  if (isImported(row.id)) return
+  const grade = gradeClaim({
+    shape: row.claimShape,
+    parts: partsOf(row),
+    checkLinkConfirmed: !!row.checkLinkConfirmedAt,
+  })
+  if (kindForGrade(grade.grade) === "hunch") {
+    throw new ClaimError(
+      "BLOCKED",
+      "This is still a hunch, so it can't be marked right or wrong yet. Sharpen it into a prediction, move its check-back date, or withdraw it.",
+      [grade.reason],
+    )
+  }
+}
+
 export type ResolveInput = {
   /** YES, NO or AMBIGUOUS. Optional when `actual` settles a number claim. */
   resolution?: Resolution
@@ -894,6 +953,7 @@ export async function resolveClaim(
   if (row.resolved) {
     throw new ClaimError("BAD_REQUEST", "This claim is already resolved.")
   }
+  assertCanResolve(row)
 
   const parts = partsOf(row)
   let resolution = input.resolution

@@ -37,6 +37,11 @@ export function Notifications() {
       <span className="prose pt-2 pl-4">
         <h2 className="lg:text-xl lg:font-bold">Notifications</h2>
       </span>
+      {notificationsQ.isSuccess && notifications?.length === 0 && (
+        <p className="pl-4 py-2 text-neutral-500">
+          No notifications. You&apos;ll hear here when a prediction comes due.
+        </p>
+      )}
       {notifications?.map((notification) => {
         function read() {
           if (

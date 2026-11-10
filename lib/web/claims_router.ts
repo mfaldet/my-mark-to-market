@@ -82,6 +82,7 @@ export const claimsRouter = router({
       z
         .object({
           status: z.enum(["open", "resolved", "all"]).optional(),
+          due: z.enum(["soon", "overdue", "soon_or_overdue"]).optional(),
           limit: z.number().optional(),
         })
         .optional(),

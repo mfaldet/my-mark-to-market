@@ -6,7 +6,7 @@ import { signOut, useSession } from "next-auth/react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/router"
-import { ReactNode, useState } from "react"
+import { ReactNode, useState, useEffect } from "react"
 import { toast } from "react-hot-toast"
 import { api } from "../lib/web/trpc"
 import {
@@ -15,7 +15,6 @@ import {
   useFatebookForChrome,
   useUserId,
 } from "../lib/web/utils"
-import Footer from "./Footer"
 import NotificationsPopover from "./NotificationsPopover"
 import { PromptDialog } from "./ui/PromptDialog"
 import { FEATURES } from "../lib/features"
@@ -33,6 +32,8 @@ export function Navbar({
 }) {
   const userId = useUserId()
   const fatebookForChrome = useFatebookForChrome()
+
+  useCloseMenusOnEscape()
 
   const menuItems = (
     <MenuItems userId={userId ?? null} fatebookForChrome={fatebookForChrome} />
@@ -52,6 +53,29 @@ export function Navbar({
       <Drawer />
     </div>
   )
+}
+
+/**
+ * Escape closes whatever menu is open: the hover/focus dropdowns (by
+ * taking focus off them), the account menu, and the slide-out drawer.
+ */
+function useCloseMenusOnEscape() {
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return
+      document
+        .querySelectorAll<HTMLDetailsElement>("details.dropdown[open]")
+        .forEach((menu) => (menu.open = false))
+      const drawer = document.getElementById("my-drawer")
+      if (drawer instanceof HTMLInputElement) drawer.checked = false
+      const focused = document.activeElement
+      if (focused instanceof HTMLElement && focused.closest(".dropdown")) {
+        focused.blur()
+      }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [])
 }
 
 function SpecialButton({ url, label }: { url: string; label: ReactNode }) {
@@ -89,7 +113,12 @@ function NavbarContent({
   return (
     <div className="navbar max-w-5xl mx-auto">
       <div className="flex-none lg:hidden">
-        <label htmlFor="my-drawer" className="btn btn-square btn-ghost">
+        <label
+          htmlFor="my-drawer"
+          className="btn btn-square btn-ghost"
+          aria-label="Open menu"
+          title="Open menu"
+        >
           <Bars3Icon height={24} width={24} />
         </label>
       </div>
@@ -130,6 +159,13 @@ function MenuItems({
 
   return (
     <>
+      {userId && (
+        <li>
+          <Link href="/due" className={isActive("/due") ? "bg-base-200" : ""}>
+            Due
+          </Link>
+        </li>
+      )}
       {FEATURES.publicFeed && (
         <li>
           <Link
@@ -159,7 +195,6 @@ function MenuItems({
       )}
       {isDrawer ? (
         <>
-          <li className="menu-title text-lg mt-2 leading-4">Integrations</li>
           <IntegrationsItems fatebookForChrome={fatebookForChrome} />
           {showLearn && (
             <>
@@ -198,7 +233,7 @@ function IntegrationsDropdown() {
   return (
     <div className="dropdown dropdown-hover dropdown-bottom dropdown-end">
       <label className="flex gap-1" tabIndex={0}>
-        <ChevronDownIcon className="text-neutral-400" width={16} /> Integrations{" "}
+        <ChevronDownIcon className="text-neutral-400" width={16} /> Menu{" "}
       </label>
       <ul
         tabIndex={0}
@@ -253,7 +288,7 @@ function IntegrationsItems({
           </Link>
         </li>
       )}
-      <li className="menu-title">Advanced integrations</li>
+      <li className="menu-title">Connect</li>
       <li>
         <Link
           href="/api-setup"
@@ -267,15 +302,7 @@ function IntegrationsItems({
           Embed in your website
         </Link>
       </li>
-      <li>
-        <Link
-          href="/beeminder"
-          className={isActive("/beeminder") ? "bg-base-200" : ""}
-        >
-          Beeminder
-        </Link>
-      </li>
-      <li className="menu-title">Your prediction data</li>
+      <li className="menu-title">Your data</li>
       <li>
         <Link
           href="/import-from-prediction-book"
@@ -372,7 +399,11 @@ function LearnItems() {
 function Drawer() {
   return (
     <div className="drawer-side z-[9999] mt-16 lg:hidden">
-      <label htmlFor="my-drawer" className="drawer-overlay"></label>
+      <label
+        htmlFor="my-drawer"
+        className="drawer-overlay"
+        aria-label="Close menu"
+      ></label>
       <ul className="menu flex flex-col flex-nowrap p-4 w-80 overflow-auto bg-neutral-100 h-full text-md text-neutral-600 font-semibold">
         <div className="overflow-y-auto flex-shrink pb-8">
           <MenuItems
@@ -380,10 +411,6 @@ function Drawer() {
             fatebookForChrome={useFatebookForChrome()}
             isDrawer={true}
           />
-        </div>
-        <div className="grow" />
-        <div className="-m-4 mb-8 z-10">
-          <Footer />
         </div>
       </ul>
     </div>
@@ -424,6 +451,8 @@ function AccountMenu(showCreateAccountButton: boolean) {
       <details className="dropdown dropdown-end">
         <summary
           tabIndex={0}
+          aria-label="Account menu"
+          title="Account menu"
           className="btn btn-ghost btn-circle avatar hover:bg-opacity-0 hover:scale-[1.03]"
         >
           <div className="w-10 h-10 rounded-full bg-neutral-500 opacity-50" />
@@ -443,6 +472,8 @@ function AccountMenu(showCreateAccountButton: boolean) {
       <details className="dropdown dropdown-end z-[9999]">
         <summary
           tabIndex={0}
+          aria-label="Account menu"
+          title="Account menu"
           className="btn btn-ghost btn-circle avatar hover:bg-opacity-0 hover:scale-[1.03]"
         >
           <div className="w-10 rounded-full">

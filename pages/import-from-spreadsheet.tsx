@@ -35,11 +35,7 @@ export default function ImportFromSpreadsheetPage() {
               {"Make sure your CSV file has the following columns:"}
               <ul className="not-prose">
                 {rows.map((row) => (
-                  <li
-                    key={row.name}
-                    className="list-none flex flex-row gap-2 align-top"
-                  >
-                    <input type="checkbox" />
+                  <li key={row.name} className="list-disc ml-5">
                     {row.label}
                   </li>
                 ))}
@@ -49,9 +45,8 @@ export default function ImportFromSpreadsheetPage() {
           </ol>
           <p>
             {
-              "Spreadsheets can have many different formats so you might need to play around a bit to get this working. If you get stuck, you can email us at "
+              "Spreadsheets come in many formats, so it may take a couple of tries to line the columns up."
             }
-            <a href="mailto:hello@sage-future.org">hello@sage-future.org</a>
           </p>
         </div>
         {userId ? (

@@ -35,6 +35,7 @@ export function TagsSelect({
   return (
     <div className="flex-grow">
       <SelectComponent
+        aria-label={placeholder || "Tags"}
         value={localTags.map((tag) => ({
           label: tag,
           value: tag,

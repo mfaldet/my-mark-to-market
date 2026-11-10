@@ -80,6 +80,14 @@ export function ClaimPanel({
     <div className="flex flex-col gap-3 text-sm not-prose border-t border-neutral-200 pt-3">
       <div className="flex flex-wrap items-center gap-2">
         <GradeBadge grade={claim.grade} reason={claim.gradeReason} />
+        {claim.imported && (
+          <span
+            className="rounded border border-neutral-300 px-1 text-xs text-neutral-500"
+            title="Brought in by an importer, not logged here in advance. It has no version history from before the import."
+          >
+            imported
+          </span>
+        )}
         <span className="text-neutral-500">{claim.gradeReason}</span>
       </div>
 

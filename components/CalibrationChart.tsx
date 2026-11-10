@@ -103,6 +103,8 @@ export function CalibrationChart({
       />
       <button
         className={"btn btn-ghost btn-xs absolute bottom-4 left-2"}
+        aria-label="Show or hide the axis labels"
+        title="Show or hide the axis labels"
         onClick={() => setAxisTitlesShown(!axisTitlesShown)}
       >
         <QuestionMarkCircleIcon
