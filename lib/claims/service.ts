@@ -28,6 +28,13 @@ import { CONFIDENCE_RANGES, probabilityForWord } from "./confidence"
 import { extractClaim, Extraction } from "./extract"
 import { canPublish, gradeClaim } from "./grade"
 import {
+  ChainCheck,
+  ClaimState,
+  nextVersion,
+  VersionRecord,
+  verifyChain,
+} from "./history"
+import {
   applyAnswer,
   EngineAnswer,
   EngineClaim,
@@ -187,6 +194,186 @@ export function toClaimView(row: ClaimRow): ClaimView {
   }
 }
 
+// --- History -----------------------------------------------------------------
+
+type Db = Prisma.TransactionClient
+
+const isoOrNull = (date: Date | null) => (date ? date.toISOString() : null)
+
+/** The full state of a claim, as stored in each history row. */
+export function claimState(row: Question): ClaimState {
+  return {
+    text: row.title,
+    notes: row.notes,
+    claimDate: isoOrNull(row.claimDate),
+    deadline: row.resolveBy.toISOString(),
+    shape: row.claimShape,
+    parts: partsOf(row) as ClaimState["parts"],
+    approximate: row.approximate,
+    confidenceWord: row.confidenceWord,
+    grade: row.grade,
+    checkLinkUrl: row.checkLinkUrl,
+    checkLinkConfirmedAt: isoOrNull(row.checkLinkConfirmedAt),
+    parentId: row.parentId,
+    sharedPublicly: row.sharedPublicly,
+    withdrawnAt: isoOrNull(row.withdrawnAt),
+    resolution: row.resolution,
+    closeCall: row.closeCall,
+    actualResult: row.actualResult,
+  }
+}
+
+function toRecord(v: {
+  questionId: string
+  version: number
+  createdAt: Date
+  userId: string
+  source: EntrySource
+  changedFields: string[]
+  state: Prisma.JsonValue
+  prevHash: string | null
+  hash: string
+}): VersionRecord {
+  return {
+    ...v,
+    createdAt: v.createdAt.toISOString(),
+    state: v.state as unknown as ClaimState,
+  }
+}
+
+/**
+ * Appends a history row for the claim as it now stands, chained to the row
+ * before it. Does nothing if the claim has not changed since the last row.
+ * Call it inside the same transaction as the change itself.
+ */
+export async function writeVersion(
+  db: Db,
+  row: Question,
+  userId: string,
+  source: EntrySource,
+) {
+  const last = await db.claimVersion.findFirst({
+    where: { questionId: row.id },
+    orderBy: { version: "desc" },
+  })
+  const next = nextVersion(last ? toRecord(last) : null, {
+    questionId: row.id,
+    userId,
+    source,
+    createdAt: new Date(),
+    state: claimState(row),
+  })
+  if (!next) return
+  await db.claimVersion.create({
+    data: {
+      questionId: next.questionId,
+      version: next.version,
+      createdAt: new Date(next.createdAt),
+      userId: next.userId,
+      source,
+      changedFields: next.changedFields,
+      state: next.state as unknown as Prisma.InputJsonValue,
+      prevHash: next.prevHash,
+      hash: next.hash,
+    },
+  })
+}
+
+/**
+ * For changes made by Fatebook's own code paths (editing the title or
+ * notes, resolving, undoing a resolution): record the claim as it now is.
+ */
+export async function recordVersion(
+  claimId: string,
+  userId: string,
+  source: EntrySource,
+) {
+  await prisma.$transaction(async (tx) => {
+    const row = await tx.question.findUnique({ where: { id: claimId } })
+    if (row) await writeVersion(tx, row, userId, source)
+  })
+}
+
+/** "Verify history": recomputes the hash chain from the stored rows. */
+export async function verifyHistory(
+  userId: string,
+  claimId: string,
+): Promise<ChainCheck> {
+  await loadOwned(userId, claimId)
+  const rows = await prisma.claimVersion.findMany({
+    where: { questionId: claimId },
+  })
+  return verifyChain(rows.map(toRecord))
+}
+
+export type TimelineEvent =
+  | {
+      kind: "version"
+      at: string
+      version: number
+      source: EntrySource
+      changedFields: string[]
+      /** for each changed field: what it was and what it became */
+      changes: { field: string; from: unknown; to: unknown }[]
+      hash: string
+    }
+  | {
+      kind: "confidence"
+      at: string
+      probability: number
+      word: ConfidenceWord | null
+      note: string | null
+    }
+
+/** Every version and every confidence change, oldest first. */
+export async function getTimeline(
+  userId: string,
+  claimId: string,
+): Promise<TimelineEvent[]> {
+  await loadOwned(userId, claimId)
+  const [versions, forecasts] = await Promise.all([
+    prisma.claimVersion.findMany({
+      where: { questionId: claimId },
+      orderBy: { version: "asc" },
+    }),
+    prisma.forecast.findMany({
+      where: { questionId: claimId, userId },
+      orderBy: { createdAt: "asc" },
+    }),
+  ])
+
+  const events: TimelineEvent[] = []
+  let previous: ClaimState | null = null
+  for (const v of versions) {
+    const state = v.state as unknown as ClaimState
+    const before: Partial<ClaimState> = previous ?? {}
+    events.push({
+      kind: "version",
+      at: v.createdAt.toISOString(),
+      version: v.version,
+      source: v.source,
+      changedFields: v.changedFields,
+      changes: v.changedFields.map((field) => ({
+        field,
+        from: before[field as keyof ClaimState] ?? null,
+        to: state[field as keyof ClaimState] ?? null,
+      })),
+      hash: v.hash,
+    })
+    previous = state
+  }
+  for (const f of forecasts) {
+    events.push({
+      kind: "confidence",
+      at: f.createdAt.toISOString(),
+      probability: f.forecast.toNumber(),
+      word: f.confidenceWord,
+      note: f.comment,
+    })
+  }
+  return events.sort((a, b) => a.at.localeCompare(b.at))
+}
+
 async function loadOwned(userId: string, claimId: string): Promise<ClaimRow> {
   const row = await prisma.question.findUnique({
     where: { id: claimId },
@@ -206,7 +393,7 @@ async function loadOwned(userId: string, claimId: string): Promise<ClaimRow> {
 async function updateClaim(
   userId: string,
   claimId: string,
-  _source: EntrySource,
+  source: EntrySource,
   change: (
     row: ClaimRow,
   ) =>
@@ -249,10 +436,15 @@ async function updateClaim(
     )
   }
 
-  const saved = await prisma.question.update({
-    where: { id: claimId },
-    data: { ...data, grade: gradeClaim(gradeInput).grade },
-    include: CLAIM_INCLUDE,
+  // the change and its history row are saved together, or not at all
+  const saved = await prisma.$transaction(async (tx) => {
+    const updated = await tx.question.update({
+      where: { id: claimId },
+      data: { ...data, grade: gradeClaim(gradeInput).grade },
+      include: CLAIM_INCLUDE,
+    })
+    await writeVersion(tx, updated, userId, source)
+    return updated
   })
   return toClaimView(saved)
 }
@@ -297,33 +489,38 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
     confidence.kind === "not_given" ? null : confidence.probability
   const confidenceWord = confidence.kind === "word" ? confidence.word : null
 
-  const row = await prisma.question.create({
-    data: {
-      title: text,
-      userId: input.userId,
-      resolveBy: analysis.deadline ?? defaultCheckBackBy(claimDate),
-      claimDate,
-      // null when the AI was not used, so the UI offers the shape picker
-      claimShape: extraction.source === "ai" ? analysis.shape : null,
-      entrySource: input.source,
-      outcomeParts: analysis.parts as Prisma.InputJsonValue,
-      approximate: analysis.approximate,
-      confidenceWord,
-      grade: analysis.grade.grade,
-      parentId: input.parentId,
-      // no confidence given -> no forecast row: scored right or wrong only
-      forecasts:
-        probability === null
-          ? undefined
-          : {
-              create: {
-                userId: input.userId,
-                forecast: probability,
-                confidenceWord,
+  const row = await prisma.$transaction(async (tx) => {
+    const created = await tx.question.create({
+      data: {
+        title: text,
+        userId: input.userId,
+        resolveBy: analysis.deadline ?? defaultCheckBackBy(claimDate),
+        claimDate,
+        // null when the AI was not used, so the UI offers the shape picker
+        claimShape: extraction.source === "ai" ? analysis.shape : null,
+        entrySource: input.source,
+        outcomeParts: analysis.parts as Prisma.InputJsonValue,
+        approximate: analysis.approximate,
+        confidenceWord,
+        grade: analysis.grade.grade,
+        parentId: input.parentId,
+        // no confidence given -> no forecast row: scored right or wrong only
+        forecasts:
+          probability === null
+            ? undefined
+            : {
+                create: {
+                  userId: input.userId,
+                  forecast: probability,
+                  confidenceWord,
+                },
               },
-            },
-    },
-    include: CLAIM_INCLUDE,
+      },
+      include: CLAIM_INCLUDE,
+    })
+    // version 1 of the history
+    await writeVersion(tx, created, input.userId, input.source)
+    return created
   })
   return toClaimView(row)
 }
@@ -600,8 +797,7 @@ export async function resolveClaim(
   userId: string,
   claimId: string,
   input: ResolveInput,
-  // eslint-disable-next-line no-unused-vars -- written to the history table by the version-history change
-  _source: EntrySource,
+  source: EntrySource,
 ): Promise<ClaimView> {
   const row = await loadOwned(userId, claimId)
   if (row.withdrawnAt) {
@@ -664,6 +860,7 @@ export async function resolveClaim(
   })
   // Fatebook's own resolution: sets resolved, scores the forecasts
   await handleQuestionResolution(claimId, resolution, row.type)
+  await recordVersion(claimId, userId, source)
 
   return getClaim(userId, claimId)
 }
