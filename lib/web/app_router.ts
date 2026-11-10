@@ -16,6 +16,7 @@ import { tournamentRouter } from "./tournament_router"
 import { getClientBaseUrl } from "./trpc"
 import { publicProcedure, router } from "./trpc_base"
 import { userListRouter } from "./userList_router"
+import { APP_NAME } from "../app_name"
 
 export const appRouter = router({
   question: questionRouter,
@@ -331,7 +332,7 @@ export const appRouter = router({
 export type AppRouter = typeof appRouter
 
 export const openApiDocument = generateOpenApiDocument(appRouter, {
-  title: "Fatebook OpenAPI",
+  title: `${APP_NAME} API`,
   version: "1.0.0",
   baseUrl: getClientBaseUrl(false) + "/api",
 })

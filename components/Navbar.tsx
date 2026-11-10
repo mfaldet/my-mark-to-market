@@ -19,6 +19,7 @@ import Footer from "./Footer"
 import NotificationsPopover from "./NotificationsPopover"
 import { PromptDialog } from "./ui/PromptDialog"
 import { FEATURES } from "../lib/features"
+import { APP_NAME } from "../lib/app_name"
 
 export function Navbar({
   // eslint-disable-next-line no-unused-vars
@@ -95,7 +96,7 @@ function NavbarContent({
       <div className="flex-1 -ml-4 flex gap-0">
         <Link href="/" className="btn btn-ghost normal-case text-xl flex gap-2">
           <ScaleIcon className="w-6 h-6 text-indigo-600" />
-          Fatebook
+          {APP_NAME}
         </Link>
         {userId && FEATURES.tournaments && (
           <SpecialButton
@@ -258,7 +259,7 @@ function IntegrationsItems({
           href="/api-setup"
           className={isActive("/api-setup") ? "bg-base-200" : ""}
         >
-          Fatebook API
+          API
         </Link>
       </li>
       <li>
