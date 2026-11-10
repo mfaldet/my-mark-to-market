@@ -14,6 +14,7 @@ import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { findUserByApiKey } from "../api_keys"
 import { getBaseHost } from "../base_url"
+import { parseConfidenceWord } from "../claims/confidence"
 import {
   answerQuestion,
   getClaim,
@@ -52,15 +53,6 @@ async function requireUser(ctx: Context, key?: string): Promise<string> {
     })
   }
   return user.id
-}
-
-/** "likely", "Very Likely", "toss-up", "TOSS_UP" -> the stored word */
-export function parseConfidenceWord(raw: string): ConfidenceWord | null {
-  const key = raw
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, "_")
-  return key in ConfidenceWord ? (key as ConfidenceWord) : null
 }
 
 const part = z.object({
