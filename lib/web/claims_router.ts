@@ -12,6 +12,7 @@ import {
   confirmCheckLink,
   confirmPart,
   getClaim,
+  getTimeline,
   linkParent,
   listClaims,
   logClaim,
@@ -21,6 +22,7 @@ import {
   setPublic,
   setShape,
   updateConfidence,
+  verifyHistory,
   withdrawClaim,
 } from "../claims/service"
 import { Context, publicProcedure, router } from "./trpc_base"
@@ -194,6 +196,18 @@ export const claimsRouter = router({
     .input(id)
     .mutation(({ input, ctx }) =>
       withdrawClaim(requireUser(ctx), input.claimId, "WEB").catch(toTrpcError),
+    ),
+
+  timeline: publicProcedure
+    .input(id)
+    .query(({ input, ctx }) =>
+      getTimeline(requireUser(ctx), input.claimId).catch(toTrpcError),
+    ),
+
+  verifyHistory: publicProcedure
+    .input(id)
+    .mutation(({ input, ctx }) =>
+      verifyHistory(requireUser(ctx), input.claimId).catch(toTrpcError),
     ),
 
   resolve: publicProcedure

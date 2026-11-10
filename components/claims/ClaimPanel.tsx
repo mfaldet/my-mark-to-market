@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast"
 import { ClaimView } from "../../lib/claims/service"
 import { allowedParts, COMPARISONS, SHAPE_PARTS } from "../../lib/claims/types"
 import { api } from "../../lib/web/trpc"
+import { ClaimTimeline } from "./ClaimTimeline"
 import { EngineQuestionCard } from "./EngineQuestionCard"
 import { GradeBadge, StatusChip } from "./GradeBadge"
 import {
@@ -387,6 +388,8 @@ export function ClaimPanel({
           )}
         </div>
       )}
+
+      <ClaimTimeline claimId={claimId} />
     </div>
   )
 }

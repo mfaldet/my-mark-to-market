@@ -30,7 +30,12 @@ import {
   undoQuestionResolution,
 } from "../interactive_handlers/resolve"
 import { findUserByApiKey } from "../api_keys"
-import { setPart, setPublic, withdrawClaim } from "../claims/service"
+import {
+  recordVersion,
+  setPart,
+  setPublic,
+  withdrawClaim,
+} from "../claims/service"
 import { toTrpcError } from "./claims_router"
 import prisma from "../prisma"
 import { questionsToCsv } from "./export"
@@ -654,13 +659,22 @@ export const questionRouter = router({
     })
     .output(z.undefined())
     .mutation(async ({ input, ctx }) => {
-      await getQuestionAssertAuthor(ctx, input.questionId, input.apiKey)
+      const question = await getQuestionAssertAuthor(
+        ctx,
+        input.questionId,
+        input.apiKey,
+      )
 
       await handleQuestionResolution(
         input.questionId,
         input.resolution,
         input.questionType as QuestionType,
         input.optionId,
+      )
+      await recordVersion(
+        input.questionId,
+        question.userId,
+        input.apiKey || ctx.apiKeyHeader ? "API" : "WEB",
       )
 
       await backendAnalyticsEvent("question_resolved", {
@@ -677,12 +691,18 @@ export const questionRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      await getQuestionAssertAuthor(ctx, input.questionId)
+      const question = await getQuestionAssertAuthor(ctx, input.questionId)
 
       if (input.optionId) {
         await undoQuestionOptionResolution(input.optionId)
       }
       await undoQuestionResolution(input.questionId)
+      // undoing a resolution also clears the close-call marker
+      await prisma.question.update({
+        where: { id: input.questionId },
+        data: { closeCall: false, actualResult: null },
+      })
+      await recordVersion(input.questionId, question.userId, "WEB")
 
       await backendAnalyticsEvent("question_resolution_undone", {
         platform: "web",
@@ -1057,6 +1077,20 @@ export const questionRouter = router({
         },
       })
 
+      // A number entered with Fatebook's own forecast box replaces any
+      // confidence word, so the claim does not keep showing a stale word.
+      if (question.userId === user.id && question.confidenceWord) {
+        await prisma.question.update({
+          where: { id: question.id },
+          data: { confidenceWord: null },
+        })
+        await recordVersion(
+          question.id,
+          user.id,
+          input.apiKey || ctx.apiKeyHeader ? "API" : "WEB",
+        )
+      }
+
       await updateForecastQuestionMessages(
         submittedForecast.question,
         "New forecast",
@@ -1418,6 +1452,13 @@ export const questionRouter = router({
       })
 
       await updateForecastQuestionMessages(question, "Question edited")
+
+      // a change to the claim's text or notes goes into its history
+      await recordVersion(
+        input.questionId,
+        existing.userId,
+        input.apiKey || ctx.apiKeyHeader ? "API" : "WEB",
+      )
 
       await backendAnalyticsEvent("question_edited", {
         platform: input.apiKey ? "api" : "web",
