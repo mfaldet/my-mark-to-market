@@ -23,6 +23,7 @@ import {
   ForecastWithQuestionWithQMessagesAndRMessagesAndForecasts,
   ForecastWithQuestionWithSlackMessagesAndForecasts,
 } from "../../prisma/additional"
+import { FEATURES } from "../../lib/features"
 
 export const config = {
   maxDuration: 300,
@@ -529,7 +530,10 @@ async function sendWelcomeEmailToNewUsers() {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
   if (
     ((process.env.NODE_ENV === "development" ||
       process.env.NODE_ENV === "test") &&
@@ -569,7 +573,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error(e)
   }
   try {
-    await sendWelcomeEmailToNewUsers()
+    if (FEATURES.sageEmails) {
+      await sendWelcomeEmailToNewUsers()
+    }
   } catch (e) {
     console.error(e)
   }

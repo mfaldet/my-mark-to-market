@@ -9,6 +9,7 @@ import { QuickFeedback } from "../components/ui/QuickFeedback"
 import { useUserId } from "../lib/web/utils"
 import { OnboardingChecklist } from "../components/OnboardingChecklist"
 import { PredictProvider } from "../components/predict-form/PredictProvider"
+import { FEATURES } from "../lib/features"
 
 export default function HomePage() {
   const { status: sessionStatus } = useSession()
@@ -46,9 +47,9 @@ function Sidebar() {
       <div className="min-h-28">{userId && <OnboardingChecklist />}</div>
       <div className="max-w-[320px] flex flex-col gap-12 ml-auto lg:w-[320px]">
         {userId && <TrackRecord trackRecordUserId={userId} />}
-        {userId && <Tournaments />}
-        {userId && <UserLists />}
-        {userId && (
+        {userId && FEATURES.tournaments && <Tournaments />}
+        {userId && FEATURES.teams && <UserLists />}
+        {userId && FEATURES.feedback && (
           <QuickFeedback
             type="Fatebook feedback"
             placeholder="Give feedback on Fatebook..."

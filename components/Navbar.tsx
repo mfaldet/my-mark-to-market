@@ -18,6 +18,7 @@ import {
 import Footer from "./Footer"
 import NotificationsPopover from "./NotificationsPopover"
 import { PromptDialog } from "./ui/PromptDialog"
+import { FEATURES } from "../lib/features"
 
 export function Navbar({
   // eslint-disable-next-line no-unused-vars
@@ -96,7 +97,7 @@ function NavbarContent({
           <ScaleIcon className="w-6 h-6 text-indigo-600" />
           Fatebook
         </Link>
-        {userId && (
+        {userId && FEATURES.tournaments && (
           <SpecialButton
             url="/predict-your-year"
             label={<span className="">{`Predict your ${upcomingYear}`}</span>}
@@ -123,42 +124,59 @@ function MenuItems({
   const router = useRouter()
   const isActive = (path: string) => router.pathname === path
   const { status: sessionStatus } = useSession()
+  // everything in the Learn menu belongs to one of these two features
+  const showLearn = FEATURES.sagePages || FEATURES.tournaments
 
   return (
     <>
-      <li>
-        <Link
-          href="/public"
-          className={isActive("/public") ? "bg-base-200" : ""}
-        >
-          Public predictions
-        </Link>
-      </li>
-      <li>
-        <Link href="/about" className={isActive("/about") ? "bg-base-200" : ""}>
-          About
-        </Link>
-      </li>
-      <li>
-        <Link href="/blog" className={isActive("/blog") ? "bg-base-200" : ""}>
-          Blog
-        </Link>
-      </li>
+      {FEATURES.publicFeed && (
+        <li>
+          <Link
+            href="/public"
+            className={isActive("/public") ? "bg-base-200" : ""}
+          >
+            Public predictions
+          </Link>
+        </li>
+      )}
+      {FEATURES.sagePages && (
+        <li>
+          <Link
+            href="/about"
+            className={isActive("/about") ? "bg-base-200" : ""}
+          >
+            About
+          </Link>
+        </li>
+      )}
+      {FEATURES.sagePages && (
+        <li>
+          <Link href="/blog" className={isActive("/blog") ? "bg-base-200" : ""}>
+            Blog
+          </Link>
+        </li>
+      )}
       {isDrawer ? (
         <>
           <li className="menu-title text-lg mt-2 leading-4">Integrations</li>
           <IntegrationsItems fatebookForChrome={fatebookForChrome} />
-          <li className="menu-title text-lg mt-2 leading-4">Learn</li>
-          <LearnItems />
+          {showLearn && (
+            <>
+              <li className="menu-title text-lg mt-2 leading-4">Learn</li>
+              <LearnItems />
+            </>
+          )}
         </>
       ) : (
         <>
           <li>
             <IntegrationsDropdown />
           </li>
-          <li>
-            <LearnDropdown />
-          </li>
+          {showLearn && (
+            <li>
+              <LearnDropdown />
+            </li>
+          )}
         </>
       )}
       {userId ? (
@@ -201,8 +219,10 @@ function IntegrationsItems({
   const isActive = (path: string) => router.pathname === path
   return (
     <>
-      <li className="menu-title">Rapid predictions, anywhere</li>
-      {fatebookForChrome && (
+      {(FEATURES.extension || FEATURES.slack || FEATURES.discord) && (
+        <li className="menu-title">Rapid predictions, anywhere</li>
+      )}
+      {FEATURES.extension && fatebookForChrome && (
         <li>
           <Link
             href="/extension"
@@ -212,22 +232,26 @@ function IntegrationsItems({
           </Link>
         </li>
       )}
-      <li>
-        <Link
-          href="/for-slack"
-          className={isActive("/for-slack") ? "bg-base-200" : ""}
-        >
-          Fatebook for Slack
-        </Link>
-      </li>
-      <li>
-        <Link
-          href="/for-discord"
-          className={isActive("/for-discord") ? "bg-base-200" : ""}
-        >
-          Fatebook for Discord
-        </Link>
-      </li>
+      {FEATURES.slack && (
+        <li>
+          <Link
+            href="/for-slack"
+            className={isActive("/for-slack") ? "bg-base-200" : ""}
+          >
+            Fatebook for Slack
+          </Link>
+        </li>
+      )}
+      {FEATURES.discord && (
+        <li>
+          <Link
+            href="/for-discord"
+            className={isActive("/for-discord") ? "bg-base-200" : ""}
+          >
+            Fatebook for Discord
+          </Link>
+        </li>
+      )}
       <li className="menu-title">Advanced integrations</li>
       <li>
         <Link
@@ -301,39 +325,45 @@ function LearnItems() {
   const isActive = (path: string) => router.pathname === path
   return (
     <>
-      <li className="menu-title">Training tools</li>
-      <li>
-        <Link href="https://www.quantifiedintuitions.org/calibration">
-          Calibration training
-        </Link>
-      </li>
-      <li>
-        <Link href="https://www.quantifiedintuitions.org/pastcasting">
-          Pastcasting
-        </Link>
-      </li>
-      <li>
-        <Link href="https://www.quantifiedintuitions.org/estimation-game">
-          The Estimation Game
-        </Link>
-      </li>
-      <li>
-        <Link href="https://www.quantifiedintuitions.org/anki-with-uncertainty">
-          Anki with Uncertainty
-        </Link>
-      </li>
-      <li className="menu-title">More resources</li>
+      {FEATURES.sagePages && (
+        <>
+          <li className="menu-title">Training tools</li>
+          <li>
+            <Link href="https://www.quantifiedintuitions.org/calibration">
+              Calibration training
+            </Link>
+          </li>
+          <li>
+            <Link href="https://www.quantifiedintuitions.org/pastcasting">
+              Pastcasting
+            </Link>
+          </li>
+          <li>
+            <Link href="https://www.quantifiedintuitions.org/estimation-game">
+              The Estimation Game
+            </Link>
+          </li>
+          <li>
+            <Link href="https://www.quantifiedintuitions.org/anki-with-uncertainty">
+              Anki with Uncertainty
+            </Link>
+          </li>
+        </>
+      )}
+      {FEATURES.tournaments && <li className="menu-title">More resources</li>}
       {/* <li>
         <Link href="/tips-on-writing-questions" className={isActive('/tips-on-writing-questions') ? 'bg-base-200' : ''}>Tips on writing questions</Link>
       </li> */}
-      <li>
-        <Link
-          href="/predict-your-year"
-          className={isActive("/predict-your-year") ? "bg-base-200" : ""}
-        >
-          Predict your year
-        </Link>
-      </li>
+      {FEATURES.tournaments && (
+        <li>
+          <Link
+            href="/predict-your-year"
+            className={isActive("/predict-your-year") ? "bg-base-200" : ""}
+          >
+            Predict your year
+          </Link>
+        </li>
+      )}
     </>
   )
 }

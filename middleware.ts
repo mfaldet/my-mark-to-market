@@ -4,6 +4,7 @@ import { signingSecret } from "./lib/_constants"
 import { validateSlackRequest } from "./lib/_validate"
 import { verifyDiscordRequest } from "./lib/discord/utils"
 import { getBaseHost, getBaseUrl } from "./lib/base_url"
+import { isPathSwitchedOff } from "./lib/features"
 
 const redirectUrl: string = "/api/success_response"
 const dateInvalidRedirectUrl: string = "/api/failed_validation"
@@ -18,6 +19,16 @@ enum ValidationRedirect {
   InvalidURL,
 }
 
+// the paths upstream's middleware handled before the feature switches
+const UPSTREAM_MATCHER = [
+  "/incoming/slash_forecast",
+  "/incoming/slash_forecast_multiple",
+  "/incoming/interactive_endpoint",
+  "/incoming/events_endpoint",
+  "/api/discord/interactions",
+  "/for-slack",
+]
+
 export const config = {
   matcher: [
     "/incoming/slash_forecast",
@@ -28,6 +39,33 @@ export const config = {
     "/api/discord/interactions",
 
     "/for-slack",
+
+    // Pages and API routes that belong to a switch-off feature
+    // (lib/features.ts). Next.js needs this list written out literally;
+    // a test checks it matches FEATURE_ROUTES.
+    "/incoming/:path*",
+    "/api/slash_forecast",
+    "/api/slash_forecast_multiple",
+    "/api/interactive_endpoint",
+    "/api/events_endpoint",
+    "/api/auth/install",
+    "/api/auth/install_approved",
+    "/for-discord",
+    "/api/discord/:path*",
+    "/extension",
+    "/tournament/:path*",
+    "/predict-your-year/:path*",
+    "/team/:path*",
+    "/list/:path*",
+    "/collaborators",
+    "/public",
+    "/global-stats",
+    "/about",
+    "/blog/:path*",
+    "/terms",
+    "/privacy",
+    "/support",
+    "/impact-survey",
   ],
   api: {
     bodyParser: false,
@@ -44,6 +82,19 @@ export default async function middleware(
   req: NextRequest,
   context: NextFetchEvent,
 ) {
+  // A feature that is switched off answers "not found", page or API.
+  const { pathname } = req.nextUrl
+  if (isPathSwitchedOff(pathname)) {
+    return pathname.startsWith("/api/") || pathname.startsWith("/incoming/")
+      ? NextResponse.json({ error: "Not found" }, { status: 404 })
+      : NextResponse.rewrite(new URL("/404", req.url), { status: 404 })
+  }
+  // Everything below is upstream's Slack and Discord request checking,
+  // which only applies to the paths it originally matched.
+  if (!UPSTREAM_MATCHER.some((p) => pathname === p)) {
+    return NextResponse.next()
+  }
+
   const bufferBody = await req.arrayBuffer()
 
   if (req.url.includes("for-slack")) {

@@ -4,6 +4,7 @@ import { TrackRecord } from "../components/TrackRecord"
 import { UserLists } from "../components/UserLists"
 import { QuickFeedback } from "../components/ui/QuickFeedback"
 import { useUserId } from "../lib/web/utils"
+import { FEATURES } from "../lib/features"
 
 export default function StatsPage() {
   const userId = useUserId()
@@ -17,13 +18,15 @@ export default function StatsPage() {
         )}
         {userId && (
           <div className="prose mx-auto mt-14 flex flex-col gap-8">
-            <Tournaments />
-            <UserLists />
-            <QuickFeedback
-              type="Fatebook feedback"
-              placeholder="Give feedback on Fatebook..."
-              style="textarea"
-            />
+            {FEATURES.tournaments && <Tournaments />}
+            {FEATURES.teams && <UserLists />}
+            {FEATURES.feedback && (
+              <QuickFeedback
+                type="Fatebook feedback"
+                placeholder="Give feedback on Fatebook..."
+                style="textarea"
+              />
+            )}
           </div>
         )}
       </div>
