@@ -72,9 +72,9 @@ The endpoint was tested with the official MCP client library: sign-in, the tool 
 
 ## Troubleshooting
 
-| What you see | Likely cause |
-| --- | --- |
-| "Missing or unknown API key" | The key is wrong, was regenerated, or the header value is missing the word `Bearer` |
-| Claude connects but shows no tools | The address is missing `/api/mcp` |
-| 401 with `?key=` in the address | `MCP_ALLOW_URL_KEY` is not set to `true` on the deployment |
-| "Method not allowed" | Something opened the address in a browser. It only answers MCP requests |
+| What you see                       | Likely cause                                                                        |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| "Missing or unknown API key"       | The key is wrong, was regenerated, or the header value is missing the word `Bearer` |
+| Claude connects but shows no tools | The address is missing `/api/mcp`                                                   |
+| 401 with `?key=` in the address    | `MCP_ALLOW_URL_KEY` is not set to `true` on the deployment                          |
+| "Method not allowed"               | Something opened the address in a browser. It only answers MCP requests             |
