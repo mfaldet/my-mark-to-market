@@ -6,6 +6,7 @@ import {
   backendAnalyticsEvent,
   getSlackPermalinkFromChannelAndTS,
 } from "../_utils_server"
+import { generateApiKey, hashApiKey, lastFour } from "../api_keys"
 import prisma from "../prisma"
 import { feedbackRouter } from "./feedback_router"
 import { importRouter } from "./import_router"
@@ -130,6 +131,7 @@ export const appRouter = router({
       })
     }),
 
+  // The key itself is not stored, so this only says whether one exists.
   getApiKey: publicProcedure.query(async ({ ctx }) => {
     if (!ctx.userId) {
       return null
@@ -140,24 +142,32 @@ export const appRouter = router({
         id: ctx.userId,
       },
     })
+    if (!user?.apiKeyHash) {
+      return null
+    }
 
-    return user?.apiKey
+    return {
+      lastFour: user.apiKeyLastFour,
+      createdAt: user.apiKeyCreatedAt,
+    }
   }),
 
+  // Returns the new key. This is the only time it can be seen.
   regenerateApiKey: publicProcedure.mutation(async ({ ctx }) => {
     if (!ctx.userId) {
       return null
     }
 
-    const newApiKey =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15)
+    const newApiKey = generateApiKey()
     await prisma.user.update({
       where: {
         id: ctx.userId,
       },
       data: {
-        apiKey: newApiKey,
+        apiKey: null,
+        apiKeyHash: hashApiKey(newApiKey),
+        apiKeyLastFour: lastFour(newApiKey),
+        apiKeyCreatedAt: new Date(),
       },
     })
 

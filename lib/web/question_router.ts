@@ -30,6 +30,7 @@ import {
   undoQuestionOptionResolution,
   undoQuestionResolution,
 } from "../interactive_handlers/resolve"
+import { findUserByApiKey } from "../api_keys"
 import prisma from "../prisma"
 import { questionsToCsv } from "./export"
 import {
@@ -326,9 +327,11 @@ export const questionRouter = router({
   getQuestionsApiProcedure: publicProcedure
     .input(
       z.object({
-        apiKey: z.string({
-          description: `Your Fatebook API key. Get it at ${getBaseHost()}/api-setup`,
-        }),
+        apiKey: z
+          .string({
+            description: `Your API key. Get it at ${getBaseHost()}/api-setup. You can leave this out and send the key in an "Authorization: Bearer" or "X-Api-Key" header instead.`,
+          })
+          .optional(),
         ...{
           ...zodExtraFilters.shape,
           filterTagIds: z
@@ -363,8 +366,10 @@ export const questionRouter = router({
         items: z.array(z.any()),
       }),
     ) // required for openapi
-    .query(async ({ input }) => {
-      const user = await getUserByApiKeyOrThrow(input.apiKey)
+    .query(async ({ input, ctx }) => {
+      const user = await getUserByApiKeyOrThrow(
+        input.apiKey || ctx.apiKeyHeader || "",
+      )
 
       return scrubApiKeyPropertyRecursive(
         await getQuestionsUserCreatedOrForecastedOnOrIsSharedWith(
@@ -376,10 +381,7 @@ export const questionRouter = router({
               filterTagIds: input.filterTagIds?.split(","),
             },
           },
-          {
-            userId: user.id,
-            session: null,
-          },
+          { userId: user.id, session: null, apiKeyHeader: undefined },
         ),
         [
           "email",
@@ -1680,7 +1682,7 @@ ${fatebookEmailFooter()}`,
 }
 
 export async function getQuestionAssertAuthor(
-  ctx: { userId: string | undefined },
+  ctx: { userId: string | undefined; apiKeyHeader?: string },
   questionId: string,
   apiKey?: string,
   questionInclude?: Prisma.QuestionInclude,
@@ -1692,7 +1694,9 @@ export async function getQuestionAssertAuthor(
     include: questionInclude,
   })
 
-  const userId = ctx?.userId || (await getUserByApiKeyOrThrow(apiKey || "")).id
+  const userId =
+    ctx?.userId ||
+    (await getUserByApiKeyOrThrow(apiKey || ctx?.apiKeyHeader || "")).id
 
   if (!question) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Question not found" })
@@ -1792,7 +1796,13 @@ export function scrubApiKeyPropertyRecursive<T>(
 ) {
   // warning - this mutates the object
   for (const key in obj) {
-    if (key === "apiKey" || otherKeysToScrub?.includes(key)) {
+    if (
+      key === "apiKey" ||
+      key === "apiKeyHash" ||
+      key === "apiKeyLastFour" ||
+      key === "apiKeyCreatedAt" ||
+      otherKeysToScrub?.includes(key)
+    ) {
       ;(obj as any)[key] = undefined
     } else if (typeof obj[key] === "object") {
       obj[key] = scrubApiKeyPropertyRecursive(obj[key], otherKeysToScrub)
@@ -1802,11 +1812,7 @@ export function scrubApiKeyPropertyRecursive<T>(
 }
 
 async function getUserByApiKeyOrThrow(apiKey: string) {
-  const user = await prisma.user.findFirst({
-    where: {
-      apiKey,
-    },
-  })
+  const user = await findUserByApiKey(apiKey)
   if (user) {
     return user
   }
@@ -1833,6 +1839,7 @@ async function getUserFromCtxOrApiKeyOrThrow(
     return user
   }
 
+  apiKey = apiKey || ctx.apiKeyHeader
   if (!apiKey) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
