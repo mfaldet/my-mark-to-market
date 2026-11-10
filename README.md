@@ -160,6 +160,11 @@ It is built for Vercel plus a hosted Postgres. Set at least:
 
 `.env.example` lists every variable, including the feature switches.
 
+Two things that will fail a deploy:
+
+- **Do not set `NODE_ENV`** in Vercel. The build sets it itself; forcing `development` breaks it with "NextRouter was not mounted".
+- **Set the database variables for the Preview environment too**, not only Production, if you want Vercel to build pull requests. The build applies database migrations, so it needs a database to reach.
+
 ## Connect Claude and your phone
 
 - **Claude** (Claude Code, and the web, desktop and phone apps): [docs/connect-claude.md](docs/connect-claude.md)
