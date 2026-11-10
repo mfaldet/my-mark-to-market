@@ -14,6 +14,7 @@ import { Layout } from "../components/Layout"
 import Meta from "../components/Meta"
 import { api } from "../lib/web/trpc"
 import "../styles/globals.css"
+import { FEATURES } from "../lib/features"
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
   getLayout?: (page: ReactElement) => ReactNode
@@ -39,7 +40,7 @@ function App({
       <Head>
         <link rel="shortcut icon" href="/favicon.ico" />
       </Head>
-      <GoogleAnalytics trackPageViews />
+      {FEATURES.analytics && <GoogleAnalytics trackPageViews />}
       <SessionProvider
         session={session}
         refetchOnWindowFocus={refetchOnWindowFocus}

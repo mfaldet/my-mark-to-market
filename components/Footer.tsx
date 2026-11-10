@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { FEATURES } from "../lib/features"
 
 export default function Footer({
   showReportProblem = false,
@@ -8,7 +9,7 @@ export default function Footer({
   return (
     <footer className="bg-white border-t border-neutral-200 ">
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 md:flex md:items-center md:justify-between lg:px-8">
-        {SocialIcons(showReportProblem)}
+        {FEATURES.sagePages && SocialIcons(showReportProblem)}
         <div className="mt-4 text-center md:mt-0 md:order-1 md:ml-8 md:text-left">
           <Link
             href="https://sage-future.org"
@@ -17,19 +18,21 @@ export default function Footer({
           >
             Sage Future Inc
           </Link>
-          <p className="text-neutral-400 my-1 text-sm max-sm:text-xs">
-            <Link
-              className="mr-4"
-              href="https://www.every.org/sage-future?utm_campaign=donate-link&method=card%2Cbank%2Cpaypal%2Cpay%2Cvenmo%2Cstocks%2Cdaf%2Ccrypto#/donate"
-              target="_blank"
-            >
-              Donate
-            </Link>{" "}
-            <Link className="mr-4" href="/privacy">
-              Privacy
-            </Link>{" "}
-            <Link href="/terms">Terms</Link>
-          </p>
+          {FEATURES.sagePages && (
+            <p className="text-neutral-400 my-1 text-sm max-sm:text-xs">
+              <Link
+                className="mr-4"
+                href="https://www.every.org/sage-future?utm_campaign=donate-link&method=card%2Cbank%2Cpaypal%2Cpay%2Cvenmo%2Cstocks%2Cdaf%2Ccrypto#/donate"
+                target="_blank"
+              >
+                Donate
+              </Link>{" "}
+              <Link className="mr-4" href="/privacy">
+                Privacy
+              </Link>{" "}
+              <Link href="/terms">Terms</Link>
+            </p>
+          )}
         </div>
       </div>
     </footer>

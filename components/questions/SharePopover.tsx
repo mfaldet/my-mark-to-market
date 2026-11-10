@@ -19,6 +19,7 @@ import { UserListDropdown } from "../UserListDropdown"
 import { CopyToClipboard } from "../ui/CopyToClipboard"
 import { MultiselectUsers } from "../ui/MultiselectEmail"
 import { Username } from "../ui/Username"
+import { FEATURES } from "../../lib/features"
 
 export function SharePopover({
   question,
@@ -128,7 +129,7 @@ const SharePanel = React.forwardRef<
       <div className="absolute z-50 mt-2 w-72 md:w-96 lg:w-[29rem] right-0 md:left-0 origin-top-right divide-y divide-neutral-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
         <div className="p-4 flex flex-col gap-4">
           <EmailInput question={question} />
-          <UserListDropdown question={question} />
+          {FEATURES.teams && <UserListDropdown question={question} />}
           <div className="flex flex-col gap-2">
             <SharePublicly question={question} />
             <div className="flex gap-2 items-center">
@@ -204,56 +205,57 @@ const SharePanel = React.forwardRef<
               />
             </div>
           </div>
-          {sharedToSlack ? (
-            <div>
-              <Image
-                src="/slack-logo.svg"
-                width={30}
-                height={30}
-                className="m-0 -ml-2 inline"
-                alt=""
-              />
-              <span className="text-sm">
-                {permalink.data ? (
-                  <Link href={permalink.data} target="_blank">
-                    Shared in Slack
-                  </Link>
-                ) : (
-                  "Shared in Slack"
-                )}
-              </span>
-            </div>
-          ) : (
-            <div>
-              <span className="text-sm">
-                <button className="btn" onClick={handleShareToSlack}>
-                  <Image
-                    src="/slack-logo.svg"
-                    width={30}
-                    height={30}
-                    className="m-0 -mx-2 inline"
-                    alt=""
-                  />
-                  Share in Slack
-                  {showInstructions && " (command copied!)"}
-                </button>
-                {showInstructions && (
-                  <div className="mt-2 bg-neutral-50 rounded-md p-2">
-                    <span className="font-semibold">
-                      Paste into a Slack channel to share this question there
-                    </span>
-                    <span className="block text-neutral-400 italic">
-                      Make sure{" "}
-                      <Link href="/for-slack" target="_blank">
-                        Fatebook for Slack
-                      </Link>{" "}
-                      is installed first
-                    </span>
-                  </div>
-                )}
-              </span>
-            </div>
-          )}
+          {FEATURES.slack &&
+            (sharedToSlack ? (
+              <div>
+                <Image
+                  src="/slack-logo.svg"
+                  width={30}
+                  height={30}
+                  className="m-0 -ml-2 inline"
+                  alt=""
+                />
+                <span className="text-sm">
+                  {permalink.data ? (
+                    <Link href={permalink.data} target="_blank">
+                      Shared in Slack
+                    </Link>
+                  ) : (
+                    "Shared in Slack"
+                  )}
+                </span>
+              </div>
+            ) : (
+              <div>
+                <span className="text-sm">
+                  <button className="btn" onClick={handleShareToSlack}>
+                    <Image
+                      src="/slack-logo.svg"
+                      width={30}
+                      height={30}
+                      className="m-0 -mx-2 inline"
+                      alt=""
+                    />
+                    Share in Slack
+                    {showInstructions && " (command copied!)"}
+                  </button>
+                  {showInstructions && (
+                    <div className="mt-2 bg-neutral-50 rounded-md p-2">
+                      <span className="font-semibold">
+                        Paste into a Slack channel to share this question there
+                      </span>
+                      <span className="block text-neutral-400 italic">
+                        Make sure{" "}
+                        <Link href="/for-slack" target="_blank">
+                          Fatebook for Slack
+                        </Link>{" "}
+                        is installed first
+                      </span>
+                    </div>
+                  )}
+                </span>
+              </div>
+            ))}
         </div>
       </div>
     </Popover.Panel>
@@ -307,7 +309,7 @@ function SharePublicly({
           )}
         </div>
       </div>
-      {question.sharedPublicly && (
+      {FEATURES.publicFeed && question.sharedPublicly && (
         <div className="flex gap-2 items-center">
           <input
             id="unlisted"

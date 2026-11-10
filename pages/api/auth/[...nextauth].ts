@@ -11,6 +11,7 @@ import {
 import { backendAnalyticsEvent } from "../../../lib/_utils_server"
 import prisma from "../../../lib/prisma"
 import { getBaseUrl } from "../../../lib/base_url"
+import { FEATURES } from "../../../lib/features"
 
 function getCookies() {
   /* Copied from:
@@ -106,7 +107,7 @@ export const authOptions: NextAuthOptions = {
             : undefined),
       })
 
-      if (createdUser.email) {
+      if (FEATURES.sageEmails && createdUser.email) {
         console.log("Subscribing to mailing list", createdUser.email)
         void subscribeToMailingList(
           createdUser.email,

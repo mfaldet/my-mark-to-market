@@ -8,6 +8,7 @@ import { useDebounce } from "use-debounce"
 import { QuestionType } from "@prisma/client"
 import { useBrowser } from "../lib/web/utils"
 import Confetti from "react-confetti"
+import { FEATURES } from "../lib/features"
 
 type QuestionCategory = "personal" | "projects" | "shared"
 
@@ -274,17 +275,19 @@ export function OnboardingChecklist() {
                   What&apos;s something relevant to your life that you want to
                   predict?
                 </div>
-                <div>
-                  For inspiration, check out{" "}
-                  <Link
-                    href="/public"
-                    target="_blank"
-                    className="text-neutral-500 hover:text-neutral-600"
-                  >
-                    public questions
-                  </Link>{" "}
-                  or pick a category below.
-                </div>
+                {FEATURES.publicFeed && (
+                  <div>
+                    For inspiration, check out{" "}
+                    <Link
+                      href="/public"
+                      target="_blank"
+                      className="text-neutral-500 hover:text-neutral-600"
+                    >
+                      public questions
+                    </Link>{" "}
+                    or pick a category below.
+                  </div>
+                )}
                 <div className="flex gap-2 justify-between my-1 overflow-visible">
                   <SelectCategoryButton category="personal">
                     Personal goals
@@ -348,41 +351,49 @@ export function OnboardingChecklist() {
             <div className="text-sm text-neutral-500 flex flex-col gap-2">
               We&apos;ll notify you when it&apos;s time to resolve it.
             </div>
-            <div className="text-sm text-neutral-500 flex flex-col">
-              In the meantime, you can:
-              <ul className="list-disc list-inside m-0 pl-2">
-                <li>
-                  Try the{" "}
-                  <Link
-                    href="/extension"
-                    className="text-neutral-500 hover:text-neutral-600"
-                  >
-                    {browser} extension
-                  </Link>
-                  , to track your predictions instantly around the web
-                </li>
-                <li>
-                  Check out{" "}
-                  <Link
-                    href="/public"
-                    className="text-neutral-500 hover:text-neutral-600"
-                  >
-                    public questions
-                  </Link>{" "}
-                  that others have created
-                </li>
-                <li>
-                  Consider adding{" "}
-                  <Link
-                    href="/for-slack"
-                    className="text-neutral-500 hover:text-neutral-600"
-                  >
-                    Fatebook for Slack
-                  </Link>{" "}
-                  to your workspace
-                </li>
-              </ul>
-            </div>
+            {(FEATURES.extension || FEATURES.publicFeed || FEATURES.slack) && (
+              <div className="text-sm text-neutral-500 flex flex-col">
+                In the meantime, you can:
+                <ul className="list-disc list-inside m-0 pl-2">
+                  {FEATURES.extension && (
+                    <li>
+                      Try the{" "}
+                      <Link
+                        href="/extension"
+                        className="text-neutral-500 hover:text-neutral-600"
+                      >
+                        {browser} extension
+                      </Link>
+                      , to track your predictions instantly around the web
+                    </li>
+                  )}
+                  {FEATURES.publicFeed && (
+                    <li>
+                      Check out{" "}
+                      <Link
+                        href="/public"
+                        className="text-neutral-500 hover:text-neutral-600"
+                      >
+                        public questions
+                      </Link>{" "}
+                      that others have created
+                    </li>
+                  )}
+                  {FEATURES.slack && (
+                    <li>
+                      Consider adding{" "}
+                      <Link
+                        href="/for-slack"
+                        className="text-neutral-500 hover:text-neutral-600"
+                      >
+                        Fatebook for Slack
+                      </Link>{" "}
+                      to your workspace
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>
