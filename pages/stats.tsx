@@ -1,3 +1,4 @@
+import { PublicRecordLinks } from "../components/claims/PublicRecordLinks"
 import { NextSeo } from "next-seo"
 import { Tournaments } from "../components/Tournaments"
 import { TrackRecord } from "../components/TrackRecord"
@@ -18,6 +19,7 @@ export default function StatsPage() {
         )}
         {userId && (
           <div className="prose mx-auto mt-14 flex flex-col gap-8">
+            <PublicRecordLinks userId={userId} />
             {FEATURES.tournaments && <Tournaments />}
             {FEATURES.teams && <UserLists />}
             {FEATURES.feedback && (
