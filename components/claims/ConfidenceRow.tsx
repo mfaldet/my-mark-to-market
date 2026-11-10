@@ -47,7 +47,7 @@ export function ConfidenceRow({ claim }: { claim: ClaimView }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 min-h-8">
-        <span className="text-neutral-500 w-36 shrink-0">How sure</span>
+        <span className="text-neutral-500 w-24 sm:w-36 shrink-0">How sure</span>
         <span
           className={
             claim.probability === null ? "text-neutral-400 italic" : ""
