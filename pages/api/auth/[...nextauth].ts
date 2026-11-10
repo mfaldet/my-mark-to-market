@@ -10,6 +10,7 @@ import {
 } from "../../../lib/_utils_common"
 import { backendAnalyticsEvent } from "../../../lib/_utils_server"
 import prisma from "../../../lib/prisma"
+import { getBaseUrl } from "../../../lib/base_url"
 
 function getCookies() {
   /* Copied from:
@@ -150,7 +151,7 @@ export const authOptions: NextAuthOptions = {
   theme: {
     colorScheme: "light",
     brandColor: "#4338ca",
-    logo: "https://fatebook.io/logo.png",
+    logo: `${getBaseUrl()}/logo.png`,
   },
   secret: process.env.SECRET,
   session: {

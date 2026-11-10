@@ -26,6 +26,7 @@ import {
   targetSetButtons,
 } from "./_block_utils"
 import { buildGetForecastsBlocks } from "./get_forecasts"
+import { getBaseHost, getBaseUrl } from "../base_url"
 
 export async function buildHomeTabBlocks(
   teamId: string,
@@ -149,7 +150,7 @@ export async function buildHomeTabBlocks(
     {
       type: "section",
       text: markdownBlock(
-        `• You can now use Fatebook in your browser, at <https://fatebook.io|fatebook.io>! You can share questions with anyone, including outside of your Slack workspace. If you log in with the email you use for Slack, all of your forecasts will sync between both platforms.\n` +
+        `• You can now use Fatebook in your browser, at <${getBaseUrl()}|${getBaseHost()}>! You can share questions with anyone, including outside of your Slack workspace. If you log in with the email you use for Slack, all of your forecasts will sync between both platforms.\n` +
           `• We updated the formula for aggregating our community predictions\n` +
           `• At the top of this page, you can now set a goal for how many forecasting questions you want to write each week. We'll remind you if you're not on track to keep your streak going! Check our <${questionWritingTipsUrl}|tips for writing questions>\n` +
           "• See how well calibrated you are with our new calibration graph. Perfect calibration means things you expect to happen X% of the time do in fact happen X% of the time. This is a skill you can train, e.g. using our <https://www.quantifiedintuitions.org/calibration|calibration app>!\n" +
@@ -168,10 +169,10 @@ export async function buildHomeTabBlocks(
       type: "context",
       elements: [
         markdownBlock(
-          `_<https://fatebook.io|Fatebook> is built by Sage to help impactful teams seek the truth._`,
+          `_<${getBaseUrl()}|Fatebook> is built by Sage to help impactful teams seek the truth._`,
         ),
         markdownBlock(
-          `_Want more Fatebook? <https://fatebook.io/for-slack|Add Fatebook to another Slack workspace>._`,
+          `_Want more Fatebook? <${getBaseUrl()}/for-slack|Add Fatebook to another Slack workspace>._`,
         ),
         markdownBlock(
           `_Find our other forecasting tools on <${quantifiedIntuitionsUrl}|Quantified Intuitions>._`,

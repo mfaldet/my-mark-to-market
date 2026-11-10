@@ -3,6 +3,7 @@ import { postmarkApiToken } from "../_constants"
 import { backendAnalyticsEvent } from "../_utils_server"
 import prisma from "../prisma"
 import { webFeedbackUrl } from "./utils"
+import { getBaseUrl, getEmailFrom, getEmailReplyTo } from "../base_url"
 
 export async function createNotification({
   title,
@@ -154,12 +155,12 @@ export async function sendEmailWithTemplateUnbatched({
   let response
   try {
     response = await client.sendEmailWithTemplate({
-      From: "reminders@fatebook.io",
-      ReplyTo: "hello@sage-future.org",
+      From: getEmailFrom(),
+      ReplyTo: getEmailReplyTo(),
       To: to,
       TemplateAlias: templateAlias,
       TemplateModel: {
-        product_url: "https://fatebook.io",
+        product_url: getBaseUrl(),
         product_name: "Fatebook",
         ...templateParams,
       },
@@ -216,12 +217,12 @@ export async function sendEmailUnbatched({
   let response
   try {
     response = await client.sendEmailWithTemplate({
-      From: "reminders@fatebook.io",
-      ReplyTo: "hello@sage-future.org",
+      From: getEmailFrom(),
+      ReplyTo: getEmailReplyTo(),
       To: to,
       TemplateAlias: "blank-transactional",
       TemplateModel: {
-        product_url: "https://fatebook.io",
+        product_url: getBaseUrl(),
         product_name: "Fatebook",
         subject:
           subject.length >= 1999 ? `${subject.slice(0, 1995)}...` : subject,
@@ -255,7 +256,7 @@ export async function sendEmailUnbatched({
 
 export function fatebookEmailFooter() {
   return `\n
-<p><i><a href="https://fatebook.io">Fatebook</a> helps you rapidly make and track predictions about the future.</i></p>
+<p><i><a href="${getBaseUrl()}">Fatebook</a> helps you rapidly make and track predictions about the future.</i></p>
 <p><a href=${webFeedbackUrl}>Give feedback on Fatebook</a></p>
 `
 }

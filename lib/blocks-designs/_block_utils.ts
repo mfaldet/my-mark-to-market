@@ -42,6 +42,7 @@ import {
 } from "../_utils_server"
 import { getQuestionUrl } from "../web/question_url"
 import { checkboxes } from "./question_modal"
+import { getBaseUrl } from "../base_url"
 
 export interface ResolveQuestionActionParts {
   action: "resolve"
@@ -379,7 +380,7 @@ export function historyAndFeedbackFooter(teamId: string) {
         `<slack://app?team=${teamId}&id=${slackAppId}&tab=home|See your full forecasting history.>`,
       ),
       markdownBlock(
-        `_Thanks for using <https://fatebook.io/for-slack|Fatebook for Slack>! We'd love to <${feedbackFormUrl}/|hear your feedback>_`,
+        `_Thanks for using <${getBaseUrl()}/for-slack|Fatebook for Slack>! We'd love to <${feedbackFormUrl}/|hear your feedback>_`,
       ),
     ],
   }

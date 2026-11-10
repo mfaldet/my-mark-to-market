@@ -10,6 +10,7 @@ import {
 import { authOptions } from "../auth/[...nextauth]"
 
 import { getMostRecentForecastForUser } from "../../../lib/_utils_common"
+import { getBaseUrl } from "../../../lib/base_url"
 
 interface Request extends NextApiRequest {
   query: {
@@ -55,7 +56,7 @@ const getQuestionPublicApi = async (req: Request, res: NextApiResponse) => {
     })
     if (!user) {
       return res.status(401).json({
-        error: `Invalid API key. Check your API key at https://fatebook.io/api-setup`,
+        error: `Invalid API key. Check your API key at ${getBaseUrl()}/api-setup`,
       })
     }
     authedUserId = user.id
@@ -123,8 +124,7 @@ const getQuestionPublicApi = async (req: Request, res: NextApiResponse) => {
     assertHasAccess(question, user)
   } catch (e) {
     return res.status(401).json({
-      message:
-        "You don't have access to that question. Check your API key at https://fatebook.io/api-setup",
+      message: `You don't have access to that question. Check your API key at ${getBaseUrl()}/api-setup`,
     })
   }
 

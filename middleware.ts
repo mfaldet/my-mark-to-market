@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { signingSecret } from "./lib/_constants"
 import { validateSlackRequest } from "./lib/_validate"
 import { verifyDiscordRequest } from "./lib/discord/utils"
+import { getBaseHost, getBaseUrl } from "./lib/base_url"
 
 const redirectUrl: string = "/api/success_response"
 const dateInvalidRedirectUrl: string = "/api/failed_validation"
@@ -46,10 +47,10 @@ export default async function middleware(
   const bufferBody = await req.arrayBuffer()
 
   if (req.url.includes("for-slack")) {
-    if (!req.url.includes("fatebook.io") && req.url.includes("installedTo")) {
+    if (!req.url.includes(getBaseHost()) && req.url.includes("installedTo")) {
       const parsedUrl = new URL(req.url)
       return NextResponse.redirect(
-        new URL(`https://fatebook.io${parsedUrl.pathname}${parsedUrl.search}`),
+        new URL(`${getBaseUrl()}${parsedUrl.pathname}${parsedUrl.search}`),
       )
     } else {
       return NextResponse.next()

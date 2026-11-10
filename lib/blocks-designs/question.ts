@@ -33,6 +33,7 @@ import {
   textBlock,
   toActionId,
 } from "./_block_utils"
+import { getBaseUrl } from "../base_url"
 
 function formatForecast(
   forecast: Forecast,
@@ -140,7 +141,7 @@ export async function buildQuestionBlocks(
         ...(CONNECTOR_WORKSPACES.includes(teamId)
           ? [
               markdownBlock(
-                `_<https://fatebook.io/for-slack|Add Fatebook to another Slack workspace>_`,
+                `_<${getBaseUrl()}/for-slack|Add Fatebook to another Slack workspace>_`,
               ),
             ]
           : []),

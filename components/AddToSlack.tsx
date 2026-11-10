@@ -1,5 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
+import { getBaseUrl } from "../lib/base_url"
 
 export function AddToSlack({
   buttonText = "Add to Slack",
@@ -7,7 +8,7 @@ export function AddToSlack({
   buttonText?: string
 }) {
   return (
-    <Link href="https://fatebook.io/api/auth/install">
+    <Link href={`${getBaseUrl()}/api/auth/install`}>
       <button className="inline-flex items-center border border-transparent rounded-md my-4 text-2xl py-4 px-6 shadow-2xl shadow-indigo-500 hover:scale-105 transition-transform bg-white text-black font-semibold hover:bg-white">
         <>
           <Image

@@ -8,6 +8,7 @@ import prisma from "../../../lib/prisma"
 import { getQuestionUrl } from "../../../lib/web/question_url"
 import { truncateString } from "../../../lib/web/utils"
 import { QuestionWithUserAndForecasts } from "../../../prisma/additional"
+import { getBaseHost } from "../../../lib/base_url"
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log("Handling interaction")
@@ -191,13 +192,13 @@ function showApiInputModal(res: NextApiResponse) {
             {
               type: 4,
               custom_id: "api_key",
-              label: "Your fatebook.io API key",
+              label: `Your ${getBaseHost()} API key`,
               style: 1,
               min_length: 1,
               max_length: 100,
-              placeholder: "Go to fatebook.io/api-setup to get your API key",
+              placeholder: `Go to ${getBaseHost()}/api-setup to get your API key`,
               required: true,
-              value: "Go to fatebook.io/api-setup to get your API key",
+              value: `Go to ${getBaseHost()}/api-setup to get your API key`,
             },
           ],
         },

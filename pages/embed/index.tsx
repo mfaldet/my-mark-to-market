@@ -1,6 +1,7 @@
 import { NextSeo } from "next-seo"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { getBaseUrl } from "../../lib/base_url"
 
 const above = String.raw`
 ## Embed Fatebook questions in your website
@@ -20,13 +21,11 @@ export default function ApiPage() {
       <div className="mx-auto prose">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{above}</ReactMarkdown>
         <pre className="bg-neutral-200 text-neutral-800 p-2 rounded-md break-words text-wrap">
-          {
-            '<iframe\n\tsrc="https://fatebook.io/embed/q/QUESTION_ID?compact=true&requireSignIn=false"\n\twidth="400"\n\theight="200"\n/>'
-          }
+          {`<iframe\n\tsrc="${getBaseUrl()}/embed/q/QUESTION_ID?compact=true&requireSignIn=false"\n\twidth="400"\n\theight="200"\n/>`}
         </pre>
         <p>{"Here's an example of what it'll look like:"}</p>
         <iframe
-          src="https://fatebook.io/embed/q/will-adam-win-the-next-aoe-game---clkqtczp00001l008qcrma6s7?compact=true&requireSignIn=false"
+          src={`${getBaseUrl()}/embed/q/will-adam-win-the-next-aoe-game---clkqtczp00001l008qcrma6s7?compact=true&requireSignIn=false`}
           width="400"
           height="200"
         />
