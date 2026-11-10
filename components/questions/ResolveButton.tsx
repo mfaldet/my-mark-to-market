@@ -78,19 +78,21 @@ export function ResolveButton({
         >
           <Menu.Button
             className={clsx(
-              "inline-flex w-full justify-center rounded-md bg-black bg-opacity-80 px-4 py-1.5 text-sm font-medium hover:bg-opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 disabled:opacity-70 h-full items-center",
+              "inline-flex w-full justify-center rounded-md px-4 py-1.5 text-sm font-semibold disabled:opacity-90 h-full items-center",
               // TODO: clean this up
+              // green = right, red = wrong, no colour for "can't tell"
               resolution === "YES"
-                ? "bg-green-500 text-white"
+                ? "tone-positive ring-1 ring-inset ring-positive/40"
                 : resolution === "NO" || resolution === "Other"
-                  ? "bg-red-500 text-white"
+                  ? "tone-negative ring-1 ring-inset ring-negative/40"
                   : resolution === "AMBIGUOUS"
-                    ? "bg-blue-500 text-white"
+                    ? "bg-neutral-100 text-neutral-700 ring-1 ring-inset ring-neutral-300"
                     : resolution // Has resolved to an MCQ option
-                      ? "bg-green-500 text-white"
+                      ? "tone-positive ring-1 ring-inset ring-positive/40"
                       : question.resolveBy < new Date()
-                        ? "bg-neutral-200 text-neutral-700 ring-2 ring-inset ring-indigo-200 ring-opacity-70 hover:ring-opacity-100"
-                        : "bg-neutral-200 text-neutral-700",
+                        ? // red ring = urgent: past its deadline
+                          "bg-neutral-100 text-ink ring-2 ring-inset ring-negative/60 hover:bg-neutral-200"
+                        : "bg-neutral-100 text-ink hover:bg-neutral-200",
             )}
             disabled={
               resolveQuestion.isLoading ||
@@ -120,7 +122,7 @@ export function ResolveButton({
           leaveTo="transform opacity-0 scale-95"
         >
           <Menu.Items
-            className="absolute z-40 right-0 mt-2 w-40 origin-top-right divide-y divide-neutral-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+            className="absolute z-40 right-0 mt-2 w-40 origin-top-right divide-y divide-neutral-100 rounded-xl glass-pop focus:outline-none"
             static
             modal={false}
           >
@@ -130,9 +132,7 @@ export function ResolveButton({
                   {({ active }) => (
                     <button
                       className={clsx(
-                        active
-                          ? "bg-indigo-500 text-white"
-                          : "bg-white text-neutral-900",
+                        active ? "bg-neutral-100 text-ink" : "text-ink",
                         `group flex w-full items-center rounded-md px-2 py-2 text-sm`,
                       )}
                       onClick={() => {

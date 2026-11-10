@@ -60,7 +60,7 @@ export const QuestionDetails = forwardRef(function QuestionDetails(
 
   return (
     <div
-      className="bg-neutral-100 border-[1px] px-8 py-4 text-sm flex flex-col gap-4 rounded-b-md shadow-sm group-hover:shadow-md"
+      className="bg-neutral-50 border border-t-0 border-neutral-200 px-4 sm:px-8 py-4 text-sm flex flex-col gap-4 rounded-b-xl"
       onClick={(e) => e.stopPropagation()}
       ref={ref}
     >
@@ -100,8 +100,8 @@ export const QuestionDetails = forwardRef(function QuestionDetails(
           </div>
         )}
         {forecastsAreHidden(question, userId) && (
-          <div className="mt-2 mb-2 text-sm text-neutral-600 font-semibold flex items-center gap-4 bg-indigo-50 px-4 py-2 rounded-md border border-indigo-100">
-            <InformationCircleIcon className="w-6 h-6 text-indigo-600" />
+          <div className="mt-2 mb-2 text-sm text-neutral-600 font-semibold flex items-center gap-4 tone-info px-4 py-2 rounded-md">
+            <InformationCircleIcon className="w-6 h-6 text-info" />
             {`Other people's confidence is hidden ${forecastHiddenReasonText(
               question,
             )} to reduce anchoring.`}
@@ -140,14 +140,14 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
           tooltip={`This is hidden ${forecastHiddenReasonText(question)}`}
           showInfoButton={false}
         >
-          <span className="font-bold text-lg text-indigo-800 opacity-70">
+          <span className="font-bold text-lg text-ink opacity-70">
             {displayForecast(forecast, 2)}
           </span>
         </InfoButton>
       )
     } else {
       return (
-        <span className="font-bold text-lg text-indigo-800">
+        <span className="font-bold text-lg text-ink">
           {displayForecast(forecast, 2)}
         </span>
       )
@@ -263,7 +263,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
                 <Fragment key={`${question.id} resolution`}>
                   <Username user={question.user} className="font-semibold" />
                   <span />
-                  <span className="italic text-indigo-800 overflow-x-auto">
+                  <span className="italic text-ink overflow-x-auto">
                     Resolved{" "}
                     {question.type === "MULTIPLE_CHOICE" && question.options
                       ? getExclusiveMcqResolutionString(question)
@@ -291,7 +291,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
                   <Username user={question.user} className="font-semibold" />
                 </span>
                 <span />
-                <span className="italic text-indigo-800 overflow-x-auto">
+                <span className="italic text-ink overflow-x-auto">
                   Resolved &ldquo;{option.text}&rdquo;{" "}
                   {option.resolution
                     ? resultLabel(option.resolution).toLowerCase()
@@ -362,7 +362,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
                 return (
                   <div key={option.id} className="flex gap-2 items-center">
                     <span className="font-medium text-sm">{option.text}</span>
-                    <span className="font-bold text-lg text-indigo-800">
+                    <span className="font-bold text-lg text-ink">
                       {formatDecimalNicely(optionAverage * 100, 1)}%
                     </span>
                   </div>
@@ -375,7 +375,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
         communityAverage !== false && (
           <div className="mx-auto flex gap-2 items-center mt-4">
             <span className="font-semibold">Community:</span>
-            <span className="font-bold text-xl text-indigo-800">
+            <span className="font-bold text-xl text-ink">
               {formatDecimalNicely(communityAverage * 100, 1)}%
             </span>
             <InfoButton tooltip="The average of everyone's latest confidence" />

@@ -113,7 +113,7 @@ export function ClaimPanel({
         )}
         {claim.approximate && <span>{'Approximate ("about")'}</span>}
         {claim.closeCall && (
-          <span className="rounded bg-amber-100 px-1 text-amber-800">
+          <span className="rounded tone-change px-1">
             close call{claim.actualResult ? `: ${claim.actualResult}` : ""}
           </span>
         )}

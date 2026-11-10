@@ -8,6 +8,7 @@ import { QuestionWithForecasts } from "../../prisma/additional"
 import { getQuestionUrl } from "./question_url"
 import { getClientBaseUrl } from "./trpc"
 import { APP_NAME } from "../app_name"
+import { grey, ink } from "../theme"
 
 export function useUserId() {
   const session = useSession()
@@ -57,8 +58,9 @@ export function getChartJsParams(
     data: {
       datasets: [
         {
-          backgroundColor: "#4e46e59c",
-          borderColor: "#4e46e59c",
+          // near-black for "your calibration"; green and red are kept for right and wrong
+          backgroundColor: ink,
+          borderColor: ink,
           data: userCalibrationData,
           label: `${pronoun} calibration`,
           borderWidth: 1,
@@ -66,8 +68,8 @@ export function getChartJsParams(
           showLine: false,
         },
         {
-          backgroundColor: "#22c55e",
-          borderColor: "#22c55e",
+          backgroundColor: grey[300],
+          borderColor: grey[400],
           data: perfectCalibrationData,
           label: "Perfect calibration",
           fill: false,
@@ -166,7 +168,7 @@ export function getChartJsParams(
                   labelString: `${pronoun} forecast`,
                 },
                 gridLines: {
-                  color: "#1e1e1e",
+                  color: ink,
                 },
               },
             ],
@@ -178,7 +180,7 @@ export function getChartJsParams(
                   labelString: "% of questions that resolved Yes",
                 },
                 gridLines: {
-                  color: "#1e1e1e",
+                  color: ink,
                 },
               },
             ],

@@ -123,8 +123,8 @@ function EmailInput({
         borderRadius: 8,
         colors: {
           ...theme.colors,
-          primary25: "#e0e7ff",
-          primary: "#4338ca",
+          primary25: "#F2F4F8",
+          primary: "#1B2230",
         },
       })}
       components={{

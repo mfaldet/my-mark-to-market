@@ -21,7 +21,7 @@ export function BinaryResolutionOptions({
         {({ active }) => (
           <button
             className={clsx(
-              active ? "bg-indigo-500 text-white" : "bg-white text-neutral-900",
+              active ? "bg-neutral-100 text-ink" : "text-ink",
               `group flex w-full items-center rounded-md px-2 py-2 text-sm`,
             )}
             onClick={() => {
@@ -37,11 +37,11 @@ export function BinaryResolutionOptions({
               className={clsx(
                 "h-3 w-3 mr-2 rounded-md",
                 resolution === "YES"
-                  ? "bg-green-500"
+                  ? "bg-positive"
                   : resolution === "NO"
-                    ? "bg-red-500"
+                    ? "bg-negative"
                     : resolution === "AMBIGUOUS"
-                      ? "bg-blue-500"
+                      ? "bg-neutral-400"
                       : "bg-neutral-200",
               )}
             />

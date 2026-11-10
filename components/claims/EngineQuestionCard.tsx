@@ -35,24 +35,22 @@ export function EngineQuestionCard({
     answer.mutate({ claimId: claim.id, answer: a })
 
   return (
-    <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 flex flex-col gap-2 not-prose">
-      <div className="text-xs text-indigo-500">
+    <div className="glass rounded-xl p-3 flex flex-col gap-2 not-prose">
+      <div className="text-xs text-neutral-500">
         {claim.kind === "hunch"
           ? "Turn this hunch into a prediction, one question at a time."
           : "One more thing to pin down."}
       </div>
       <div className="flex justify-between items-baseline gap-2">
-        <span className="font-semibold text-indigo-900">
-          {question.question}
-        </span>
-        <span className="text-xs text-indigo-400 whitespace-nowrap">
+        <span className="font-semibold text-ink">{question.question}</span>
+        <span className="text-xs text-neutral-500 whitespace-nowrap">
           Question {claim.questionsAsked + 1} of {MAX_ENGINE_QUESTIONS}
         </span>
       </div>
       <div className="flex flex-wrap gap-2 items-center">
         {question.suggestion && (
           <button
-            className="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white border-none normal-case"
+            className="btn btn-sm btn-primary normal-case"
             disabled={answer.isLoading}
             onClick={() => send({ accept: true })}
           >
@@ -76,7 +74,7 @@ export function EngineQuestionCard({
             onChange={(e) => setValue(e.target.value)}
           />
           <button
-            className="btn btn-sm normal-case"
+            className="btn btn-sm btn-primary normal-case"
             type="submit"
             disabled={answer.isLoading || !value.trim()}
           >

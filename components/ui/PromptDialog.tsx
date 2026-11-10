@@ -90,6 +90,7 @@ export function PromptDialog({
                   {showCloseButtons && (
                     <button
                       type="button"
+                      aria-label="Close"
                       className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
                       onClick={onClose}
                     >
@@ -107,12 +108,13 @@ export function PromptDialog({
                 <form onSubmit={handleSubmit} className="mt-4">
                   <input
                     ref={inputRef}
+                    aria-label={title}
                     type={type}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     className={clsx(
                       "w-full rounded-md border border-neutral-300 px-4 py-2",
-                      "focus:border-indigo-700 focus:outline-none focus:ring-1 focus:ring-indigo-700",
+                      "focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink",
                       "placeholder:text-neutral-400",
                     )}
                     placeholder={placeholder}
@@ -136,8 +138,8 @@ export function PromptDialog({
                       type="submit"
                       className={clsx(
                         "rounded-md px-4 py-2 text-sm font-medium",
-                        "bg-indigo-700 text-white",
-                        "hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
+                        "bg-ink text-white",
+                        "hover:bg-neutral-950 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
                       )}
                     >
                       {submitLabel}

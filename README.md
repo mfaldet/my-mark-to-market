@@ -96,13 +96,13 @@ The AI step is deliberately small. It picks the shape of the outcome and reads t
 
 **The timeline and history check.** Every version, what changed, how it came in, and the result of recomputing the hash chain.
 
-![A timeline with seven versions and a passing history check](docs/images/timeline.png)
+![A timeline showing a hunch becoming a prediction](docs/images/timeline.png)
 
 **The public track record.** Only predictions I have made public. This is the page my own site embeds.
 
 ![The public track record page](docs/images/public-record.png)
 
-_These screenshots were taken from the app running locally, with a stand-in for the Claude API returning the shape and parts. They predate the current wording and look, and will be retaken after the branding work._
+_These screenshots were taken from the app running locally, with a stand-in for the Claude API returning the shape and parts._
 
 ## What the history does and does not prove
 

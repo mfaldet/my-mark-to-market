@@ -13,7 +13,10 @@ export default function Document(props: DocumentProps) {
       lang="en"
     >
       <Head>
-        <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+        <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
+        <link rel="alternate icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+        <meta name="theme-color" content="#FBFBFD" />
         {/* <meta name="viewport" content="viewport-fit=cover" /> */}
       </Head>
       <body>

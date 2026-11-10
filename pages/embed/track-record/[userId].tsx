@@ -8,6 +8,7 @@ import clsx from "clsx"
 import { GetServerSideProps } from "next"
 import { NextSeo } from "next-seo"
 import React from "react"
+import { BrandMark } from "../../../components/BrandMark"
 import { GradeBadge } from "../../../components/claims/GradeBadge"
 import { formatDay } from "../../../components/claims/labels"
 import { APP_NAME, UPSTREAM } from "../../../lib/app_name"
@@ -32,17 +33,18 @@ export const getServerSideProps: GetServerSideProps<{
 const percent = (n: number | null) =>
   n === null ? "–" : `${Math.round(n * 100)}%`
 
+// green = right, red = wrong; open and "can't tell" carry no colour
 const STATUS_STYLES: Record<string, string> = {
-  open: "bg-neutral-100 text-neutral-600",
-  right: "bg-green-100 text-green-800",
-  wrong: "bg-red-100 text-red-800",
-  "can't tell": "bg-neutral-200 text-neutral-700",
+  open: "border border-neutral-300 text-neutral-600",
+  right: "tone-positive",
+  wrong: "tone-negative",
+  "can't tell": "tone-plain",
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-md border border-neutral-200 bg-white px-4 py-3">
-      <div className="text-2xl font-semibold">{value}</div>
+    <div className="glass rounded-xl px-4 py-3">
+      <div className="num text-2xl font-semibold text-ink">{value}</div>
       <div className="text-xs text-neutral-500">{label}</div>
     </div>
   )
@@ -53,18 +55,27 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
   const bands = record.calibration.filter((b) => b.predictions > 0)
 
   return (
-    <div className="bg-neutral-50 min-h-screen p-4 sm:p-6 text-neutral-900">
+    <div className="bg-white min-h-screen p-4 sm:p-6 text-ink">
       <NextSeo
         title={`${record.owner.name ?? "Track record"}: public predictions`}
         noindex={true}
       />
       <div className="max-w-3xl mx-auto flex flex-col gap-6">
-        <header>
-          <h1 className="text-xl font-semibold">
-            {record.owner.name ? `${record.owner.name}'s` : "Public"} track
+        <header className="brand-surface rounded-2xl border border-ink/10 px-5 py-6 sm:px-8 sm:py-8">
+          <a
+            href={record.app.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 no-underline"
+          >
+            <BrandMark className="w-7 h-7" />
+            <span className="wordmark text-2xl">{APP_NAME}</span>
+          </a>
+          <p className="tagline mt-1">
+            {record.owner.name ? `${record.owner.name}'s` : "A"} public track
             record
-          </h1>
-          <p className="text-sm text-neutral-500">
+          </p>
+          <p className="mt-4 text-sm text-neutral-700 max-w-xl">
             Predictions logged in advance, each with a deadline and a stated
             outcome, then marked right or wrong. Only predictions made public
             are shown.
@@ -98,23 +109,23 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                   key={band.band}
                   className="flex items-center gap-3 text-sm"
                 >
-                  <span className="w-36 shrink-0 text-neutral-600">
+                  <span className="w-24 sm:w-36 shrink-0 text-neutral-700">
                     {band.band}
                   </span>
-                  <div className="relative h-4 grow rounded bg-neutral-200">
+                  <div className="relative h-4 grow rounded bg-neutral-100 overflow-hidden">
                     <div
-                      className="absolute inset-y-0 bg-indigo-100"
+                      className="absolute inset-y-0 bg-neutral-300"
                       style={{
                         left: `${band.low}%`,
                         width: `${band.high - band.low}%`,
                       }}
                     />
                     <div
-                      className="absolute inset-y-0 w-1 bg-indigo-600"
+                      className="absolute inset-y-0 w-1 bg-ink"
                       style={{ left: `calc(${(band.rate ?? 0) * 100}% - 2px)` }}
                     />
                   </div>
-                  <span className="w-28 shrink-0 text-right text-neutral-600">
+                  <span className="num w-32 shrink-0 text-right text-xs text-neutral-600">
                     {band.cameTrue} of {band.predictions} ({percent(band.rate)})
                   </span>
                 </div>
@@ -134,18 +145,25 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
             {record.predictions.map((claim) => (
               <li
                 key={claim.id}
-                className="rounded-md border border-neutral-200 bg-white p-4 flex flex-col gap-2"
+                className="glass rounded-xl p-4 flex flex-col gap-2"
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="font-medium">“{claim.text}”</span>
-                  <span
-                    className={clsx(
-                      "rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap",
-                      STATUS_STYLES[claim.status],
+                  <span className="flex flex-wrap justify-end gap-1 shrink-0">
+                    {claim.closeCall && (
+                      // yellow = caution: a near miss
+                      <span className="tone-change rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap">
+                        close call
+                      </span>
                     )}
-                  >
-                    {claim.status}
-                    {claim.closeCall && " · close call"}
+                    <span
+                      className={clsx(
+                        "rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap",
+                        STATUS_STYLES[claim.status],
+                      )}
+                    >
+                      {claim.status}
+                    </span>
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
@@ -193,7 +211,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                 </div>
                 {claim.history.latestHash && (
                   <div
-                    className="text-[10px] text-neutral-400 font-mono"
+                    className="num text-[11px] text-neutral-500"
                     title="Hash of the latest entry in this prediction's append-only history"
                   >
                     {claim.history.versions} version
@@ -206,7 +224,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
           </ul>
         </section>
 
-        <footer className="text-xs text-neutral-400">
+        <footer className="text-xs text-neutral-500">
           <a href={record.app.url} target="_blank" rel="noreferrer">
             {APP_NAME}
           </a>

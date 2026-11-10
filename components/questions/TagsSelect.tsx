@@ -27,7 +27,7 @@ export function TagsSelect({
   const [localTags, setLocalTags] = useState<string[]>(tags)
   const allTagsQ = api.tags.getAll.useQuery()
   const allTags = allTagsQ.data ?? []
-  const lightGrey = "#f5f5f5"
+  const lightGrey = "#F2F4F8"
 
   // See https://react-select.com/styles for styling help
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -96,7 +96,7 @@ export function TagsSelect({
             clsx(
               "!border-none shadow-inner !cursor-text md:px-2 !rounded-md",
               allowCreation ? "!bg-neutral-200" : "!bg-neutral-100",
-              isFocused ? "!shadow-[0_0_0_2px_#6366f1]" : "!shadow-none",
+              isFocused ? "!shadow-[0_0_0_2px_#1B2230]" : "!shadow-none",
             ),
           menuList: () =>
             containerWidth
@@ -112,8 +112,8 @@ export function TagsSelect({
           option: ({ isFocused }) =>
             clsx(
               "flex items-center justify-center p-2 break-all",
-              isFocused ? "!bg-[#f5f5f5] !rounded-md" : "",
-              "hover:bg-[#f5f5f5] hover:rounded-md",
+              isFocused ? "!bg-[#F2F4F8] !rounded-md" : "",
+              "hover:bg-[#F2F4F8] hover:rounded-md",
             ),
           valueContainer: () => "!py-[5px] !md:px-0 !px-2",
         }}
@@ -121,8 +121,8 @@ export function TagsSelect({
           ...theme,
           colors: {
             ...theme.colors,
-            primary25: "#e0e7ff",
-            primary: "#6366f1",
+            primary25: "#F2F4F8",
+            primary: "#1B2230",
           },
         })}
         // TODO: replace these with Tailwind classes in classNames above

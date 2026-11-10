@@ -93,21 +93,25 @@ export function Question({
         <div
           className={clsx(
             !embedded &&
-              "outline-1 outline cursor-pointer rounded-md shadow-sm group-hover:shadow-md transition-all z-10",
+              "glass cursor-pointer rounded-xl group-hover:shadow-md transition-all z-10",
+            // a hunch is outlined and lighter; a prediction is solid
+            !embedded &&
+              isHunch &&
+              !question.resolution &&
+              "!border-dashed !border-neutral-300 !shadow-none",
 
             (manuallyExpanded || alwaysExpand) && "rounded-b-none",
 
-            question.resolution
-              ? "bg-neutral-50 outline-[#eceff5] bg-gradient-to-tl via-neutral-50 via-[30%] group-hover:via-[40%]"
-              : "bg-white outline-neutral-200",
-
+            // green = right, red = wrong; "can't tell" has no colour
+            question.resolution &&
+              "bg-gradient-to-tl via-white/0 via-[30%] group-hover:via-[40%] to-white/0",
             question.resolution === "YES"
-              ? "from-green-100"
+              ? "from-positive-soft"
               : question.resolution === "NO"
-                ? "from-red-100"
-                : question.resolution === "AMBIGUOUS"
-                  ? "from-blue-100"
-                  : "from-white",
+                ? "from-negative-soft"
+                : question.resolution
+                  ? "from-neutral-100"
+                  : "",
           )}
           onClick={() => {
             if (!embedded) {
@@ -186,8 +190,10 @@ export function Question({
                     editable &&
                       "hover:bg-neutral-100 transition-colors group/resolveBy",
                     question.resolveBy < new Date()
-                      ? "text-indigo-300"
-                      : "text-neutral-400",
+                      ? isHunch
+                        ? "text-neutral-600"
+                        : "text-negative-text" // red = urgent: past its deadline
+                      : "text-neutral-500",
                   )}
                   disabled={!editable}
                   onClick={(e) => {

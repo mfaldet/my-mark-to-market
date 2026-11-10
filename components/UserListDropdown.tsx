@@ -72,7 +72,7 @@ export function UserListDropdown({
         />
       </Popover.Button>
       <Popover.Panel className="absolute z-50 w-full cursor-auto">
-        <div className="absolute z-50 mt-2 w-72 md:w-96 lg:w-[29rem] right-0 md:left-0 origin-top-right p-2 flex flex-col gap-2 rounded-md bg-neutral-50 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none text-sm">
+        <div className="absolute z-50 mt-2 w-72 md:w-96 lg:w-[29rem] right-0 md:left-0 origin-top-right p-2 flex flex-col gap-2 rounded-xl glass-pop focus:outline-none text-sm">
           {userListsQ.data ? (
             userListsQ.data
               .sort((a, b) => {

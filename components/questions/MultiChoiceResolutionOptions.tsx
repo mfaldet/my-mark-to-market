@@ -22,7 +22,7 @@ export function MultiChoiceResolutionOptions({
       {({ active }) => (
         <button
           className={clsx(
-            active ? "bg-indigo-500 text-white" : "bg-white text-neutral-900",
+            active ? "bg-neutral-100 text-ink" : "text-ink",
             `group flex w-full items-center rounded-md px-2 py-2 text-sm overflow-x-auto`,
           )}
           onClick={() => {
@@ -37,12 +37,12 @@ export function MultiChoiceResolutionOptions({
             className={clsx(
               "h-3 w-3 mr-2 rounded-md",
               option === "YES"
-                ? "bg-green-500"
+                ? "bg-positive"
                 : option === "NO" || option === "OTHER"
-                  ? "bg-red-500"
+                  ? "bg-negative"
                   : option === "AMBIGUOUS"
-                    ? "bg-blue-500"
-                    : "bg-green-500", // is an MCQ option
+                    ? "bg-neutral-400"
+                    : "bg-positive", // is an MCQ option
             )}
           />
           {option === "AMBIGUOUS"

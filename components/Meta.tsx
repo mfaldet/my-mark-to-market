@@ -18,19 +18,13 @@ export default function Meta() {
         siteName: APP_NAME,
         images: [
           {
-            url: `${getBaseUrl()}/telescope_future_1200_white.png`,
-            width: 1200,
-            height: 686,
+            url: `${getBaseUrl()}/brand/icon-512.png`,
+            width: 512,
+            height: 512,
             alt: "",
           },
         ],
       }}
-      additionalLinkTags={[
-        {
-          rel: "icon",
-          href: `${getBaseUrl()}/scale.svg`,
-        },
-      ]}
     />
   )
 }

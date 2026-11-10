@@ -39,7 +39,7 @@ export function ShareTournament({ tournamentId }: { tournamentId: string }) {
           id: tournamentQ.data.id,
           ...tournament,
           questions: questions,
-          currentQuestions: tournamentQ.data.questions.map(q => q.id)
+          currentQuestions: tournamentQ.data.questions.map((q) => q.id),
         },
       })
     }
@@ -187,7 +187,7 @@ function UserListSelect({ tournamentId }: { tournamentId: string }) {
           id: tournamentQ.data.id,
           ...tournament,
           questions: questions,
-          currentQuestions: tournamentQ.data.questions.map(q => q.id)
+          currentQuestions: tournamentQ.data.questions.map((q) => q.id),
         },
       })
     }
@@ -225,7 +225,7 @@ function UserListSelect({ tournamentId }: { tournamentId: string }) {
         />
       </Popover.Button>
       <Popover.Panel className="absolute z-50 w-full cursor-auto">
-        <div className="absolute z-50 mt-2 w-72 md:w-96 lg:w-[29rem] right-0 md:left-0 origin-top-right p-2 flex flex-col gap-2 rounded-md bg-neutral-50 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none text-sm">
+        <div className="absolute z-50 mt-2 w-72 md:w-96 lg:w-[29rem] right-0 md:left-0 origin-top-right p-2 flex flex-col gap-2 rounded-xl glass-pop focus:outline-none text-sm">
           {userListsQ.data ? (
             userListsQ.data.map((userList) => {
               const selected = selectedUserList?.id === userList.id
