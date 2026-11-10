@@ -163,7 +163,7 @@ It is built for Vercel plus a hosted Postgres. Set at least:
 Two things that will fail a deploy:
 
 - **Do not set `NODE_ENV`** in Vercel. The build sets it itself; forcing `development` breaks it with "NextRouter was not mounted".
-- **Set the database variables for the Preview environment too**, not only Production, if you want Vercel to build pull requests. The build applies database migrations, so it needs a database to reach.
+- **Only `main` is deployed.** `vercel.json` tells Vercel not to build any other branch. The build applies database migrations, so a preview build of an unmerged branch would either fail for lack of a database or run its migrations against the real one. Keep the database variables set for Production only.
 
 ## Connect Claude and your phone
 
