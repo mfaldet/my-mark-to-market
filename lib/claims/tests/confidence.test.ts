@@ -41,6 +41,10 @@ describe("confidence word mapping", () => {
     ["toss up", "TOSS_UP"],
     ["Unlikely they raise", "UNLIKELY"],
     ["not likely to happen", "UNLIKELY"],
+    ["Rates will probably be cut this year", "LIKELY"],
+    ["Probably a recession by 2027", "LIKELY"],
+    ["I doubt they raise rates", "UNLIKELY"],
+    ["They merge this year, but I doubt it", "UNLIKELY"],
     ["very unlikely this year", "VERY_UNLIKELY"],
     ["almost no chance of a default", "ALMOST_NO_CHANCE"],
   ])("%s -> %s", (text, word) => {
@@ -60,6 +64,8 @@ describe("confidence word mapping", () => {
   it.each([
     "Unemployment will hit 6% by 2028",
     "I think the labor market is weakening",
+    "I think rates will be cut",
+    "No doubt the market is weakening",
     "The labor market is weakening",
     "Rates will be cut",
   ])("flat 'will' or bare 'I think' is not given: %s", (text) => {

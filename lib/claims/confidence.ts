@@ -43,8 +43,8 @@ const WORD_PATTERNS: [ConfidenceWord, RegExp][] = [
   ["VERY_UNLIKELY", /\bvery unlikely\b/i],
   ["VERY_LIKELY", /\bvery likely\b/i],
   ["TOSS_UP", /\btoss[- ]?up\b/i],
-  ["UNLIKELY", /\b(unlikely|not likely)\b/i],
-  ["LIKELY", /\blikely\b/i],
+  ["UNLIKELY", /\b(unlikely|not likely|I doubt)\b/i],
+  ["LIKELY", /\b(likely|probably)\b/i],
 ]
 
 // Words that turn a percentage into odds.
@@ -69,6 +69,7 @@ const ODDS_THEN_PERCENT = new RegExp(
  *   "Margins of 70.6% next quarter" -> not given.
  * - A percentage said as odds wins over a word ("70% likely" is 70%, not
  *   the word "likely").
+ * - "probably" counts as likely and "I doubt" as unlikely.
  * - A flat "will" with no hedge, or "I think" on its own -> not given.
  */
 export function parseConfidence(text: string): ParsedConfidence {
