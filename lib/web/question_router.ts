@@ -44,6 +44,7 @@ import {
   getSearchedPredictionBounds,
   matchesAnEmailDomain,
 } from "./utils"
+import { getBaseHost } from "../base_url"
 
 function calculateUniqueForecasterCount(
   question: QuestionWithForecasts | QuestionWithForecastsAndOptions,
@@ -127,8 +128,7 @@ const zodExtraFilters = z.object({
     .optional(),
   showAllPublic: z
     .boolean({
-      description:
-        "Show all public questions from fatebook.io/public (if false, get only questions you've created, forecasted on, or are shared with you)",
+      description: `Show all public questions from ${getBaseHost()}/public (if false, get only questions you've created, forecasted on, or are shared with you)`,
     })
     .optional(),
   searchString: z
@@ -327,7 +327,7 @@ export const questionRouter = router({
     .input(
       z.object({
         apiKey: z.string({
-          description: "Your Fatebook API key. Get it at fatebook.io/api-setup",
+          description: `Your Fatebook API key. Get it at ${getBaseHost()}/api-setup`,
         }),
         ...{
           ...zodExtraFilters.shape,
@@ -355,8 +355,7 @@ export const questionRouter = router({
       openapi: {
         method: "GET",
         path: "/v0/getQuestions",
-        description:
-          "By default, this fetches all questions that you've created, forecasted on, or are shared with you. Alternatively, if you set showAllPublic to true, it fetches all public questions from fatebook.io/public.",
+        description: `By default, this fetches all questions that you've created, forecasted on, or are shared with you. Alternatively, if you set showAllPublic to true, it fetches all public questions from ${getBaseHost()}/public.`,
       },
     })
     .output(
@@ -691,8 +690,7 @@ export const questionRouter = router({
           .optional(),
         unlisted: z
           .boolean({
-            description:
-              "Change whether the question is unlisted (not shown on fatebook.io/public)",
+            description: `Change whether the question is unlisted (not shown on ${getBaseHost()}/public)`,
           })
           .optional(),
         apiKey: z.string().optional(),
@@ -702,8 +700,7 @@ export const questionRouter = router({
       openapi: {
         method: "PATCH",
         path: "/v0/setSharedPublicly",
-        description:
-          "Change the visibility of the question. The 'sharedPublicly' parameter sets whether the question is accessible to anyone via a direct link. The 'unlisted' parameter sets whether the question is visible on fatebook.io/public",
+        description: `Change the visibility of the question. The 'sharedPublicly' parameter sets whether the question is accessible to anyone via a direct link. The 'unlisted' parameter sets whether the question is visible on ${getBaseHost()}/public`,
       },
     })
     .output(z.undefined())
@@ -1815,8 +1812,7 @@ async function getUserByApiKeyOrThrow(apiKey: string) {
   }
   throw new TRPCError({
     code: "UNAUTHORIZED",
-    message:
-      "Could not find a user with that API key. See fatebook.io/api-setup",
+    message: `Could not find a user with that API key. See ${getBaseHost()}/api-setup`,
   })
 }
 
@@ -1840,7 +1836,7 @@ async function getUserFromCtxOrApiKeyOrThrow(
   if (!apiKey) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
-      message: "You must provide an API key. See fatebook.io/api-setup",
+      message: `You must provide an API key. See ${getBaseHost()}/api-setup`,
     })
   }
 

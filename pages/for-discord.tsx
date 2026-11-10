@@ -13,6 +13,7 @@ import React from "react"
 import { DiscordCompose } from "../components/DiscordCompose"
 import { Layout } from "../components/Layout"
 import Faqs from "../components/ui/Faqs"
+import { getBaseUrl } from "../lib/base_url"
 
 export default function ForDiscordPage() {
   const router = useRouter()
@@ -56,7 +57,7 @@ export default function ForDiscordPage() {
 
           <div className="flex mb-20">
             <div className="m-auto">
-              <Link href="https://fatebook.io/api/discord/install">
+              <Link href={`${getBaseUrl()}/api/discord/install`}>
                 <button className="inline-flex items-center border border-transparent rounded-md my-4 text-2xl py-4 px-6 shadow-2xl shadow-indigo-500 hover:scale-105 transition-transform bg-white text-black font-semibold hover:bg-white">
                   <>
                     <Image

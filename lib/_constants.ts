@@ -1,4 +1,5 @@
 import { QuestionType } from "@prisma/client"
+import { getBaseUrl } from "./base_url"
 
 export const signingSecret: string = process.env.SLACK_SIGNING_SECRET!
 export const clientId: string = process.env.SLACK_CLIENT_ID!
@@ -42,7 +43,7 @@ export const feedbackFormUrl = "https://forms.gle/nHkwvMFCjtNBHAT69"
 export const quantifiedIntuitionsUrl = "https://quantifiedintuitions.org/"
 export const questionWritingTipsUrl =
   "https://docs.google.com/document/d/1yQnNLrLCLr9dQs01vsNwIPV5-cp1PUFMcLvPuSt4KNg"
-export const fatebookUrl = "https://fatebook.io/" // TODO: over time change usages to this constant
+export const fatebookUrl = getBaseUrl() + "/"
 export const defaultDisplayPictureUrl = fatebookUrl + "default_avatar.png"
 
 // Special workspaces

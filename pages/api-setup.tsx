@@ -5,6 +5,7 @@ import "swagger-ui-react/swagger-ui.css"
 import { CopyToClipboard } from "../components/ui/CopyToClipboard"
 import { api } from "../lib/web/trpc"
 import { signInToFatebook, useUserId } from "../lib/web/utils"
+import { getBaseUrl } from "../lib/base_url"
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const SwaggerUI = dynamic(() => import("swagger-ui-react"), { ssr: false })
@@ -92,7 +93,7 @@ export default function ApiPage() {
         </p>
 
         <p className="bg-neutral-100 outline outline-neutral-300 outline-1 p-2 rounded-md break-words">
-          {"https://fatebook.io/api/v0/createQuestion"}
+          {`${getBaseUrl()}/api/v0/createQuestion`}
           {"?apiKey="}
           {apiKey.data || "YOUR_API_KEY"}
           <br />
@@ -116,7 +117,7 @@ export default function ApiPage() {
         <p>{"Note: a date by itself will default to a time of 00:00 in the UTC timezone, which may not be the date you intended in your local timezone.  You can pass an ISO 8601 datetime for localization; for example, 2025-01-01T00:00+00:00.  You can also add some optional parameters, here's an example:"}</p>
 
         <p className="bg-neutral-100 outline outline-neutral-300 outline-1 p-2 rounded-md break-words">
-          {"https://fatebook.io/api/v0/createQuestion"}
+          {`${getBaseUrl()}/api/v0/createQuestion`}
           {"?apiKey="}
           {apiKey.data || "YOUR_API_KEY"}
           <br />
@@ -229,7 +230,7 @@ export default function ApiPage() {
         </p>
 
         <p className="bg-neutral-100 outline outline-neutral-300 outline-1 p-2 rounded-md break-words">
-          {"https://fatebook.io/api/v0/getQuestion"}
+          {`${getBaseUrl()}/api/v0/getQuestion`}
           {"?apiKey="}
           {apiKey.data || "YOUR_API_KEY"}
           <br />
@@ -245,7 +246,7 @@ export default function ApiPage() {
             "To get the question ID, go to the question page and copy the ID from the URL. The ID is the part after the --, e.g. for this question:"
           }{" "}
           <span className="bg-neutral-100 outline outline-neutral-300 outline-1 p-0.5 rounded-md">
-            https://fatebook.io/q/will-adam-win-the-next-aoe-game---clkqtczp00001l008qcrma6s7
+            {getBaseUrl()}/q/will-adam-win-the-next-aoe-game---clkqtczp00001l008qcrma6s7
           </span>{" "}
           the ID is{" "}
           <span className="bg-neutral-100 outline outline-neutral-300 outline-1 p-0.5 rounded-md">
@@ -257,7 +258,7 @@ export default function ApiPage() {
         <p>
           Click{" "}
           <a
-            href={`https://fatebook.io/api/v0/getQuestion?apiKey=${
+            href={`${getBaseUrl()}/api/v0/getQuestion?apiKey=${
               apiKey.data || "YOUR_API_KEY"
             }&questionId=clkqtczp00001l008qcrma6s7`}
             target="_blank"

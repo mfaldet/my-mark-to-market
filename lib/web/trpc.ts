@@ -3,26 +3,13 @@ import { createTRPCNext } from "@trpc/next"
 import { toast } from "react-hot-toast"
 import transformer from "trpc-transformer"
 import { AppRouter } from "./app_router"
+import { getBaseUrl } from "../base_url"
 
 export function getClientBaseUrl(useRelativePath = true) {
-  if (typeof window !== "undefined") {
-    return useRelativePath ? "" : window.location.origin
+  if (typeof window !== "undefined" && useRelativePath) {
+    return ""
   }
-
-  if (process.env.NODE_ENV === "production") {
-    return "https://fatebook.io"
-  }
-
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
-  }
-
-  if (process.env.HOST_URL) {
-    return process.env.HOST_URL
-  }
-
-  // assume localhost
-  return `http://localhost:${process.env.PORT ?? 3000}`
+  return getBaseUrl()
 }
 
 export const api = createTRPCNext<AppRouter>({

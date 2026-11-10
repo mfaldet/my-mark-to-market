@@ -1,4 +1,5 @@
 import { DefaultSeo } from "next-seo"
+import { getBaseUrl } from "../lib/base_url"
 
 export default function Meta() {
   return (
@@ -6,17 +7,17 @@ export default function Meta() {
       titleTemplate="%s - Fatebook"
       defaultTitle="Fatebook"
       description="Track your predictions, make better decisions."
-      canonical="https://fatebook.io/"
+      canonical={`${getBaseUrl()}/`}
       openGraph={{
         type: "website",
         locale: "en_US",
-        url: "https://fatebook.io/",
+        url: `${getBaseUrl()}/`,
         title: "Fatebook",
         description: "Track your predictions, make better decisions.",
         siteName: "Fatebook",
         images: [
           {
-            url: "https://fatebook.io/telescope_future_1200_white.png",
+            url: `${getBaseUrl()}/telescope_future_1200_white.png`,
             width: 1200,
             height: 686,
             alt: "",
@@ -26,7 +27,7 @@ export default function Meta() {
       additionalLinkTags={[
         {
           rel: "icon",
-          href: "https://fatebook.io/scale.svg",
+          href: `${getBaseUrl()}/scale.svg`,
         },
       ]}
       twitter={{

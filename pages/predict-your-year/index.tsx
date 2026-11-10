@@ -22,6 +22,7 @@ import { appRouter } from "../../lib/web/app_router"
 import { api } from "../../lib/web/trpc"
 import { createContext } from "../../lib/web/trpc_base"
 import { signInToFatebook } from "../../lib/web/utils"
+import { getBaseUrl } from "../../lib/base_url"
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const helpers = createServerSideHelpers({
@@ -108,15 +109,15 @@ export default function PredictYourYearLandingPage() {
       <NextSeo
         title={`Predict your ${upcomingYear}`}
         description="What will the new year hold for you? Write down your predictions and review at the end of the year."
-        canonical="https://fatebook.io/predict-your-year"
+        canonical={`${getBaseUrl()}/predict-your-year`}
         openGraph={{
-          url: "https://fatebook.io/predict-your-year",
+          url: `${getBaseUrl()}/predict-your-year`,
           title: `Predict your ${upcomingYear}`,
           description:
             "What will the new year hold for you? Write down your predictions and review at the end of the year.",
           images: [
             {
-              url: "https://fatebook.io/telescope_future_1200_white.png",
+              url: `${getBaseUrl()}/telescope_future_1200_white.png`,
               width: 1200,
               height: 686,
               alt: "",

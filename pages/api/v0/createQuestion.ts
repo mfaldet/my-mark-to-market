@@ -7,10 +7,11 @@ import prisma from "../../../lib/prisma"
 import { emailNewlySharedWithUsers } from "../../../lib/web/question_router"
 import { getQuestionUrl } from "../../../lib/web/question_url"
 import { UserListWithAuthorAndUsers } from "../../../prisma/additional"
+import { getBaseUrl } from "../../../lib/base_url"
 
 const createQuestionSchema = z.object({
   apiKey: z.string().nonempty({
-    message: "apiKey must be a string (see https://fatebook.io/api-setup)",
+    message: `apiKey must be a string (see ${getBaseUrl()}/api-setup)`,
   }),
   title: z.string().nonempty({ message: "title must be a string" }),
   resolveBy: z
@@ -92,7 +93,7 @@ const createQuestionPublicApi = async (req: Request, res: NextApiResponse) => {
   })
   if (!user) {
     res.status(401).json({
-      error: `Invalid API key. Check your API key at https://fatebook.io/api-setup`,
+      error: `Invalid API key. Check your API key at ${getBaseUrl()}/api-setup`,
     })
     return
   }
