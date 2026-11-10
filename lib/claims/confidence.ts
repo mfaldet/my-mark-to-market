@@ -95,3 +95,12 @@ export function parseConfidence(text: string): ParsedConfidence {
 
   return { kind: "not_given" }
 }
+
+/** "likely", "Very Likely", "toss-up", "TOSS_UP" -> the stored word, or null */
+export function parseConfidenceWord(raw: string): ConfidenceWord | null {
+  const key = raw
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_")
+  return key in CONFIDENCE_RANGES ? (key as ConfidenceWord) : null
+}
