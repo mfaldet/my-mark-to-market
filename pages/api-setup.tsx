@@ -1,4 +1,5 @@
 import { NextSeo } from "next-seo"
+import { useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import "swagger-ui-react/swagger-ui.css"
@@ -14,12 +15,19 @@ export default function ApiPage() {
   const userId = useUserId()
   const utils = api.useContext()
 
-  const apiKey = api.getApiKey.useQuery()
+  // Only a hash of the key is stored, so the key can be shown just once:
+  // straight after it is generated.
+  const existingKey = api.getApiKey.useQuery()
+  const [newKey, setNewKey] = useState<string | null>(null)
   const regenerateApiKey = api.regenerateApiKey.useMutation({
-    async onSuccess() {
+    async onSuccess(key) {
+      setNewKey(key)
       await utils.getApiKey.invalidate()
     },
   })
+  // used in the examples further down the page
+  const apiKey = { data: newKey }
+  const hasKey = !!existingKey.data || !!newKey
 
   return (
     <div className="px-4 pt-12 lg:pt-16 mx-auto max-w-6xl">
@@ -51,9 +59,14 @@ export default function ApiPage() {
                   <input
                     className="input w-full pr-10"
                     type="text"
-                    value={apiKey.data ?? ""}
+                    value={
+                      newKey ??
+                      (existingKey.data
+                        ? `••••••••${existingKey.data.lastFour ?? ""}`
+                        : "")
+                    }
                     readOnly
-                    disabled={!apiKey.data || regenerateApiKey.isLoading}
+                    disabled={!newKey || regenerateApiKey.isLoading}
                   />
                   {apiKey.data && (
                     <div className="absolute inset-y-0 right-0 flex items-center pr-2">
@@ -68,7 +81,7 @@ export default function ApiPage() {
                   className="button primary whitespace-nowrap"
                   onClick={() => {
                     if (regenerateApiKey.isLoading) return
-                    if (apiKey.data) {
+                    if (hasKey) {
                       if (
                         confirm(
                           "Are you sure you want to regenerate your API key? This will invalidate your old API key.",
@@ -81,10 +94,36 @@ export default function ApiPage() {
                     }
                   }}
                 >
-                  {apiKey.data ? "Regenerate" : "Generate"}
+                  {hasKey ? "Regenerate" : "Generate"}
                 </button>
               </div>
             </div>
+            {newKey ? (
+              <p className="text-sm text-amber-700 m-0">
+                Copy this key now. It is stored only as a hash, so it cannot be
+                shown again. If you lose it, regenerate.
+              </p>
+            ) : (
+              existingKey.data && (
+                <p className="text-sm text-neutral-500 m-0">
+                  You have a key ending in{" "}
+                  <code>{existingKey.data.lastFour}</code>
+                  {existingKey.data.createdAt &&
+                    `, created ${new Date(
+                      existingKey.data.createdAt,
+                    ).toLocaleDateString()}`}
+                  . The key itself is not stored, so it cannot be shown again.
+                  Regenerate to get a new one.
+                </p>
+              )
+            )}
+            <p className="text-sm text-neutral-500 m-0">
+              Send the key in a header to keep it out of URLs and logs:{" "}
+              <code>Authorization: Bearer YOUR_API_KEY</code> or{" "}
+              <code>X-Api-Key: YOUR_API_KEY</code>. Putting{" "}
+              <code>apiKey=</code> in the URL or body, as below, also still
+              works.
+            </p>
           </div>
         )}
         <p>

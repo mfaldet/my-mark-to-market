@@ -4,6 +4,7 @@ import * as chrono from "chrono-node"
 import { InteractionResponseType, InteractionType } from "discord-interactions"
 import { backendAnalyticsEvent } from "../../../lib/_utils_server"
 import { sendDiscordEphemeral } from "../../../lib/discord/utils"
+import { hashApiKey } from "../../../lib/api_keys"
 import prisma from "../../../lib/prisma"
 import { getQuestionUrl } from "../../../lib/web/question_url"
 import { truncateString } from "../../../lib/web/utils"
@@ -215,7 +216,7 @@ async function handleLoginModalSubmit(req: NextApiRequest, res: NextApiResponse)
 
   const users = await prisma.user.updateMany({
     where: {
-      apiKey,
+      apiKeyHash: hashApiKey(apiKey),
     },
     data: {
       discordUserId: req.body.member.user.id,

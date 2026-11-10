@@ -3,6 +3,7 @@ import { NextApiRequest, NextApiResponse } from "next"
 import { z } from "zod"
 import { generateErrorMessage } from "zod-error"
 import { backendAnalyticsEvent } from "../../../lib/_utils_server"
+import { findUserByApiKey, resolveApiKey } from "../../../lib/api_keys"
 import prisma from "../../../lib/prisma"
 import { emailNewlySharedWithUsers } from "../../../lib/web/question_router"
 import { getQuestionUrl } from "../../../lib/web/question_url"
@@ -10,9 +11,8 @@ import { UserListWithAuthorAndUsers } from "../../../prisma/additional"
 import { getBaseUrl } from "../../../lib/base_url"
 
 const createQuestionSchema = z.object({
-  apiKey: z.string().nonempty({
-    message: `apiKey must be a string (see ${getBaseUrl()}/api-setup)`,
-  }),
+  // optional here because it can also be sent in a header (lib/api_keys.ts)
+  apiKey: z.string().optional(),
   title: z.string().nonempty({ message: "title must be a string" }),
   resolveBy: z
     .string()
@@ -86,11 +86,7 @@ const createQuestionPublicApi = async (req: Request, res: NextApiResponse) => {
     notes,
   } = result.data
 
-  const user = await prisma.user.findFirst({
-    where: {
-      apiKey: apiKey,
-    },
-  })
+  const user = await findUserByApiKey(resolveApiKey(apiKey, req.headers))
   if (!user) {
     res.status(401).json({
       error: `Invalid API key. Check your API key at ${getBaseUrl()}/api-setup`,

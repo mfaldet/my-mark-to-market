@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next"
 import { getServerSession } from "next-auth"
 import NextCors from "nextjs-cors"
+import { findUserByApiKey, resolveApiKey } from "../../../lib/api_keys"
 import prisma from "../../../lib/prisma"
 import {
   assertHasAccess,
@@ -48,12 +49,9 @@ const getQuestionPublicApi = async (req: Request, res: NextApiResponse) => {
   }
 
   let authedUserId = null
-  if (req.query.apiKey) {
-    const user = await prisma.user.findFirst({
-      where: {
-        apiKey: req.query.apiKey,
-      },
-    })
+  const apiKey = resolveApiKey(req.query.apiKey, req.headers)
+  if (apiKey) {
+    const user = await findUserByApiKey(apiKey)
     if (!user) {
       return res.status(401).json({
         error: `Invalid API key. Check your API key at ${getBaseUrl()}/api-setup`,

@@ -265,7 +265,13 @@ model User {
   memberOfLists            UserList[]       @relation(name: "members")
   staleReminder            Boolean          @default(true)
   unsubscribedFromEmailsAt DateTime?
+  // No longer written. Upstream stored the key here as plain text; the
+  // migration that added apiKeyHash moved every key across and emptied this.
   apiKey                   String?
+  // SHA-256 of the API key (see lib/api_keys.ts). The key itself is never stored.
+  apiKeyHash               String?          @unique
+  apiKeyLastFour           String?
+  apiKeyCreatedAt          DateTime?
   discordUserId            String?          @unique
   tags                     Tag[]
   tournaments              Tournament[]

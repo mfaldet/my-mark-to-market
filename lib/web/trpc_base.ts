@@ -3,6 +3,7 @@ import { CreateNextContextOptions } from "@trpc/server/adapters/next"
 import { getServerSession } from "next-auth"
 import { OpenApiMeta } from "trpc-openapi"
 import transformer from "trpc-transformer"
+import { apiKeyFromHeaders } from "../api_keys"
 import { authOptions } from "../../pages/api/auth/[...nextauth]"
 
 export const createContext = async (opts: CreateNextContextOptions) => {
@@ -11,6 +12,8 @@ export const createContext = async (opts: CreateNextContextOptions) => {
   return {
     session,
     userId: session?.user?.id,
+    // an API key sent as "Authorization: Bearer <key>" or "X-Api-Key: <key>"
+    apiKeyHeader: apiKeyFromHeaders(opts.req.headers),
   }
 }
 
