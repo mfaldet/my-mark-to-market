@@ -28,6 +28,7 @@ import {
   withdrawClaim,
 } from "../service"
 import { Extraction } from "../extract"
+import { loadPublicRecord } from "../public_record"
 import prisma from "../../prisma"
 
 const db = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip
@@ -231,5 +232,64 @@ db("claim service, against the database", () => {
     expect(
       await prisma.forecast.count({ where: { questionId: claim.id } }),
     ).toBe(0)
+  })
+
+  it("the public track record shows public claims only: never private or withdrawn ones", async () => {
+    const stamp = Date.now()
+    const owner = (
+      await prisma.user.create({
+        data: { email: `public-${stamp}@test.local` },
+      })
+    ).id
+    const make = (text: string) =>
+      logClaim({
+        userId: owner,
+        text,
+        claimDate: "2025-07-14",
+        source: "WEB",
+        extraction: unemployment,
+      })
+    const publish = async (id: string) => {
+      for (const part of [
+        "measure",
+        "comparison",
+        "value",
+        "unit",
+        "deadline",
+      ]) {
+        await confirmPart(owner, id, part, "WEB")
+      }
+      await setPublic(owner, id, true, "WEB")
+    }
+
+    const shown = await make("PUBLIC unemployment will hit 6% by end of 2028")
+    const hidden = await make("PRIVATE unemployment will hit 6% by end of 2028")
+    const gone = await make("WITHDRAWN unemployment will hit 6% by end of 2028")
+    await publish(shown.id)
+    await publish(gone.id)
+    await withdrawClaim(owner, gone.id, "WEB")
+    await updateConfidence(
+      owner,
+      shown.id,
+      { word: "LIKELY", note: "SECRET-NOTE" },
+      "WEB",
+    )
+
+    const record = await loadPublicRecord(owner)
+    expect(record!.claims.map((c) => c.id)).toEqual([shown.id])
+    expect(record!.summary.publicClaims).toBe(1)
+
+    const everything = JSON.stringify(record)
+    expect(everything).not.toContain(hidden.id)
+    expect(everything).not.toContain("PRIVATE")
+    expect(everything).not.toContain("WITHDRAWN")
+    expect(everything).not.toContain("SECRET-NOTE")
+
+    // the published hash is the real latest hash of the claim's history
+    const check = await verifyHistory(owner, shown.id)
+    expect(check.ok && check.latestHash).toBe(
+      record!.claims[0].history.latestHash,
+    )
+    expect(await loadPublicRecord("no-such-user")).toBeNull()
   })
 })

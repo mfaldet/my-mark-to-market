@@ -5,6 +5,7 @@ import { TrackRecord } from "../components/TrackRecord"
 import { UserLists } from "../components/UserLists"
 import { WhyForecastInfo } from "../components/WhyForecastInfo"
 import { LogClaim } from "../components/claims/LogClaim"
+import { PublicRecordLinks } from "../components/claims/PublicRecordLinks"
 import { Predict } from "../components/predict-form/Predict"
 import { QuickFeedback } from "../components/ui/QuickFeedback"
 import { useUserId } from "../lib/web/utils"
@@ -49,6 +50,7 @@ function Sidebar() {
       <div className="min-h-28">{userId && <OnboardingChecklist />}</div>
       <div className="max-w-[320px] flex flex-col gap-12 ml-auto lg:w-[320px]">
         {userId && <TrackRecord trackRecordUserId={userId} />}
+        {userId && <PublicRecordLinks userId={userId} />}
         {userId && FEATURES.tournaments && <Tournaments />}
         {userId && FEATURES.teams && <UserLists />}
         {userId && FEATURES.feedback && (
