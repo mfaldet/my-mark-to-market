@@ -19,7 +19,9 @@ import {
   ClaimError,
   confirmPart,
   getTimeline,
+  listClaims,
   logClaim,
+  notifyReadyToResolve,
   resolveClaim,
   setPart,
   setPublic,
@@ -291,5 +293,122 @@ db("claim service, against the database", () => {
       record!.claims[0].history.latestHash,
     )
     expect(await loadPublicRecord("no-such-user")).toBeNull()
+  })
+
+  describe("what's due, and the daily job", () => {
+    const now = new Date("2030-06-15T01:00:00.000Z")
+    let owner: string
+    const ids: Record<string, string> = {}
+
+    beforeAll(async () => {
+      owner = (
+        await prisma.user.create({
+          data: { email: `due-${Date.now()}@test.local` },
+        })
+      ).id
+      const make = async (key: string, deadline: string) => {
+        const claim = await logClaim({
+          userId: owner,
+          // neutral wording: "today" or "yesterday" in a claim is read as its deadline
+          text: `Test claim ${Object.keys(ids).length + 1}`,
+          source: "WEB",
+          extraction: { ...unemployment, deadline },
+        })
+        ids[key] = claim.id
+      }
+      await make("longOverdue", "2030-05-01")
+      await make("yesterday", "2030-06-14")
+      await make("today", "2030-06-15")
+      await make("inFive", "2030-06-20")
+      await make("inSeven", "2030-06-22")
+      await make("inEight", "2030-06-23")
+      await make("overdueResolved", "2030-06-01")
+      await make("overdueWithdrawn", "2030-06-02")
+      await resolveClaim(
+        owner,
+        ids.overdueResolved,
+        { resolution: "YES" },
+        "WEB",
+      )
+      await withdrawClaim(owner, ids.overdueWithdrawn, "WEB")
+    })
+
+    const list = async (
+      due: "soon" | "overdue" | "soon_or_overdue",
+      withinDays?: number,
+    ) => (await listClaims(owner, { due, withinDays, now })).map((c) => c.id)
+
+    it("overdue: deadline passed and not resolved, oldest first", async () => {
+      expect(await list("overdue")).toEqual([ids.longOverdue, ids.yesterday])
+    })
+
+    it("due soon: today through 7 days ahead, soonest first", async () => {
+      expect(await list("soon")).toEqual([ids.today, ids.inFive, ids.inSeven])
+      expect(await list("soon", 5)).toEqual([ids.today, ids.inFive])
+    })
+
+    it("both together, most pressing first, with a plain 'due' line", async () => {
+      const claims = await listClaims(owner, { due: "soon_or_overdue", now })
+      expect(claims.map((c) => c.dueText)).toEqual([
+        "overdue by 45 days",
+        "overdue by 1 day",
+        "due today",
+        "due in 5 days",
+        "due in 7 days",
+      ])
+      expect(claims.map((c) => c.due)).toEqual([
+        "overdue",
+        "overdue",
+        "due soon",
+        "due soon",
+        "due soon",
+      ])
+    })
+
+    it("the daily job adds one bell note per overdue claim and marks it pinged", async () => {
+      const mine = () =>
+        prisma.notification.findMany({ where: { userId: owner } })
+
+      await notifyReadyToResolve(now, owner)
+      const notes = await mine()
+      expect(notes.map((n) => n.questionId).sort()).toEqual(
+        [ids.longOverdue, ids.yesterday].sort(),
+      )
+      expect(notes[0]).toMatchObject({
+        tags: ["ready_to_resolve"],
+        read: false,
+        emailSentAt: null,
+      })
+      expect(notes.map((n) => n.title)).toContain(
+        "Ready to resolve: Test claim 2",
+      )
+
+      const pinged = await prisma.question.findMany({
+        where: { userId: owner, pingedForResolution: true },
+      })
+      expect(pinged.map((q) => q.id).sort()).toEqual(
+        [ids.longOverdue, ids.yesterday].sort(),
+      )
+    })
+
+    it("running it again announces nothing twice", async () => {
+      await notifyReadyToResolve(now, owner)
+      await notifyReadyToResolve(now, owner)
+      expect(
+        await prisma.notification.count({ where: { userId: owner } }),
+      ).toBe(2)
+    })
+
+    it("the next day it picks up the claim that was due 'today'", async () => {
+      await notifyReadyToResolve(new Date("2030-06-16T01:00:00.000Z"), owner)
+      const notes = await prisma.notification.findMany({
+        where: { userId: owner },
+      })
+      expect(notes).toHaveLength(3)
+      expect(notes.map((n) => n.questionId)).toContain(ids.today)
+      // never the resolved or the withdrawn claim
+      expect(notes.map((n) => n.questionId)).not.toContain(ids.overdueResolved)
+      expect(notes.map((n) => n.questionId)).not.toContain(ids.overdueWithdrawn)
+    })
   })
 })

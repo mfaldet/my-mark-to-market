@@ -81,6 +81,8 @@ const claim = z.object({
   backDated: z.boolean(),
   entrySource: z.string().nullable(),
   deadline: z.string(),
+  due: z.enum(["overdue", "due soon"]).nullable(),
+  dueText: z.string().nullable(),
   deadlineKind: z.enum(["deadline", "check back by"]),
   shape: z.string().nullable(),
   parts: z.record(part),
@@ -332,12 +334,15 @@ export const claimsApiRouter = router({
         method: "GET",
         path: "/v0/claims/list",
         tags,
-        description: "List your claims, newest first.",
+        description:
+          'List your claims, newest first. To ask "what\'s due?", set `due`: "soon" (deadline today or within `withinDays`, default 7), "overdue" (deadline passed, not resolved) or "soon_or_overdue". Those come back most pressing first.',
       },
     })
     .input(
       z.object({
         status: z.enum(["open", "resolved", "all"]).optional(),
+        due: z.enum(["soon", "overdue", "soon_or_overdue"]).optional(),
+        withinDays: z.coerce.number().int().min(0).max(366).optional(),
         limit: z.coerce.number().min(1).max(200).optional(),
         apiKey,
       }),
@@ -346,6 +351,8 @@ export const claimsApiRouter = router({
     .query(async ({ input, ctx }) => ({
       claims: await listClaims(await requireUser(ctx, input.apiKey), {
         status: input.status,
+        due: input.due,
+        withinDays: input.withinDays,
         limit: input.limit,
       }).catch(toTrpcError),
     })),

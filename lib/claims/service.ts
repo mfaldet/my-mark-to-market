@@ -25,6 +25,13 @@ import prisma from "../prisma"
 import { getQuestionUrl } from "../web/question_url"
 import { analyzeClaim } from "./analyze"
 import { CONFIDENCE_RANGES, probabilityForWord } from "./confidence"
+import {
+  describeDue,
+  dueSoonCutoff,
+  dueStatus,
+  DueStatus,
+  startOfToday,
+} from "./due"
 import { extractClaim, Extraction } from "./extract"
 import { canPublish, gradeClaim } from "./grade"
 import {
@@ -113,6 +120,10 @@ export type ClaimView = {
   entrySource: EntrySource | null
   /** YYYY-MM-DD */
   deadline: string
+  /** for unresolved claims: "overdue", "due soon" (within 7 days), or null */
+  due: DueStatus
+  /** for unresolved claims: "overdue by 3 days", "due today", "due in 5 days" */
+  dueText: string | null
   /** "check back by" when the deadline is missing or only a working default */
   deadlineKind: "deadline" | "check back by"
   shape: ClaimShape | null
@@ -141,7 +152,7 @@ export type ClaimView = {
   questionsAsked: number
 }
 
-export function toClaimView(row: ClaimRow): ClaimView {
+export function toClaimView(row: ClaimRow, now = new Date()): ClaimView {
   const parts = partsOf(row)
   const gradeInput = {
     shape: row.claimShape,
@@ -164,6 +175,9 @@ export function toClaimView(row: ClaimRow): ClaimView {
     backDated: isoDay(claimDate) < isoDay(row.createdAt),
     entrySource: row.entrySource,
     deadline: isoDay(row.resolveBy),
+    due: row.resolved || row.withdrawnAt ? null : dueStatus(row.resolveBy, now),
+    dueText:
+      row.resolved || row.withdrawnAt ? null : describeDue(row.resolveBy, now),
     deadlineKind:
       parts.deadline && parts.deadline.status !== "working"
         ? "deadline"
@@ -531,30 +545,104 @@ export async function getClaim(userId: string, claimId: string) {
   return toClaimView(await loadOwned(userId, claimId))
 }
 
+export type DueFilter = "soon" | "overdue" | "soon_or_overdue"
+
 export async function listClaims(
   userId: string,
   options: {
     status?: "open" | "resolved" | "all"
+    /**
+     * "What's due?" Only unresolved claims:
+     *   soon            - deadline today or within `withinDays`
+     *   overdue         - deadline has passed
+     *   soon_or_overdue - both
+     * The result is then ordered by deadline, most pressing first.
+     */
+    due?: DueFilter
+    /** how far ahead "soon" looks; default 7 days */
+    withinDays?: number
     includeWithdrawn?: boolean
     limit?: number
+    /** only tests pass this */
+    now?: Date
   } = {},
 ): Promise<ClaimView[]> {
+  const now = options.now ?? new Date()
+  const today = startOfToday(now)
+  const cutoff = dueSoonCutoff(now, options.withinDays)
+  const deadline: Prisma.DateTimeFilter | undefined =
+    options.due === "overdue"
+      ? { lt: today }
+      : options.due === "soon"
+        ? { gte: today, lte: cutoff }
+        : options.due === "soon_or_overdue"
+          ? { lte: cutoff }
+          : undefined
+
   const rows = await prisma.question.findMany({
     where: {
       userId,
       withdrawnAt: options.includeWithdrawn ? undefined : null,
-      resolved:
-        options.status === "open"
+      resolved: options.due
+        ? false
+        : options.status === "open"
           ? false
           : options.status === "resolved"
             ? true
             : undefined,
+      resolveBy: deadline,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: options.due ? { resolveBy: "asc" } : { createdAt: "desc" },
     take: Math.min(options.limit ?? 50, 200),
     include: CLAIM_INCLUDE,
   })
-  return rows.map(toClaimView)
+  return rows.map((row) => toClaimView(row, now))
+}
+
+/**
+ * The daily job's one step: for every claim whose deadline has passed and
+ * that I have not yet been told about, put a "ready to resolve" note in
+ * the web app's notification bell and mark the claim as pinged, so it is
+ * only announced once. No email, no Slack.
+ */
+export async function notifyReadyToResolve(
+  now = new Date(),
+  /** only tests pass this, to stay inside their own test user */
+  onlyUserId?: string,
+) {
+  const due = await prisma.question.findMany({
+    where: {
+      userId: onlyUserId,
+      resolveBy: { lt: startOfToday(now) },
+      resolved: false,
+      pingedForResolution: false,
+      withdrawnAt: null,
+    },
+    orderBy: { resolveBy: "asc" },
+  })
+
+  const notified: string[] = []
+  for (const claim of due) {
+    // the note and the "pinged" mark are saved together, or not at all
+    await prisma.$transaction([
+      prisma.notification.create({
+        data: {
+          title: `Ready to resolve: ${claim.title}`,
+          content: `This claim came due on ${isoDay(claim.resolveBy)}. How did it turn out?`,
+          url: getQuestionUrl(claim),
+          tags: ["ready_to_resolve"],
+          userId: claim.userId,
+          questionId: claim.id,
+        },
+      }),
+      prisma.question.update({
+        where: { id: claim.id },
+        data: { pingedForResolution: true },
+      }),
+    ])
+    notified.push(claim.id)
+  }
+  return { notified }
 }
 
 // --- The engine's question -------------------------------------------------

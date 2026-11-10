@@ -41,6 +41,13 @@ export const FEATURES = {
   analytics: on(process.env.NEXT_PUBLIC_ENABLE_ANALYTICS),
   /** Fatebook's original question form on the home page (the claim box replaces it) */
   classicForm: on(process.env.NEXT_PUBLIC_ENABLE_CLASSIC_FORM),
+  /**
+   * Fatebook's full daily job: Slack "ready to resolve" messages,
+   * forecast-target nudges, stale-forecast reminders and un-hiding hidden
+   * forecasts. Off: the daily job only adds "ready to resolve" notes to
+   * the notification bell.
+   */
+  fullDailyJob: on(process.env.NEXT_PUBLIC_ENABLE_FULL_DAILY_JOB),
   /** The "give feedback" box, which posts to Sage's Slack */
   feedback: on(process.env.NEXT_PUBLIC_ENABLE_FEEDBACK),
 } as const
@@ -79,6 +86,7 @@ export const FEATURE_ROUTES: Record<Feature, readonly string[]> = {
   analytics: [],
   feedback: [],
   classicForm: [],
+  fullDailyJob: [],
 }
 
 /** Every path prefix that belongs to some feature (used by middleware.ts). */
