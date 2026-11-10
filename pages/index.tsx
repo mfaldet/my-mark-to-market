@@ -4,6 +4,7 @@ import { Tournaments } from "../components/Tournaments"
 import { TrackRecord } from "../components/TrackRecord"
 import { UserLists } from "../components/UserLists"
 import { WhyForecastInfo } from "../components/WhyForecastInfo"
+import { LogClaim } from "../components/claims/LogClaim"
 import { Predict } from "../components/predict-form/Predict"
 import { QuickFeedback } from "../components/ui/QuickFeedback"
 import { useUserId } from "../lib/web/utils"
@@ -22,12 +23,13 @@ export default function HomePage() {
           {!userId && sessionStatus !== "loading" && (
             <>
               <h3 className="text-neutral-600">
-                Track your predictions, make better decisions
+                Log your claims. See how they turn out.
               </h3>
             </>
           )}
 
-          <Predict />
+          <LogClaim />
+          {FEATURES.classicForm && <Predict />}
           <Questions />
 
           {sessionStatus !== "loading" && !userId && <WhyForecastInfo />}

@@ -94,6 +94,14 @@ const createQuestionPublicApi = async (req: Request, res: NextApiResponse) => {
     return
   }
 
+  if (sharePublicly) {
+    res.status(400).json({
+      error:
+        "Claims start private. Share it publicly once it is grade 4 or 5 and every part is confirmed.",
+    })
+    return
+  }
+
   let tagEntities: Tag[] = []
   if (tags && tags.length > 0) {
     tagEntities = await prisma.tag.findMany({
