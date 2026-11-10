@@ -23,6 +23,8 @@ import {
   ForecastWithQuestionWithQMessagesAndRMessagesAndForecasts,
   ForecastWithQuestionWithSlackMessagesAndForecasts,
 } from "../../prisma/additional"
+import { notifyReadyToResolve } from "../../lib/claims/service"
+import { isAuthorizedCron } from "../../lib/cron_auth"
 import { FEATURES } from "../../lib/features"
 
 export const config = {
@@ -534,19 +536,22 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  if (
-    ((process.env.NODE_ENV === "development" ||
-      process.env.NODE_ENV === "test") &&
-      !process.env.DATABASE_URL?.includes("supabase")) ||
-    req.query.key !== process.env.CHECK_UPDATES_KEY
-  ) {
-    console.error(
-      "Not in production, no operation on non-supabase db. Or - not using correct key. Make a debug function that restricts these functions to a specific workspace.",
-    )
-    res.status(403).json({ error: "Invalid authorisation or environment." })
+  // Vercel's cron sends "Authorization: Bearer <CRON_SECRET>".
+  if (!isAuthorizedCron(req.headers)) {
+    res.status(401).json({ error: "Unauthorized" })
     return
   }
 
+  // The one step this fork runs: when a claim passes its deadline, add a
+  // "ready to resolve" note to the notification bell and mark it pinged.
+  // No email and no Slack.
+  if (!FEATURES.fullDailyJob) {
+    const { notified } = await notifyReadyToResolve()
+    res.json({ readyToResolve: notified.length })
+    return
+  }
+
+  // Fatebook's full daily job, behind NEXT_PUBLIC_ENABLE_FULL_DAILY_JOB.
   // wrap everything in a try catch so that if one fails, the others still run
   let allQuestionsToBeNotified,
     questionsToBeUpdated,

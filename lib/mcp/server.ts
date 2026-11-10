@@ -36,6 +36,7 @@ export const MCP_INSTRUCTIONS = `${APP_NAME} is the user's personal log of their
 - Log a claim only when the user asks you to, or clearly states a prediction and wants it recorded. Never log claims made by other people.
 - Pass the user's claim in their own words, exactly as they said it. Do not tidy, sharpen or complete it: the app grades how checkable the claim is, and filling gaps for them would hide what they actually said.
 - After logging, the app may return one question. Ask the user that question, with its suggested default if there is one, and wait for their reply. Do not answer it yourself. Use accept only when the user agrees to the suggested default.
+- When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each claim's text and its "due" line. Do not resolve anything unless they tell you how it turned out.
 - A grade of 1 to 3 is fine. Those are hunches, and they stay private. Do not push the user to keep answering.`
 
 /** A compact, readable summary of a claim for the model. */
@@ -47,6 +48,7 @@ export function summarize(claim: ClaimView) {
     claimDate: claim.claimDate,
     [claim.deadlineKind === "deadline" ? "deadline" : "checkBackBy"]:
       claim.deadline,
+    ...(claim.dueText ? { due: claim.dueText } : {}),
     grade: claim.grade,
     gradeReason: claim.gradeReason,
     shape: claim.shape,
@@ -265,23 +267,39 @@ export const TOOLS: Tool[] = [
     name: "list_claims",
     title: "List claims",
     description:
-      "List the user's claims, newest first, with ids, grades, deadlines and confidence. Use it to find a claim's id before updating it.",
+      'List the user\'s claims, newest first, with ids, grades, deadlines and confidence. Use it to find a claim\'s id before updating it. To answer "what\'s due?", set due: "soon" for unresolved claims due today or within within_days (default 7), "overdue" for unresolved claims whose deadline has passed, or "soon_or_overdue" for both. Those come back most pressing first, each with a "due" line such as "overdue by 3 days".',
     inputSchema: {
       type: "object",
       properties: {
         status: { type: "string", enum: ["open", "resolved", "all"] },
+        due: {
+          type: "string",
+          enum: ["soon", "overdue", "soon_or_overdue"],
+          description:
+            "Only unresolved claims that are due soon, overdue, or either.",
+        },
+        within_days: {
+          type: "integer",
+          minimum: 0,
+          maximum: 366,
+          description: 'How far ahead "soon" looks. Default 7.',
+        },
         limit: { type: "integer", minimum: 1, maximum: 100 },
       },
     },
     readOnly: true,
     input: z.object({
       status: z.enum(["open", "resolved", "all"]).optional(),
+      due: z.enum(["soon", "overdue", "soon_or_overdue"]).optional(),
+      within_days: z.number().int().min(0).max(366).optional(),
       limit: z.number().int().min(1).max(100).optional(),
     }),
     handler: async (userId, args) =>
       (
         await listClaims(userId, {
           status: args.status,
+          due: args.due,
+          withinDays: args.within_days,
           limit: args.limit ?? 20,
         })
       ).map(summarize),

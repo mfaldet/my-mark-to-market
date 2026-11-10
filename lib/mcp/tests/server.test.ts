@@ -165,6 +165,30 @@ describe("the MCP tools", () => {
     })
   })
 
+  it('list_claims can answer "what\'s due?"', async () => {
+    mocked.listClaims.mockResolvedValue([
+      { ...view, due: "overdue", dueText: "overdue by 3 days" },
+    ])
+    const result = await callTool("u1", "list_claims", {
+      due: "soon_or_overdue",
+      within_days: 14,
+    })
+    expect(service.listClaims).toHaveBeenCalledWith("u1", {
+      status: undefined,
+      due: "soon_or_overdue",
+      withinDays: 14,
+      limit: 20,
+    })
+    expect(parse(result)[0]).toMatchObject({
+      id: "c1",
+      due: "overdue by 3 days",
+    })
+    expect(MCP_INSTRUCTIONS).toMatch(/what is due/)
+    expect(
+      (await callTool("u1", "list_claims", { due: "eventually" })).isError,
+    ).toBe(true)
+  })
+
   it.each([
     ["log_claim", {}],
     ["log_claim", { text: "x", claim_date: "last July" }],
