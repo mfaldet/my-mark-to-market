@@ -290,7 +290,9 @@ export function ClaimPanel({
       <ConfidenceRow claim={claim} />
 
       <div className="flex items-center gap-2 min-h-8">
-        <span className="text-neutral-500 w-24 sm:w-36 shrink-0">Check link</span>
+        <span className="text-neutral-500 w-24 sm:w-36 shrink-0">
+          Check link
+        </span>
         {linkDraft !== null ? (
           <form
             className="flex gap-2 grow"
