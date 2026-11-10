@@ -10,6 +10,7 @@ import {
 } from "../../../lib/_utils_common"
 import { backendAnalyticsEvent } from "../../../lib/_utils_server"
 import prisma from "../../../lib/prisma"
+import { isAllowedToSignIn } from "../../../lib/signin_allowlist"
 import { getBaseUrl } from "../../../lib/base_url"
 import { FEATURES } from "../../../lib/features"
 
@@ -143,11 +144,17 @@ export const authOptions: NextAuthOptions = {
       // "dangerous" if Google does not verify the email address
       allowDangerousEmailAccountLinking: true,
     }),
-    EmailProvider({
-      server: process.env.AUTH_EMAIL_SERVER,
-      from: process.env.AUTH_EMAIL_FROM,
-      maxAge: 20 * 60, // 20 minutes in seconds. Reduced because of Outlook SafeLink workaround
-    }),
+    // The email-link option needs a mail server. With none set up (the
+    // case in production) it is left out, so Google is the only option shown.
+    ...(process.env.AUTH_EMAIL_SERVER
+      ? [
+          EmailProvider({
+            server: process.env.AUTH_EMAIL_SERVER,
+            from: process.env.AUTH_EMAIL_FROM,
+            maxAge: 20 * 60, // 20 minutes in seconds. Reduced because of Outlook SafeLink workaround
+          }),
+        ]
+      : []),
   ],
   theme: {
     colorScheme: "light",
@@ -198,6 +205,9 @@ export const authOptions: NextAuthOptions = {
     },
   },
   callbacks: {
+    // A personal app: when ALLOWED_SIGNIN_EMAILS is set, nobody else can
+    // sign in or create an account.
+    signIn: ({ user }) => isAllowedToSignIn(user.email),
     session: (params: { session: Session; token: JWT }) => {
       const { session, token } = params
       if (token.id && session.user) {

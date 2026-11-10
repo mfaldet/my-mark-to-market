@@ -149,7 +149,13 @@ export function ClaimTimeline({ claimId }: { claimId: string }) {
             <li key={i} className="pl-4 relative">
               <span className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-neutral-400" />
               <div className="text-xs text-neutral-500">{when(event.at)}</div>
-              {event.kind === "confidence" ? (
+              {event.kind === "became" ? (
+                <div className="font-semibold">
+                  {event.became === "prediction"
+                    ? "Became a prediction"
+                    : "Became a hunch again"}
+                </div>
+              ) : event.kind === "confidence" ? (
                 <div>
                   Confidence:{" "}
                   <span className="font-semibold">

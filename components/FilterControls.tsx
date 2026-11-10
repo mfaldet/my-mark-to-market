@@ -136,6 +136,8 @@ export function FilterControls({
         {!searchVisible && !isMobile && (
           <button
             onClick={() => setSearchVisible(!searchVisible)}
+            aria-label="Search"
+            title="Search"
             className="btn text-neutral-500"
           >
             <MagnifyingGlassIcon height={16} />
@@ -205,6 +207,9 @@ export function FilterControls({
 
         <button
           onClick={() => setFilterVisible(!filterVisible)}
+          aria-label="Filter"
+          title="Filter"
+          aria-expanded={filterVisible}
           className={clsx(
             "btn text-neutral-500",
             filterVisible && "btn-active",

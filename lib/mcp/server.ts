@@ -44,6 +44,8 @@ export function summarize(claim: ClaimView) {
   return {
     id: claim.id,
     url: claim.url,
+    kind: claim.kind,
+    ...(claim.imported ? { imported: true } : {}),
     text: claim.text,
     claimDate: claim.claimDate,
     [claim.deadlineKind === "deadline" ? "deadline" : "checkBackBy"]:

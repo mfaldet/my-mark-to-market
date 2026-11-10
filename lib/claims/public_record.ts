@@ -14,6 +14,7 @@ import { APP_NAME, UPSTREAM } from "../app_name"
 import { getBaseUrl } from "../base_url"
 import prisma from "../prisma"
 import { CONFIDENCE_RANGES } from "./confidence"
+import { isImported } from "./kind"
 
 /** One public claim, as plain data. */
 export type PublicClaimInput = {
@@ -82,7 +83,7 @@ export function buildPublicRecord(
       band: band.label,
       low: band.low,
       high: band.high,
-      claims: inBand.length,
+      predictions: inBand.length,
       cameTrue,
       rate: inBand.length ? round(cameTrue / inBand.length) : null,
     }
@@ -100,7 +101,7 @@ export function buildPublicRecord(
     about:
       "Only claims the owner has chosen to share publicly. A claim can be public only once it is complete and checkable (grade 4 or 5).",
     summary: {
-      publicClaims: claims.length,
+      publicPredictions: claims.length,
       open: claims.length - resolved.length,
       resolved: resolved.length,
       right: right.length,
@@ -121,11 +122,13 @@ export function buildPublicRecord(
       scoredWithConfidence: scored.length,
     },
     calibration,
-    claims: claims.map((c) => {
+    predictions: claims.map((c) => {
       const last = c.forecasts[c.forecasts.length - 1]
       return {
         id: c.id,
         url: c.url,
+        // brought in by an importer, so not logged here in advance
+        imported: isImported(c.id),
         text: c.text,
         claimDate: day(c.claimDate),
         loggedAt: c.loggedAt.toISOString(),

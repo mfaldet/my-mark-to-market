@@ -1,14 +1,14 @@
 import {
   BellIcon,
   ChartBarIcon,
+  ClockIcon,
   HomeIcon,
-  UsersIcon,
 } from "@heroicons/react/24/solid"
 import clsx from "clsx"
 import { useRouter } from "next/router"
 import { ReactNode } from "react"
 import { useUserId } from "../lib/web/utils"
-import Footer, { Credit } from "./Footer"
+import Footer from "./Footer"
 import { Navbar } from "./Navbar"
 
 export function Layout({
@@ -40,12 +40,10 @@ export function Layout({
         {!showNavbar && main}
 
         <BottomNav />
-        <div className="hidden lg:block">
+        {/* One footer, on every screen size. The padding on small screens
+            keeps it clear of the bottom bar. */}
+        <div className="max-lg:pb-16">
           <Footer />
-        </div>
-        {/* small screens have no footer, so the credit goes here */}
-        <div className="pt-4 pb-20 lg:hidden bg-neutral-50 text-center">
-          <Credit />
         </div>
       </div>
     </>
@@ -60,21 +58,16 @@ function BottomNav() {
   if (!userId) return <></>
 
   return (
-    <div className="btm-nav ring-1 ring-neutral-100 z-[500] lg:hidden">
+    <nav
+      aria-label="Main"
+      className="btm-nav ring-1 ring-neutral-100 z-[500] lg:hidden"
+    >
       {[
-        {
-          path: "/",
-          title: "Home",
-          icon: <HomeIcon width={24} />,
-        },
-        {
-          path: "/collaborators",
-          title: "Collaborators",
-          icon: <UsersIcon width={24} />,
-        },
+        { path: "/", title: "Home", icon: <HomeIcon width={24} /> },
+        { path: "/due", title: "Due", icon: <ClockIcon width={24} /> },
         {
           path: "/stats",
-          title: "Stats",
+          title: "Track record",
           icon: <ChartBarIcon width={24} />,
         },
         {
@@ -85,12 +78,15 @@ function BottomNav() {
       ].map(({ path, icon, title }) => (
         <button
           key={title}
+          aria-label={title}
+          title={title}
+          aria-current={router.pathname === path ? "page" : undefined}
           className={clsx("text-primary", router.pathname === path && "active")}
           onClick={() => void router.push(path)}
         >
           {icon}
         </button>
       ))}
-    </div>
+    </nav>
   )
 }

@@ -61,12 +61,12 @@ describe("buildPublicRecord", () => {
   it("an empty record has nulls, not misleading zeros", () => {
     const record = buildPublicRecord({ name: "Mac" }, [], now)
     expect(record.summary).toMatchObject({
-      publicClaims: 0,
+      publicPredictions: 0,
       resolved: 0,
       accuracy: null,
       brierScore: null,
     })
-    expect(record.claims).toEqual([])
+    expect(record.predictions).toEqual([])
     expect(record.app.builtOn).toBe("Fatebook by Sage")
   })
 
@@ -83,7 +83,7 @@ describe("buildPublicRecord", () => {
       now,
     )
     expect(record.summary).toMatchObject({
-      publicClaims: 5,
+      publicPredictions: 5,
       open: 1,
       resolved: 4,
       right: 2,
@@ -107,8 +107,8 @@ describe("buildPublicRecord", () => {
       scoredWithConfidence: 1,
       brierScore: 0.49,
     })
-    expect(record.calibration.reduce((n, b) => n + b.claims, 0)).toBe(1)
-    expect(record.claims[0].confidence).toBeNull()
+    expect(record.calibration.reduce((n, b) => n + b.predictions, 0)).toBe(1)
+    expect(record.predictions[0].confidence).toBeNull()
   })
 
   it("puts each claim in the band of its last confidence", () => {
@@ -132,13 +132,20 @@ describe("buildPublicRecord", () => {
     const band = (label: string) =>
       record.calibration.find((b) => b.band === label)!
     expect(band("likely")).toMatchObject({
-      claims: 3,
+      predictions: 3,
       cameTrue: 2,
       rate: 0.667,
     })
-    expect(band("unlikely")).toMatchObject({ claims: 1, cameTrue: 0, rate: 0 })
-    expect(band("almost no chance")).toMatchObject({ claims: 1, cameTrue: 0 })
-    expect(band("almost certain")).toMatchObject({ claims: 0, rate: null })
+    expect(band("unlikely")).toMatchObject({
+      predictions: 1,
+      cameTrue: 0,
+      rate: 0,
+    })
+    expect(band("almost no chance")).toMatchObject({
+      predictions: 1,
+      cameTrue: 0,
+    })
+    expect(band("almost certain")).toMatchObject({ predictions: 0, rate: null })
   })
 
   it("each claim carries what a reader needs to check it", () => {
@@ -155,7 +162,7 @@ describe("buildPublicRecord", () => {
         }),
       ],
       now,
-    ).claims
+    ).predictions
     expect(c).toMatchObject({
       text: "Unemployment will hit 6% by 2028",
       claimDate: "2025-07-14",

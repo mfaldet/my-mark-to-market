@@ -16,6 +16,8 @@ jest.mock("node-fetch", () => ({ __esModule: true, default: jest.fn() }))
 jest.mock("trpc-transformer", () => ({ __esModule: true, default: {} }))
 
 import {
+  answerQuestion,
+  assertCanResolve,
   ClaimError,
   confirmPart,
   getTimeline,
@@ -25,6 +27,7 @@ import {
   resolveClaim,
   setPart,
   setPublic,
+  toClaimView,
   updateConfidence,
   verifyHistory,
   withdrawClaim,
@@ -278,8 +281,8 @@ db("claim service, against the database", () => {
     )
 
     const record = await loadPublicRecord(owner)
-    expect(record!.claims.map((c) => c.id)).toEqual([shown.id])
-    expect(record!.summary.publicClaims).toBe(1)
+    expect(record!.predictions.map((c) => c.id)).toEqual([shown.id])
+    expect(record!.summary.publicPredictions).toBe(1)
 
     const everything = JSON.stringify(record)
     expect(everything).not.toContain(hidden.id)
@@ -290,7 +293,7 @@ db("claim service, against the database", () => {
     // the published hash is the real latest hash of the claim's history
     const check = await verifyHistory(owner, shown.id)
     expect(check.ok && check.latestHash).toBe(
-      record!.claims[0].history.latestHash,
+      record!.predictions[0].history.latestHash,
     )
     expect(await loadPublicRecord("no-such-user")).toBeNull()
   })
@@ -409,6 +412,99 @@ db("claim service, against the database", () => {
       // never the resolved or the withdrawn claim
       expect(notes.map((n) => n.questionId)).not.toContain(ids.overdueResolved)
       expect(notes.map((n) => n.questionId)).not.toContain(ids.overdueWithdrawn)
+    })
+  })
+
+  describe("hunches and predictions", () => {
+    const hunch = () =>
+      logClaim({
+        userId,
+        text: "The labor market is weakening",
+        claimDate: "2025-07-14",
+        source: "WEB",
+        extraction: {
+          source: "ai",
+          shape: "FREE_TEXT",
+          parts: {},
+          deadline: null,
+        },
+      })
+
+    it("a loose entry is a hunch; a complete one is a prediction", async () => {
+      expect((await hunch()).kind).toBe("hunch")
+      expect((await log()).kind).toBe("prediction")
+    })
+
+    it("a hunch cannot be resolved or scored, by either route", async () => {
+      const claim = await hunch()
+      await expect(
+        resolveClaim(userId, claim.id, { resolution: "YES" }, "WEB"),
+      ).rejects.toMatchObject({
+        code: "BLOCKED",
+        message: expect.stringContaining("still a hunch"),
+      })
+      const row = await prisma.question.findUniqueOrThrow({
+        where: { id: claim.id },
+      })
+      expect(row.resolved).toBe(false)
+      expect(() => assertCanResolve(row)).toThrow(/still a hunch/)
+      expect(
+        await prisma.questionScore.count({ where: { questionId: claim.id } }),
+      ).toBe(0)
+    })
+
+    it("the timeline shows the moment a hunch became a prediction, and when it dropped back", async () => {
+      const claim = await hunch()
+      // answer the engine: what would I see, and by when
+      await answerQuestion(
+        userId,
+        claim.id,
+        { value: "Unemployment above 5%" },
+        "WEB",
+      )
+      const sharpened = await answerQuestion(
+        userId,
+        claim.id,
+        { accept: true },
+        "WEB",
+      )
+      expect(sharpened.kind).toBe("prediction")
+
+      const became = async () =>
+        (await getTimeline(userId, claim.id)).flatMap((e) =>
+          e.kind === "became" ? [e.became] : [],
+        )
+      expect(await became()).toEqual(["prediction"])
+
+      // taking the deadline away drops it back to a hunch
+      const dropped = await setPart(userId, claim.id, "deadline", null, "WEB")
+      expect(dropped.kind).toBe("hunch")
+      expect(await became()).toEqual(["prediction", "hunch"])
+
+      // same item, same history throughout
+      expect((await verifyHistory(userId, claim.id)).ok).toBe(true)
+    })
+
+    it("a prediction logged complete from the start shows no 'became' entry", async () => {
+      const claim = await log()
+      await confirmPart(userId, claim.id, "measure", "WEB")
+      const timeline = await getTimeline(userId, claim.id)
+      expect(timeline.some((e) => e.kind === "became")).toBe(false)
+    })
+
+    it("an imported entry is labelled imported and may still be resolved", async () => {
+      const row = await prisma.question.create({
+        data: {
+          id: `cs__${userId}_${Date.now()}`,
+          title: "Imported from a spreadsheet",
+          resolveBy: new Date("2025-01-01"),
+          userId,
+        },
+        include: { forecasts: true },
+      })
+      const view = toClaimView(row)
+      expect(view).toMatchObject({ imported: true, kind: "hunch" })
+      expect(() => assertCanResolve(row)).not.toThrow()
     })
   })
 })

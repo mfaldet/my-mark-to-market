@@ -1,45 +1,90 @@
 import { NextSeo } from "next-seo"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
+import { CopyToClipboard } from "../../components/ui/CopyToClipboard"
 import { getBaseUrl } from "../../lib/base_url"
+import { signInToFatebook, useUserId } from "../../lib/web/utils"
 
-const above = String.raw`
-## Embed Fatebook questions in your website
+function Code({ children }: { children: string }) {
+  return (
+    <pre className="bg-neutral-200 text-neutral-800 p-2 rounded-md break-words text-wrap whitespace-pre-wrap">
+      {children}
+    </pre>
+  )
+}
 
-If you're writing a blog or webpage, use this code snippet to embed a Fatebook question:`
+export default function EmbedPage() {
+  const userId = useUserId()
+  const id = userId ?? "YOUR_ID"
+  const page = `${getBaseUrl()}/embed/track-record/${id}`
+  const feed = `${getBaseUrl()}/api/public/track-record/${id}`
+  const trackRecordFrame = `<iframe\n  src="${page}"\n  width="100%"\n  height="900"\n  style="border:0"\n  title="Track record"\n></iframe>`
+  const singleFrame = `<iframe\n  src="${getBaseUrl()}/embed/q/PREDICTION_ID?compact=true&requireSignIn=false"\n  width="400"\n  height="200"\n  style="border:0"\n></iframe>`
 
-const below = String.raw`
-Note - if you want to rapidly create and embed a question into a website that you're not webmaster of (e.g. a Google Doc or Google Sheet), you can use [Fatebook for Chrome](/extension).`
-
-export default function ApiPage() {
   return (
     <div className="px-4 pt-12 lg:pt-16 mx-auto max-w-6xl">
       <NextSeo
-        title="Embed Fatebook questions in your website"
-        description="Add an embedded version of your predictions to your site with this code snippet."
+        title="Embed your predictions"
+        description="Show your public track record, or a single prediction, on your own site."
       />
       <div className="mx-auto prose">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{above}</ReactMarkdown>
-        <pre className="bg-neutral-200 text-neutral-800 p-2 rounded-md break-words text-wrap">
-          {`<iframe\n\tsrc="${getBaseUrl()}/embed/q/QUESTION_ID?compact=true&requireSignIn=false"\n\twidth="400"\n\theight="200"\n/>`}
-        </pre>
-        <p>{"Here's an example of what it'll look like:"}</p>
-        <iframe
-          src={`${getBaseUrl()}/embed/q/will-adam-win-the-next-aoe-game---clkqtczp00001l008qcrma6s7?compact=true&requireSignIn=false`}
-          width="400"
-          height="200"
-        />
+        <h2>Embed your predictions</h2>
         <p>
-          {
-            "To set the src correctly, you can copy a link to your question and add /embed/ before /q/ in the URL."
-          }
+          Only predictions you have made public are ever shown. Hunches, private
+          predictions and anything withdrawn never leave this app.
         </p>
+
+        {!userId && (
+          <p>
+            <button
+              className="button primary"
+              onClick={() => void signInToFatebook()}
+            >
+              Sign in to get your own addresses
+            </button>
+          </p>
+        )}
+
+        <h3>Your public track record</h3>
         <p>
-          {
-            "You'll typically want to share your question with anyone with the link. Otherwise other readers will need to sign in to Fatebook and will only see your embedded question if you've shared the question with them on Fatebook."
-          }
+          A page with your public predictions, how many came true, and your
+          calibration. Put it on your site with this code:
         </p>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{below}</ReactMarkdown>
+        <Code>{trackRecordFrame}</Code>
+        {userId && (
+          <div className="not-prose flex gap-3 items-center">
+            <CopyToClipboard
+              textToCopy={trackRecordFrame}
+              buttonLabel="Copy code"
+            />
+            <a
+              className="link text-sm"
+              href={page}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open the page
+            </a>
+          </div>
+        )}
+
+        <h3>The same thing as data</h3>
+        <p>
+          If you would rather lay it out yourself, the same information is
+          available as a JSON feed. It needs no key and can be read from any
+          site.
+        </p>
+        <Code>{feed}</Code>
+        {userId && (
+          <div className="not-prose">
+            <CopyToClipboard textToCopy={feed} buttonLabel="Copy address" />
+          </div>
+        )}
+
+        <h3>A single prediction</h3>
+        <p>
+          To show one prediction on its own, make it public, copy its link, and
+          add <code>/embed</code> before <code>/q/</code> in the address:
+        </p>
+        <Code>{singleFrame}</Code>
       </div>
     </div>
   )

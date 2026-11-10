@@ -1,10 +1,5 @@
-import {
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  TrophyIcon,
-} from "@heroicons/react/24/solid"
+import { ChevronDownIcon, ChevronLeftIcon } from "@heroicons/react/24/solid"
 import clsx from "clsx"
-import Link from "next/link"
 import { useRouter } from "next/router"
 import { useState } from "react"
 import { ErrorBoundary } from "react-error-boundary"
@@ -86,10 +81,6 @@ export function TrackRecord({
   const scoreDetails =
     allScoresQuery?.data && populateDetails(allScoresQuery?.data)
 
-  const percentileQ = api.question.getBrierScorePercentile.useQuery({
-    userId: trackRecordUserId,
-  })
-
   if (!trackRecordUserId) return <></>
 
   return (
@@ -106,6 +97,11 @@ export function TrackRecord({
           {showCollapseButton && (
             <button
               className="btn btn-ghost mr-4 text-neutral-400 hover:text-neutral-800"
+              aria-label={
+                isCollapsed ? "Show track record" : "Hide track record"
+              }
+              title={isCollapsed ? "Show track record" : "Hide track record"}
+              aria-expanded={!isCollapsed}
               onClick={() => {
                 setIsCollapsed(!isCollapsed)
                 localStorage.setItem(
@@ -134,24 +130,6 @@ export function TrackRecord({
             </div>
             <CalibrationChart tags={tags} userId={trackRecordUserId} />
 
-            {isThisUser && (
-              <div className="text-sm flex gap-2 text-neutral-500 text-center mx-auto">
-                <Link
-                  href="https://quantifiedintuitions.org/calibration"
-                  target="_blank"
-                >
-                  <button className="btn">
-                    <TrophyIcon
-                      width={16}
-                      height={16}
-                      className="text-indigo-600"
-                    />
-                    Train your calibration skills
-                  </button>
-                </Link>
-              </div>
-            )}
-
             <div className="flex flex-col gap-4 pt-6">
               {[
                 {
@@ -179,54 +157,8 @@ export function TrackRecord({
                         ? showSignificantFigures(details.brierScore, 2)
                         : "..."}
                     </div>
-                    <div className="stat-desc">
-                      {title}
-                      {title === "All time" &&
-                        percentileQ.data &&
-                        percentileQ.data.absoluteScorePercentile !== null && (
-                          <div className="ml-1 badge badge-sm badge-ghost bg-green-100 border-none">
-                            {`Top ${Math.round(
-                              (percentileQ.data.absoluteScorePercentile ||
-                                0.01) * 100,
-                            )}%`}
-                          </div>
-                        )}
-                    </div>
+                    <div className="stat-desc">{title}</div>
                   </div>
-
-                  {
-                    <div className="stat">
-                      <div className="stat-title flex flex-row gap-0.5 md:gap-1">
-                        Relative Brier
-                        <InfoButton
-                          tooltip="Relative to the median of other forecasters' Brier scores on each question"
-                          className="tooltip-left"
-                        />
-                      </div>
-                      <div
-                        className={clsx(
-                          "stat-value",
-                          !details?.rBrierScore && "text-neutral-500",
-                        )}
-                      >
-                        {details?.rBrierScore
-                          ? showSignificantFigures(details.rBrierScore, 2)
-                          : "..."}
-                      </div>
-                      <div className="stat-desc">
-                        {title}
-                        {title === "All time" &&
-                          percentileQ.data &&
-                          percentileQ.data.relativeScorePercentile && (
-                            <div className="ml-1 badge badge-sm badge-ghost bg-green-100 border-none">
-                              {`Top ${Math.round(
-                                percentileQ.data.relativeScorePercentile * 100,
-                              )}%`}
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                  }
                 </div>
               ))}
             </div>

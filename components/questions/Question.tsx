@@ -15,6 +15,7 @@ import { QuestionWithStandardIncludes } from "../../prisma/additional"
 import { FormattedDate } from "../ui/FormattedDate"
 import { Username } from "../ui/Username"
 import { QuestionDetails } from "./QuestionDetails"
+import { isImported, kindForGrade } from "../../lib/claims/kind"
 import { ResolveButton } from "./ResolveButton"
 import { SharePopover } from "./SharePopover"
 import { UpdateableLatestForecast } from "./UpdateableLatestForecast"
@@ -72,6 +73,10 @@ export function Question({
         return acc // If there's no forecast or it's undefined, just return the accumulator
       }, 0) ?? 0 // Use nullish coalescing operator to default to 0 if reduce returns undefined
   }
+
+  // a hunch has a date to check back, not a deadline to resolve by
+  const isHunch =
+    kindForGrade(question.grade) === "hunch" && !isImported(question.id)
 
   return (
     <ErrorBoundary fallback={<div>Something went wrong</div>}>
@@ -196,7 +201,7 @@ export function Question({
                       className="[text-wrap:balanced]"
                       prefix={
                         <span className="font-semibold">
-                          Ready to resolve
+                          {isHunch ? "Time to check back" : "Ready to resolve"}
                           <br />
                         </span>
                       }
@@ -209,7 +214,7 @@ export function Question({
                   ) : (
                     <span>
                       <span>
-                        Resolves <br />
+                        {isHunch ? "Check back by" : "Resolves"} <br />
                       </span>
                       <FormattedDate
                         className="[text-wrap:balanced]"
@@ -221,8 +226,29 @@ export function Question({
                   <PencilIcon className="hidden group-hover/resolveBy:block absolute top-1/2 -translate-y-1/2 right-0.5 h-3 w-3 shrink-0 text-indigo-400" />
                 </button>
               )}
-              {question.exclusiveAnswers && (
-                <ResolveButton question={question} />
+              {question.exclusiveAnswers &&
+                (kindForGrade(question.grade) === "prediction" ||
+                isImported(question.id) ||
+                question.resolved ? (
+                  <ResolveButton question={question} />
+                ) : (
+                  // only predictions can be marked right or wrong
+                  <span
+                    className="text-sm text-neutral-400 my-auto text-center"
+                    title="A hunch can't be marked right or wrong. Sharpen it into a prediction first."
+                  >
+                    Hunch
+                  </span>
+                ))}
+              {isImported(question.id) && (
+                <span
+                  className="text-xs text-neutral-500 my-auto text-center"
+                  title="Brought in by an importer, not logged here in advance"
+                >
+                  <span className="rounded border border-neutral-300 px-1">
+                    imported
+                  </span>
+                </span>
               )}
               <ActivityNumbers
                 question={question}
@@ -330,7 +356,11 @@ export function ActivityNumbers({
         </span>
       </InfoButton>
       {!alwaysExpand && (
-        <button className={clsx("button p-0", embedded && "hidden")}>
+        <button
+          className={clsx("button p-0", embedded && "hidden")}
+          aria-label="Show or hide details"
+          title="Show or hide details"
+        >
           <ChevronDownIcon
             className={clsx(
               "h-5 w-5 transition-transform",

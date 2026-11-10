@@ -31,6 +31,7 @@ import {
 } from "../interactive_handlers/resolve"
 import { findUserByApiKey } from "../api_keys"
 import {
+  assertCanResolve,
   recordVersion,
   setPart,
   setPublic,
@@ -664,6 +665,13 @@ export const questionRouter = router({
         input.questionId,
         input.apiKey,
       )
+
+      // only predictions can be resolved; a hunch cannot (lib/claims/service.ts)
+      try {
+        assertCanResolve(question)
+      } catch (error) {
+        toTrpcError(error)
+      }
 
       await handleQuestionResolution(
         input.questionId,
@@ -1366,7 +1374,14 @@ export const questionRouter = router({
       }),
     )
     .output(z.undefined())
-    .meta({ openapi: { method: "DELETE", path: "/v0/deleteQuestion" } })
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/v0/deleteQuestion",
+        description:
+          "Withdraws the item. Nothing is ever deleted: a withdrawn hunch or prediction is hidden everywhere, including the public track record, and is kept with its full history.",
+      },
+    })
     .mutation(async ({ input, ctx }) => {
       const question = await getQuestionAssertAuthor(
         ctx,

@@ -75,6 +75,8 @@ const question = z
 const claim = z.object({
   id: z.string(),
   url: z.string(),
+  kind: z.enum(["hunch", "prediction"]),
+  imported: z.boolean(),
   text: z.string(),
   claimDate: z.string(),
   loggedAt: z.string(),

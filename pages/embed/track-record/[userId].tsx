@@ -49,7 +49,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
   const { summary } = record
-  const bands = record.calibration.filter((b) => b.claims > 0)
+  const bands = record.calibration.filter((b) => b.predictions > 0)
 
   return (
     <div className="bg-neutral-50 min-h-screen p-4 sm:p-6 text-neutral-900">
@@ -70,7 +70,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
         </header>
 
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="public claims" value={summary.publicClaims} />
+          <Stat label="public claims" value={summary.publicPredictions} />
           <Stat label="resolved" value={summary.resolved} />
           <Stat
             label={`right of ${summary.right + summary.wrong} decided`}
@@ -112,7 +112,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                     />
                   </div>
                   <span className="w-28 shrink-0 text-right text-neutral-600">
-                    {band.cameTrue} of {band.claims} ({percent(band.rate)})
+                    {band.cameTrue} of {band.predictions} ({percent(band.rate)})
                   </span>
                 </div>
               ))}
@@ -122,13 +122,13 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
 
         <section>
           <h2 className="font-semibold mb-2">Claims</h2>
-          {record.claims.length === 0 && (
+          {record.predictions.length === 0 && (
             <p className="text-sm text-neutral-500">
               No claims have been shared publicly yet.
             </p>
           )}
           <ul className="flex flex-col gap-3">
-            {record.claims.map((claim) => (
+            {record.predictions.map((claim) => (
               <li
                 key={claim.id}
                 className="rounded-md border border-neutral-200 bg-white p-4 flex flex-col gap-2"
@@ -147,6 +147,14 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
                   {claim.grade && <GradeBadge grade={claim.grade} />}
+                  {claim.imported && (
+                    <span
+                      className="rounded border border-neutral-300 px-1"
+                      title="Brought in by an importer, not logged here in advance"
+                    >
+                      imported
+                    </span>
+                  )}
                   <span>
                     Claimed {formatDay(claim.claimDate)}
                     {claim.backDated && " (back-dated)"}

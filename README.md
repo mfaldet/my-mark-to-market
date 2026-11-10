@@ -156,6 +156,7 @@ It is built for Vercel plus a hosted Postgres. Set at least:
 | `NEXTAUTH_URL`                         | The same address followed by `/api/auth`                                                 |
 | `AUTH_EMAIL_SERVER`, `AUTH_EMAIL_FROM` | An SMTP account for sign-in emails, or use `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` |
 | `CRON_SECRET`                          | Any long random string. Lets Vercel run the daily "ready to resolve" job                 |
+| `ALLOWED_SIGNIN_EMAILS`                | Your own email address. Stops anyone else signing in or creating an account              |
 | `ANTHROPIC_API_KEY`                    | Optional. Switches the AI step on                                                        |
 
 `.env.example` lists every variable, including the feature switches.
