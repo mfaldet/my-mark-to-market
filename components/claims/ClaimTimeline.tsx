@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { TimelineEvent } from "../../lib/claims/service"
+import { resultLabel } from "../../lib/claims/words"
 import { api } from "../../lib/web/trpc"
 import {
   COMPARISON_LABELS,
@@ -11,9 +12,9 @@ import {
 } from "./labels"
 
 const FIELD_LABELS: Record<string, string> = {
-  text: "Claim text",
+  text: "Text",
   notes: "Notes",
-  claimDate: "Claim date",
+  claimDate: "Date said",
   deadline: "Deadline",
   shape: "Shape",
   parts: "Outcome",
@@ -22,10 +23,10 @@ const FIELD_LABELS: Record<string, string> = {
   grade: "Grade",
   checkLinkUrl: "Check link",
   checkLinkConfirmedAt: "Check link confirmed",
-  parentId: "Parent claim",
+  parentId: "Grew out of",
   sharedPublicly: "Sharing",
   withdrawnAt: "Withdrawn",
-  resolution: "Resolution",
+  resolution: "Result",
   closeCall: "Close call",
   actualResult: "Actual result",
 }
@@ -36,6 +37,7 @@ function showValue(field: string, value: unknown): string {
   if (value === null || value === undefined || value === "") return "none"
   if (field === "sharedPublicly") return value ? "public" : "private"
   if (typeof value === "boolean") return value ? "yes" : "no"
+  if (field === "resolution") return resultLabel(String(value)).toLowerCase()
   if (field === "shape") return SHAPE_LABELS[value as keyof typeof SHAPE_LABELS]
   if (field === "confidenceWord") {
     return CONFIDENCE_LABELS[value as keyof typeof CONFIDENCE_LABELS]
@@ -161,7 +163,7 @@ export function ClaimTimeline({ claimId }: { claimId: string }) {
                   <span className="font-semibold">
                     {Math.round(event.probability * 1000) / 10}%
                   </span>
-                  {event.word && ` (${CONFIDENCE_LABELS[event.word]})`}
+                  {event.word && ` · ${CONFIDENCE_LABELS[event.word]}`}
                   {event.note && (
                     <div className="text-neutral-600 italic">
                       “{event.note}”
@@ -173,7 +175,7 @@ export function ClaimTimeline({ claimId }: { claimId: string }) {
                   <span className="font-semibold">Version {event.version}</span>{" "}
                   <span className="text-neutral-500">
                     via {SOURCE_LABELS[event.source]}
-                    {event.version === 1 && " · claim logged"}
+                    {event.version === 1 && " · logged"}
                   </span>
                   <ul className="text-neutral-700">
                     {event.changes.flatMap(describe).map((line) => (

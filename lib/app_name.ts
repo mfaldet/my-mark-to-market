@@ -9,7 +9,7 @@
  */
 export const APP_NAME = "My Mark-to-Market"
 export const APP_TAGLINE =
-  "My claims and predictions, logged, graded and scored."
+  "My hunches and predictions: logged, sharpened and scored."
 
 export const UPSTREAM = {
   name: "Fatebook",

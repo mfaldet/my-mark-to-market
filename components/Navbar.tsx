@@ -294,12 +294,12 @@ function IntegrationsItems({
           href="/api-setup"
           className={isActive("/api-setup") ? "bg-base-200" : ""}
         >
-          API
+          Claude, iPhone and scripts
         </Link>
       </li>
       <li>
         <Link href="/embed" className={isActive("/embed") ? "bg-base-200" : ""}>
-          Embed in your website
+          Embed your predictions
         </Link>
       </li>
       <li className="menu-title">Your data</li>
@@ -323,9 +323,7 @@ function IntegrationsItems({
       </li>
       <li>
         <a onClick={() => !exportData.isLoading && exportData.mutate()}>
-          {exportData.isLoading
-            ? "Exporting..."
-            : "Export all your predictions"}
+          {exportData.isLoading ? "Exporting..." : "Export everything"}
         </a>
       </li>
     </>
@@ -421,10 +419,10 @@ function useExportData() {
   return api.question.exportAllQuestions.useMutation({
     onSuccess(data) {
       if (!data || data === "") {
-        alert("Nothing to export! Make some forecasts first?")
+        alert("Nothing to export yet.")
         return
       }
-      downloadBlob(data, "fatebook-forecasts.csv", "text/csv;charset=utf-8;")
+      downloadBlob(data, "my-mark-to-market.csv", "text/csv;charset=utf-8;")
     },
   })
 }
@@ -494,7 +492,7 @@ function AccountMenu(showCreateAccountButton: boolean) {
             <a>Change your profile picture</a>
           </li>
           <li onClick={() => void signOut({ redirect: true })}>
-            <a>Logout</a>
+            <a>Sign out</a>
           </li>
         </ul>
       </details>
@@ -558,7 +556,7 @@ function AccountMenu(showCreateAccountButton: boolean) {
   ) : (
     showCreateAccountButton && (
       <button className="btn" onClick={() => void signInToFatebook()}>
-        Log in or sign up
+        Sign in
       </button>
     )
   )

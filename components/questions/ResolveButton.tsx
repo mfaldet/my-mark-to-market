@@ -8,6 +8,7 @@ import { invalidateQuestion, useUserId } from "../../lib/web/utils"
 import { QuestionWithStandardIncludes } from "../../prisma/additional"
 import { BinaryResolutionOptions } from "./BinaryResolutionOptions"
 import { MultiChoiceResolutionOptions } from "./MultiChoiceResolutionOptions"
+import { resultLabel } from "../../lib/claims/words"
 
 export function ResolveButton({
   question,
@@ -100,7 +101,7 @@ export function ResolveButton({
               e.stopPropagation()
             }}
           >
-            {resolution ? resolution : "Resolve"}
+            {resolution ? resultLabel(resolution) : "Resolve"}
             {!resolution && (
               <ChevronDownIcon
                 className="ml-2 -mr-2 h-5 w-5 text-neutral-400"
@@ -143,7 +144,7 @@ export function ResolveButton({
                         })
                       }}
                     >
-                      Undo resolution
+                      Undo
                     </button>
                   )}
                 </Menu.Item>

@@ -50,6 +50,7 @@ import {
   nextQuestion,
 } from "./next_question"
 import { evaluateNumber } from "./tolerance"
+import { Result, resultFor } from "./words"
 import {
   allowedParts,
   Comparison,
@@ -150,6 +151,8 @@ export type ClaimView = {
   withdrawn: boolean
   resolved: boolean
   resolution: Resolution | null
+  /** the same thing in the app's words: "right", "wrong" or "can't tell" */
+  result: Result | null
   closeCall: boolean
   actualResult: string | null
   /** the engine's one open question, or null */
@@ -207,6 +210,7 @@ export function toClaimView(row: ClaimRow, now = new Date()): ClaimView {
     withdrawn: !!row.withdrawnAt,
     resolved: row.resolved,
     resolution: row.resolution,
+    result: resultFor(row.resolution),
     closeCall: row.closeCall,
     actualResult: row.actualResult,
     nextQuestion:
@@ -424,9 +428,9 @@ async function loadOwned(userId: string, claimId: string): Promise<ClaimRow> {
     where: { id: claimId },
     include: CLAIM_INCLUDE,
   })
-  if (!row) throw new ClaimError("NOT_FOUND", "Claim not found.")
+  if (!row) throw new ClaimError("NOT_FOUND", "Not found.")
   if (row.userId !== userId) {
-    throw new ClaimError("FORBIDDEN", "Only the claim's owner can do that.")
+    throw new ClaimError("FORBIDDEN", "Only the owner can do that.")
   }
   return row
 }
@@ -447,7 +451,7 @@ async function updateClaim(
 ): Promise<ClaimView> {
   const row = await loadOwned(userId, claimId)
   if (row.withdrawnAt) {
-    throw new ClaimError("BAD_REQUEST", "This claim has been withdrawn.")
+    throw new ClaimError("BAD_REQUEST", "This has been withdrawn.")
   }
   const data = await change(row)
 
@@ -475,8 +479,8 @@ async function updateClaim(
     throw new ClaimError(
       "BLOCKED",
       row.sharedPublicly
-        ? "This claim is public, and that change would leave it below the bar for public claims. Fix the points below, or make the claim private first."
-        : "This claim can't be made public yet.",
+        ? "This prediction is public, and that change would turn it back into a hunch or leave a part unconfirmed. Fix the points below, or make it private first."
+        : "This can't be made public yet.",
       publish.reasons,
     )
   }
@@ -510,7 +514,7 @@ export type LogClaimInput = {
 
 export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
   const text = input.text.trim()
-  if (!text) throw new ClaimError("BAD_REQUEST", "The claim is empty.")
+  if (!text) throw new ClaimError("BAD_REQUEST", "There is nothing to log.")
 
   const now = new Date()
   const claimDate = input.claimDate ? day(input.claimDate) : day(isoDay(now))
@@ -520,7 +524,7 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
   if (isoDay(claimDate) > isoDay(now)) {
     throw new ClaimError(
       "BAD_REQUEST",
-      "The claim date can't be in the future.",
+      "The date you said it can't be in the future.",
     )
   }
   if (input.parentId) await loadOwned(input.userId, input.parentId)
@@ -764,7 +768,10 @@ export async function confirmPart(
   return await updateClaim(userId, claimId, source, (row) => {
     const parts: Record<string, OutcomePart> = { ...partsOf(row) }
     if (!parts[part]) {
-      throw new ClaimError("BAD_REQUEST", `This claim has no "${part}" yet.`)
+      throw new ClaimError(
+        "BAD_REQUEST",
+        `There is no "${part}" to confirm yet.`,
+      )
     }
     parts[part] = { ...parts[part], status: "stated" }
     return { outcomeParts: parts as Prisma.InputJsonValue }
@@ -795,7 +802,10 @@ export async function updateConfidence(
     )
   }
   if (update.word !== undefined && !(update.word in CONFIDENCE_RANGES)) {
-    throw new ClaimError("BAD_REQUEST", "Unknown confidence word.")
+    throw new ClaimError(
+      "BAD_REQUEST",
+      "That is not one of the confidence words.",
+    )
   }
   const probability =
     update.word !== undefined
@@ -807,7 +817,7 @@ export async function updateConfidence(
 
   const view = await updateClaim(userId, claimId, source, (row) => {
     if (row.resolved) {
-      throw new ClaimError("BAD_REQUEST", "This claim is already resolved.")
+      throw new ClaimError("BAD_REQUEST", "This is already resolved.")
     }
     return {
       confidenceWord: update.word ?? null,
@@ -864,7 +874,7 @@ export async function linkParent(
 ) {
   if (parentId) {
     if (parentId === claimId) {
-      throw new ClaimError("BAD_REQUEST", "A claim can't be its own parent.")
+      throw new ClaimError("BAD_REQUEST", "It can't grow out of itself.")
     }
     // walk up from the proposed parent: this claim must not already be above it
     let cursor: string | null = parentId
@@ -873,7 +883,7 @@ export async function linkParent(
       if (ancestor.id === claimId) {
         throw new ClaimError(
           "BAD_REQUEST",
-          "That claim grew out of this one, so it can't also be its parent.",
+          "That one grew out of this one, so this can't also have grown out of it.",
         )
       }
       cursor = ancestor.parentId
@@ -922,7 +932,7 @@ export function assertCanResolve(row: Question) {
   if (kindForGrade(grade.grade) === "hunch") {
     throw new ClaimError(
       "BLOCKED",
-      "This is still a hunch, so it can't be marked right or wrong yet. Sharpen it into a prediction, move its check-back date, or withdraw it.",
+      "This is still a hunch, so it can't be marked right or wrong. Sharpen it into a prediction, move its check-back date, or withdraw it.",
       [grade.reason],
     )
   }
@@ -948,10 +958,10 @@ export async function resolveClaim(
 ): Promise<ClaimView> {
   const row = await loadOwned(userId, claimId)
   if (row.withdrawnAt) {
-    throw new ClaimError("BAD_REQUEST", "This claim has been withdrawn.")
+    throw new ClaimError("BAD_REQUEST", "This has been withdrawn.")
   }
   if (row.resolved) {
-    throw new ClaimError("BAD_REQUEST", "This claim is already resolved.")
+    throw new ClaimError("BAD_REQUEST", "This is already resolved.")
   }
   assertCanResolve(row)
 
@@ -994,7 +1004,7 @@ export async function resolveClaim(
   if (!resolution) {
     throw new ClaimError(
       "BAD_REQUEST",
-      "Say how it resolved (YES, NO or AMBIGUOUS), or give the actual number for a number claim.",
+      "Say how it turned out (right, wrong or can't tell), or give the actual number.",
     )
   }
 

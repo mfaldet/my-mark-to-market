@@ -78,7 +78,7 @@ export function QuestionOrSignIn({
   if (qQuery.status === "error" || (qQuery.status === "success" && !question)) {
     return (
       <h3 className={clsx("text-neutral-600", embedded && "bg-white p-6")}>
-        {`This question doesn't exist or ` +
+        {`This doesn't exist, or ` +
           (session?.user.email
             ? `your account (${session?.user.email}) doesn't have access`
             : `you need to sign in`)}

@@ -1,18 +1,20 @@
 # My Mark-to-Market
 
-A personal log of my claims and predictions: what I said, when I said it, how sure I was, and how it turned out.
+A personal tracker for my hunches and predictions: what I said, when I said it, how sure I was, and how it turned out.
 
 Built on [Fatebook](https://fatebook.io) by [Sage](https://sage-future.org), under the [MIT license](LICENSE).
 
-![Logging a claim: the grade, the engine's one question, and each outcome part with its status](docs/images/log-claim.png)
+![Logging a hunch: the grade, the one question the app asks, and each outcome part with its status](docs/images/log-claim.png)
 
 ## What it is and why I built it
 
-I make a lot of loose predictions in conversation: "the labor market is weakening", "rates get cut this year". Most are too vague to ever be shown right or wrong, which makes it easy to remember the hits and forget the misses.
+I voice a lot of hunches in conversation: "the labor market is weakening", "rates get cut this year". Most are too vague to ever be shown right or wrong, which makes it easy to remember the hits and forget the misses.
 
-This app is where I write those down in my own words, at the moment I say them. It then asks, one question at a time, what I would have to see for the claim to be true, and grades how checkable the claim is. Vague hunches are welcome and stay private. Only claims that are complete and checkable can be made public, and every change I make afterwards is kept in a history I cannot quietly edit.
+This app is where I write those down in my own words, at the moment I say them. It uses two words. A **hunch** is anything I log; it can be loose, and it stays private. A **prediction** is a hunch sharpened until it can be checked: an outcome, a deadline and a way to tell. The app asks one question at a time to help turn a hunch into a prediction, and grades how checkable it is: grades 1 to 3 are hunches, grades 4 and 5 are predictions. Only predictions can be made public and scored, and every change I make is kept in a history I cannot quietly edit.
 
-It is for my own use. There are no other people's claims, no social features and no markets.
+In the code, the API paths and the tool names, both are called a "claim". That is the internal name only.
+
+It is for my own use. It does not track what other people say, and has no social features and no markets.
 
 It is also a portfolio piece: I took a working open-source app, read it, and extended it without rewriting it.
 
@@ -29,20 +31,20 @@ It is also a portfolio piece: I took a working open-source app, read it, and ext
 
 **I added**
 
-|                               | What                                                                                                                                                                | Where                                               |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| A claim standard              | Claim text kept in my own words, a claim date separate from the logged date, and an outcome stored as one of five shapes with the parts that shape needs            | `lib/claims/types.ts`                               |
-| Honest provenance             | Every outcome part is marked _stated_ (I said it), _extracted_ (the AI read it from my text) or _working_ (a default I accepted), and I can confirm each one        | `components/claims/ClaimPanel.tsx`                  |
-| A grade from 1 to 5           | Plain code, no AI: the same claim always gets the same grade                                                                                                        | `lib/claims/grade.ts`                               |
-| One question at a time        | The most important gap, with a one-tap default where one makes sense, and never more than three                                                                     | `lib/claims/next_question.ts`                       |
-| Confidence words              | "likely", "toss-up", "almost no chance" and so on, each mapped to a range; and a rule for when a percentage is confidence and when it is just a number in the claim | `lib/claims/confidence.ts`                          |
-| Deadlines from the claim date | "This year" in a claim made in July 2025 means December 31, 2025, whenever I log it                                                                                 | `lib/claims/dates.ts`                               |
-| Close calls                   | "About 6%" that lands at 5.8% is scored wrong, and marked as a near miss                                                                                            | `lib/claims/tolerance.ts`                           |
-| A publish gate                | Private by default. Public only at grade 4 or 5 with every part confirmed. An edit that would break that is blocked, never silently fixed                           | `lib/claims/service.ts`                             |
-| Append-only history           | Every change writes a full snapshot, chained to the one before by a hash, with a button that re-checks the chain                                                    | `lib/claims/history.ts`                             |
-| Parent claims                 | A link from a sharp claim back to the hunch it grew out of                                                                                                          | `lib/claims/service.ts`                             |
-| Logging from anywhere         | API endpoints, a hosted MCP server for Claude, and an iPhone Shortcut. Each claim records how it came in: web, API, phone or agent                                  | `lib/web/claims_api_router.ts`, `lib/mcp/server.ts` |
-| A public track record         | A JSON feed and an embeddable page showing only the claims I have shared                                                                                            | `lib/claims/public_record.ts`                       |
+|                              | What                                                                                                                                                               | Where                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| A standard for what I said   | The text kept in my own words, the date I said it separate from the logged date, and an outcome stored as one of five shapes with the parts that shape needs       | `lib/claims/types.ts`                               |
+| Honest provenance            | Every outcome part is marked _stated_ (I said it), _extracted_ (the AI read it from my text) or _working_ (a default I accepted), and I can confirm each one       | `components/claims/ClaimPanel.tsx`                  |
+| A grade from 1 to 5          | Plain code, no AI: the same words always get the same grade                                                                                                        | `lib/claims/grade.ts`                               |
+| One question at a time       | The most important gap, with a one-tap default where one makes sense, and never more than three                                                                    | `lib/claims/next_question.ts`                       |
+| Confidence words             | "likely", "toss-up", "almost no chance" and so on, each mapped to a range; and a rule for when a percentage is confidence and when it is just a number in the text | `lib/claims/confidence.ts`                          |
+| Deadlines from the date said | "This year" in a hunch voiced in July 2025 means December 31, 2025, whenever I log it                                                                              | `lib/claims/dates.ts`                               |
+| Close calls                  | "About 6%" that lands at 5.8% is scored wrong, and marked as a near miss                                                                                           | `lib/claims/tolerance.ts`                           |
+| A publish gate               | Private by default. Public only at grade 4 or 5 with every part confirmed. An edit that would break that is blocked, never silently fixed                          | `lib/claims/service.ts`                             |
+| Append-only history          | Every change writes a full snapshot, chained to the one before by a hash, with a button that re-checks the chain                                                   | `lib/claims/history.ts`                             |
+| Where it came from           | A link from a prediction back to the hunch it grew out of                                                                                                          | `lib/claims/service.ts`                             |
+| Logging from anywhere        | API endpoints, a hosted MCP server for Claude, and an iPhone Shortcut. Each item records how it came in: web, API, phone or agent                                  | `lib/web/claims_api_router.ts`, `lib/mcp/server.ts` |
+| A public track record        | A JSON feed and an embeddable page showing only the predictions I have shared                                                                                      | `lib/claims/public_record.ts`                       |
 
 **I changed in Fatebook itself**
 
@@ -56,7 +58,7 @@ It is also a portfolio piece: I took a working open-source app, read it, and ext
 
 ```mermaid
 flowchart TD
-    subgraph sources["How a claim comes in"]
+    subgraph sources["How a hunch comes in"]
         web["Web app"]
         shortcut["iPhone Shortcut"]
         claude["Claude"]
@@ -69,38 +71,38 @@ flowchart TD
     shortcut --> api --> service
     claude --> mcp --> service
 
-    service["Claim service<br/>one place for every rule"]
+    service["One service<br/>one place for every rule"]
 
     service --> ai["AI step (optional)<br/>picks the shape,<br/>reads the parts"]
     ai -.-> anthropic["Claude API"]
     service --> code["Plain code<br/>grade, deadline, confidence,<br/>next question, publish gate"]
 
     service --> db[("Postgres")]
-    db --- claims["Claims<br/>and forecasts"]
+    db --- claims["Hunches, predictions<br/>and confidence"]
     db --- versions["Version table<br/>append-only, hash-chained"]
 
     service --> public["Public track record<br/>JSON feed and embed page"]
 ```
 
-The important line is the one in the middle. The web app, the API and the MCP server all call the same claim service, so they cannot disagree about a grade, the publish gate or what goes into the history.
+The important line is the one in the middle. The web app, the API and the MCP server all call the same service (`lib/claims/service.ts`), so they cannot disagree about a grade, the publish gate or what goes into the history.
 
-The AI step is deliberately small. It picks the claim's shape and reads the parts out of my text, and everything it returns is marked "extracted" until I confirm it. It does not grade, does not decide the deadline and does not read my confidence; plain code does those, so the answers are repeatable. Without an API key the app works the same and I fill the fields in by hand.
+The AI step is deliberately small. It picks the shape of the outcome and reads the parts out of my text, and everything it returns is marked "extracted" until I confirm it. It does not grade, does not decide the deadline and does not read my confidence; plain code does those, so the answers are repeatable. Without an API key the app works the same and I fill the fields in by hand.
 
 ## What it looks like
 
-**A hunch.** Grade 1 and private. The engine asks what I would actually see, and my answer moves it up a grade.
+**A hunch.** Grade 1 and private. The app asks what I would actually see, and my answer moves it up a grade.
 
-![A vague claim after answering the engine's first question](docs/images/hunch-question.png)
+![A hunch after answering the app's first question](docs/images/hunch-question.png)
 
 **The timeline and history check.** Every version, what changed, how it came in, and the result of recomputing the hash chain.
 
-![A claim's timeline with seven versions and a passing history check](docs/images/timeline.png)
+![A timeline with seven versions and a passing history check](docs/images/timeline.png)
 
-**The public track record.** Only claims I have shared. This is the page my own site embeds.
+**The public track record.** Only predictions I have made public. This is the page my own site embeds.
 
 ![The public track record page](docs/images/public-record.png)
 
-_These screenshots were taken from the app running locally, with a stand-in for the Claude API returning the claim shape and parts._
+_These screenshots were taken from the app running locally, with a stand-in for the Claude API returning the shape and parts. They predate the current wording and look, and will be retaken after the branding work._
 
 ## What the history does and does not prove
 
@@ -108,7 +110,7 @@ Each history row stores a hash of its own contents and of the row before it. If 
 
 This **detects** tampering. It cannot **prevent** it. There are two layers: the database itself rejects any edit or delete on the history table, and if someone with full database access switches that off, the hash chain shows the damage.
 
-Someone with full database access could still rewrite a row and recompute every hash after it. The guard against that is outside the database: the public feed publishes each shared claim's latest hash, so a rewritten history would no longer match what my site, or anyone who saved the feed, has on record.
+Someone with full database access could still rewrite a row and recompute every hash after it. The guard against that is outside the database: the public feed publishes each public prediction's latest hash, so a rewritten history would no longer match what my site, or anyone who saved the feed, has on record.
 
 ## Run it locally
 
@@ -169,8 +171,8 @@ Two things that will fail a deploy:
 ## Connect Claude and your phone
 
 - **Claude** (Claude Code, and the web, desktop and phone apps): [docs/connect-claude.md](docs/connect-claude.md)
-- **iPhone Shortcut** that dictates a claim and shows the engine's first question: [docs/iphone-shortcut.md](docs/iphone-shortcut.md)
-- **API:** sign in and open **API** in the menu for your key and interactive documentation of every endpoint.
+- **iPhone Shortcut** that dictates a hunch and shows the app's first question: [docs/iphone-shortcut.md](docs/iphone-shortcut.md)
+- **Your own scripts:** sign in and open **Connect** in the menu for your key and interactive documentation of every endpoint.
 
 ## Honest limits
 
@@ -178,7 +180,7 @@ Two things that will fail a deploy:
 - The MCP server has been tested with the official MCP client library, not yet from inside the Claude apps.
 - The iPhone Shortcut instructions have not been built on a phone.
 - The MCP server signs in with an API key. It does not implement OAuth.
-- Confidence words are read by plain pattern matching, so a word that is part of the claim itself ("the Fed says a cut is likely") is read as my confidence. The app shows what it read so I can correct it.
+- Confidence words are read by plain pattern matching, so a word that is part of the hunch itself ("the Fed says a cut is likely") is read as my confidence. The app shows what it read so I can correct it.
 
 ## Credit and license
 

@@ -13,7 +13,7 @@ import { Question } from "./questions/Question"
 export function Questions({
   title,
   filterClientSide,
-  noQuestionsText = "Make your first forecast to see it here.",
+  noQuestionsText = "Log your first hunch to see it here.",
   filterTagIds = undefined,
   filterTournamentId = undefined,
   filterUserListId = undefined,
@@ -96,7 +96,7 @@ export function Questions({
     <div>
       <div className="flex max-sm:flex-col justify-between pt-6 pb-4">
         <h3 className="select-none flex gap-4 mt-2 mb-0 max-w-[80%]">
-          {title || "Your forecasts"}
+          {title || "Your hunches and predictions"}
           {questionsQ.isLoading && (
             <div className="mt-2.5">
               <LoaderIcon />
@@ -122,7 +122,7 @@ export function Questions({
         </div>
       )}
       {questions.length > 0 ? (
-        <motion.div className="grid gap-6 relative">
+        <motion.div className="grid grid-cols-1 gap-6 relative">
           <AnimatePresence initial={false} mode="popLayout">
             {questions.map((question, index, array) => (
               <React.Fragment key={question.id}>
@@ -162,7 +162,7 @@ export function Questions({
         </motion.div>
       ) : filtersApplied ? (
         <div className="italic text-neutral-500 text-sm mt-4 text-center">
-          No questions match your filters.
+          Nothing matches your filters.
         </div>
       ) : (
         <>{noQuestionsText}</>

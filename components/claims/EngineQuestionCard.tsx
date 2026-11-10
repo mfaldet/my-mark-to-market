@@ -36,6 +36,11 @@ export function EngineQuestionCard({
 
   return (
     <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 flex flex-col gap-2 not-prose">
+      <div className="text-xs text-indigo-500">
+        {claim.kind === "hunch"
+          ? "Turn this hunch into a prediction, one question at a time."
+          : "One more thing to pin down."}
+      </div>
       <div className="flex justify-between items-baseline gap-2">
         <span className="font-semibold text-indigo-900">
           {question.question}
@@ -55,14 +60,14 @@ export function EngineQuestionCard({
           </button>
         )}
         <form
-          className="flex gap-2 grow"
+          className="flex gap-2 grow min-w-0"
           onSubmit={(e) => {
             e.preventDefault()
             if (value.trim()) send({ value: value.trim() })
           }}
         >
           <input
-            className="input input-sm input-bordered grow min-w-[8rem]"
+            className="input input-sm input-bordered grow w-0 min-w-[8rem]"
             type={question.part === "deadline" ? "date" : "text"}
             placeholder={
               question.suggestion ? "or type your own" : "Your answer"

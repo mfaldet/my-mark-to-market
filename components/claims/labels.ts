@@ -53,7 +53,7 @@ export const SOURCE_LABELS: Record<EntrySource, string> = {
 export const STATUS_HELP: Record<string, string> = {
   stated: "You said or confirmed this",
   extracted: "Read from your text by the AI. Not yet confirmed",
-  working: "A default the engine suggested. Not yet confirmed",
+  working: "A default the app suggested. Not yet confirmed",
 }
 
 export function formatDay(isoDay: string) {

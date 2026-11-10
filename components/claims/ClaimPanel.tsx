@@ -6,6 +6,7 @@ import { ClaimView } from "../../lib/claims/service"
 import { allowedParts, COMPARISONS, SHAPE_PARTS } from "../../lib/claims/types"
 import { api } from "../../lib/web/trpc"
 import { ClaimTimeline } from "./ClaimTimeline"
+import { ConfidenceRow } from "./ConfidenceRow"
 import { EngineQuestionCard } from "./EngineQuestionCard"
 import { GradeBadge, StatusChip } from "./GradeBadge"
 import {
@@ -93,7 +94,7 @@ export function ClaimPanel({
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
         <span>
-          Claimed {formatDay(claim.claimDate)}
+          Said {formatDay(claim.claimDate)}
           {claim.backDated && (
             <span
               className="ml-1 rounded bg-neutral-200 px-1 text-neutral-700"
@@ -121,9 +122,9 @@ export function ClaimPanel({
       {!locked && <EngineQuestionCard claim={claim} />}
 
       <div className="flex items-center gap-2">
-        <label className="text-neutral-500 w-36 shrink-0">Claim shape</label>
+        <label className="text-neutral-500 w-36 shrink-0">Shape</label>
         <select
-          className="select select-sm select-bordered"
+          className="select select-sm select-bordered min-w-0 shrink"
           value={shape}
           disabled={locked || setShape.isLoading}
           onChange={(e) =>
@@ -141,7 +142,7 @@ export function ClaimPanel({
         </select>
         {claim.shape === null && (
           <span className="text-xs text-neutral-400">
-            not picked yet (no AI key, or the AI was unavailable)
+            not picked yet: choose one to start sharpening this hunch
           </span>
         )}
       </div>
@@ -264,6 +265,8 @@ export function ClaimPanel({
         )
       })}
 
+      <ConfidenceRow claim={claim} />
+
       <div className="flex items-center gap-2 min-h-8">
         <span className="text-neutral-500 w-36 shrink-0">Check link</span>
         {linkDraft !== null ? (
@@ -382,8 +385,8 @@ export function ClaimPanel({
             <span>
               Public{" "}
               <span className="text-neutral-400">
-                (private by default; needs grade 4 or 5 with every part
-                confirmed)
+                (private unless you tick this; only a prediction with every part
+                confirmed can be public)
               </span>
             </span>
           </label>

@@ -15,6 +15,7 @@ import { getBaseUrl } from "../base_url"
 import prisma from "../prisma"
 import { CONFIDENCE_RANGES } from "./confidence"
 import { isImported } from "./kind"
+import { standardBrier } from "./words"
 
 /** One public claim, as plain data. */
 export type PublicClaimInput = {
@@ -106,14 +107,14 @@ export function buildPublicRecord(
       resolved: resolved.length,
       right: right.length,
       wrong: wrong.length,
-      ambiguous: resolved.filter((c) => c.resolution === "AMBIGUOUS").length,
+      cantTell: resolved.filter((c) => c.resolution === "AMBIGUOUS").length,
       closeCalls: resolved.filter((c) => c.closeCall).length,
       /** right / (right + wrong); null until something has resolved */
       accuracy:
         right.length + wrong.length
           ? round(right.length / (right.length + wrong.length))
           : null,
-      /** average Brier score (0 is perfect, 0.25 is a coin flip); lower is better */
+      /** average Brier score: 0 is perfect, 0.25 is a coin flip; lower is better */
       brierScore: scored.length
         ? round(
             scored.reduce((sum, c) => sum + c.brierScore!, 0) / scored.length,
@@ -156,7 +157,7 @@ export function buildPublicRecord(
             ? "right"
             : c.resolution === "NO"
               ? "wrong"
-              : "ambiguous",
+              : "can't tell",
         resolvedAt: c.resolvedAt?.toISOString() ?? null,
         closeCall: c.closeCall,
         actualResult: c.actualResult,
@@ -222,7 +223,11 @@ export async function loadPublicRecord(
       resolvedAt: r.resolvedAt,
       closeCall: r.closeCall,
       actualResult: r.actualResult,
-      brierScore: r.questionScores[0]?.absoluteScore.toNumber() ?? null,
+      // Fatebook stores twice the standard Brier score; show the standard one
+      brierScore:
+        r.questionScores[0] !== undefined
+          ? standardBrier(r.questionScores[0].absoluteScore.toNumber())
+          : null,
       parentId: r.parentId && publicIds.has(r.parentId) ? r.parentId : null,
       versions: r._count.versions,
       latestHash: r.versions[0]?.hash ?? null,

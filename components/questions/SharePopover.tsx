@@ -20,6 +20,7 @@ import { CopyToClipboard } from "../ui/CopyToClipboard"
 import { MultiselectUsers } from "../ui/MultiselectEmail"
 import { Username } from "../ui/Username"
 import { FEATURES } from "../../lib/features"
+import { toast } from "react-hot-toast"
 
 export function SharePopover({
   question,
@@ -36,7 +37,7 @@ export function SharePopover({
             {question.sharedPublicly ? (
               question.unlisted ? (
                 <>
-                  <LinkIcon height={15} /> <span>Shared link</span>
+                  <LinkIcon height={15} /> <span>Public</span>
                 </>
               ) : (
                 <>
@@ -51,7 +52,7 @@ export function SharePopover({
               </>
             ) : (
               <>
-                <LockClosedIcon height={15} /> <span>Only me</span>
+                <LockClosedIcon height={15} /> <span>Private</span>
               </>
             )}
             <ChevronDownIcon
@@ -128,82 +129,90 @@ const SharePanel = React.forwardRef<
     >
       <div className="absolute z-50 mt-2 w-72 md:w-96 lg:w-[29rem] right-0 md:left-0 origin-top-right divide-y divide-neutral-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
         <div className="p-4 flex flex-col gap-4">
-          <EmailInput question={question} />
+          {/* sharing with named people, and hiding confidence from them,
+              belong to the switched-off teams feature */}
+          {FEATURES.teams && <EmailInput question={question} />}
           {FEATURES.teams && <UserListDropdown question={question} />}
           <div className="flex flex-col gap-2">
             <SharePublicly question={question} />
-            <div className="flex gap-2 items-center">
-              <input
-                id="hideForecastsUntilPredict"
-                type="checkbox"
-                className={clsx(
-                  "checkbox",
-                  userId !== question.userId && "cursor-not-allowed",
-                )}
-                disabled={userId !== question.userId || hideForecasts.isLoading}
-                checked={!!question.hideForecastsUntilPrediction}
-                onChange={(e) => {
-                  hideForecasts.mutate({
-                    questionId: question.id,
-                    hideForecastsUntilPrediction: e.target.checked,
-                  })
-                }}
-              />
-              <label
-                htmlFor="hideForecastsUntilPredict"
-                className="text-sm my-auto cursor-pointer"
-              >
-                {
-                  "Hide forecasts for each viewer until they've made a prediction"
-                }
-              </label>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 items-center">
-              <div className="flex gap-2 items-center">
-                <input
-                  id="hideForecastsUntil"
-                  type="checkbox"
-                  className={clsx(
-                    "checkbox",
-                    userId !== question.userId && "cursor-not-allowed",
-                  )}
-                  disabled={
-                    userId !== question.userId || hideForecasts.isLoading
-                  }
-                  checked={!!question.hideForecastsUntil}
-                  onChange={(e) => {
-                    hideForecasts.mutate({
-                      questionId: question.id,
-                      hideForecastsUntil: e.target.checked
-                        ? question.resolveBy
-                        : null,
-                    })
-                  }}
-                />
-                <label
-                  htmlFor="hideForecastsUntil"
-                  className="text-sm my-auto cursor-pointer"
-                >
-                  {"Hide forecasts until a specific date"}
-                </label>
-              </div>
-              <input
-                type="date"
-                className={clsx(
-                  "input input-sm",
-                  !question.hideForecastsUntil && "hidden",
-                )}
-                disabled={!question.hideForecastsUntil}
-                value={hideForecastsUntilLocal.toISOString().split("T")[0]}
-                onChange={(e) => {
-                  setHideForecastsUntilLocal(new Date(e.target.value))
-                  hideForecasts.mutate({
-                    questionId: question.id,
-                    hideForecastsUntil: new Date(e.target.value),
-                  })
-                }}
-              />
-            </div>
+            {FEATURES.teams && (
+              <>
+                <div className="flex gap-2 items-center">
+                  <input
+                    id="hideForecastsUntilPredict"
+                    type="checkbox"
+                    className={clsx(
+                      "checkbox",
+                      userId !== question.userId && "cursor-not-allowed",
+                    )}
+                    disabled={
+                      userId !== question.userId || hideForecasts.isLoading
+                    }
+                    checked={!!question.hideForecastsUntilPrediction}
+                    onChange={(e) => {
+                      hideForecasts.mutate({
+                        questionId: question.id,
+                        hideForecastsUntilPrediction: e.target.checked,
+                      })
+                    }}
+                  />
+                  <label
+                    htmlFor="hideForecastsUntilPredict"
+                    className="text-sm my-auto cursor-pointer"
+                  >
+                    {
+                      "Hide forecasts for each viewer until they've made a prediction"
+                    }
+                  </label>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 items-center">
+                  <div className="flex gap-2 items-center">
+                    <input
+                      id="hideForecastsUntil"
+                      type="checkbox"
+                      className={clsx(
+                        "checkbox",
+                        userId !== question.userId && "cursor-not-allowed",
+                      )}
+                      disabled={
+                        userId !== question.userId || hideForecasts.isLoading
+                      }
+                      checked={!!question.hideForecastsUntil}
+                      onChange={(e) => {
+                        hideForecasts.mutate({
+                          questionId: question.id,
+                          hideForecastsUntil: e.target.checked
+                            ? question.resolveBy
+                            : null,
+                        })
+                      }}
+                    />
+                    <label
+                      htmlFor="hideForecastsUntil"
+                      className="text-sm my-auto cursor-pointer"
+                    >
+                      {"Hide forecasts until a specific date"}
+                    </label>
+                  </div>
+                  <input
+                    type="date"
+                    className={clsx(
+                      "input input-sm",
+                      !question.hideForecastsUntil && "hidden",
+                    )}
+                    disabled={!question.hideForecastsUntil}
+                    value={hideForecastsUntilLocal.toISOString().split("T")[0]}
+                    onChange={(e) => {
+                      setHideForecastsUntilLocal(new Date(e.target.value))
+                      hideForecasts.mutate({
+                        questionId: question.id,
+                        hideForecastsUntil: new Date(e.target.value),
+                      })
+                    }}
+                  />
+                </div>
+              </>
+            )}
           </div>
           {FEATURES.slack &&
             (sharedToSlack ? (
@@ -272,6 +281,12 @@ function SharePublicly({
   const setSharedPublicly = api.question.setSharedPublicly.useMutation({
     async onSuccess() {
       await invalidateQuestion(utils, question)
+      await utils.claims.invalidate()
+    },
+    onError(error) {
+      // a hunch, or a prediction with unconfirmed parts, cannot be public:
+      // say why
+      toast.error(error.message, { duration: 8000 })
     },
   })
   return (
@@ -301,7 +316,8 @@ function SharePublicly({
               htmlFor="sharePublicly"
               className="text-sm my-auto cursor-pointer"
             >
-              Share with anyone with the link
+              Public: anyone with the link can see it, and it appears on your
+              public track record
             </label>
           </div>
           {question.sharedPublicly && (

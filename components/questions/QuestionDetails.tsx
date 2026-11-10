@@ -29,6 +29,7 @@ import { PromptDialog } from "../ui/PromptDialog"
 import { Username } from "../ui/Username"
 import { CommentBox, DeleteCommentOverflow } from "./CommentBox"
 import { TagsSelect } from "./TagsSelect"
+import { resultLabel } from "../../lib/claims/words"
 
 interface QuestionDetailsProps {
   question: QuestionWithStandardIncludes
@@ -74,7 +75,7 @@ export const QuestionDetails = forwardRef(function QuestionDetails(
               className="button primary mx-auto"
               onClick={() => void signInToFatebook()}
             >
-              Sign in to add your own prediction
+              Sign in
             </button>
           </div>
         )}
@@ -101,7 +102,7 @@ export const QuestionDetails = forwardRef(function QuestionDetails(
         {forecastsAreHidden(question, userId) && (
           <div className="mt-2 mb-2 text-sm text-neutral-600 font-semibold flex items-center gap-4 bg-indigo-50 px-4 py-2 rounded-md border border-indigo-100">
             <InformationCircleIcon className="w-6 h-6 text-indigo-600" />
-            {`Other users' forecasts are hidden ${forecastHiddenReasonText(
+            {`Other people's confidence is hidden ${forecastHiddenReasonText(
               question,
             )} to reduce anchoring.`}
           </div>
@@ -110,7 +111,7 @@ export const QuestionDetails = forwardRef(function QuestionDetails(
           <EventsLog question={question} />
         ) : (
           <button className="btn mx-auto" onClick={() => setShowEvents(true)}>
-            See forecasts and comments
+            See confidence updates and notes
           </button>
         )}
         <CommentBox question={question} />
@@ -136,7 +137,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
     if (forecastsAreHidden(question, userId)) {
       return (
         <InfoButton
-          tooltip={`This forecast is hidden ${forecastHiddenReasonText(question)}`}
+          tooltip={`This is hidden ${forecastHiddenReasonText(question)}`}
           showInfoButton={false}
         >
           <span className="font-bold text-lg text-indigo-800 opacity-70">
@@ -166,7 +167,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
                     className="font-semibold"
                     unknownUserReason={
                       forecastsAreHidden(question, userId)
-                        ? `This forecast is hidden ${forecastHiddenReasonText(question)}`
+                        ? `This is hidden ${forecastHiddenReasonText(question)}`
                         : undefined
                     }
                   />
@@ -189,7 +190,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
                 className="font-semibold"
                 unknownUserReason={
                   forecastsAreHidden(question, userId)
-                    ? `This forecast is hidden ${forecastHiddenReasonText(question)}`
+                    ? `This is hidden ${forecastHiddenReasonText(question)}`
                     : undefined
                 }
               />
@@ -266,7 +267,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
                     Resolved{" "}
                     {question.type === "MULTIPLE_CHOICE" && question.options
                       ? getExclusiveMcqResolutionString(question)
-                      : question.resolution}
+                      : resultLabel(question.resolution).toLowerCase()}
                   </span>
                   <span className="text-neutral-400">
                     <FormattedDate date={question.resolvedAt} />
@@ -292,7 +293,9 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
                 <span />
                 <span className="italic text-indigo-800 overflow-x-auto">
                   Resolved &ldquo;{option.text}&rdquo;{" "}
-                  {option.resolution ? option.resolution : "unknown"}
+                  {option.resolution
+                    ? resultLabel(option.resolution).toLowerCase()
+                    : "unknown"}
                 </span>
                 <span className="text-neutral-400">
                   <FormattedDate date={option.resolvedAt!} />
@@ -334,7 +337,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
             .map((event) => event?.el)
         ) : (
           <span className="text-sm text-neutral-400 italic select-none md:ml-4">
-            No forecasts yet
+            No confidence given yet
           </span>
         )}
       </div>
@@ -350,7 +353,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
           <div className="mx-auto flex flex-col gap-2 mt-4 bg-neutral-50 outline outline-neutral-200 px-4 py-2 rounded-md">
             <span className="font-semibold text-center flex flex-row gap-x-1 mx-auto">
               Community Averages
-              <InfoButton tooltip="The geometric mean of odds of all forecasters' latest predictions for each option" />
+              <InfoButton tooltip="The average of everyone's latest confidence for each option" />
             </span>
             <div className="flex flex-row flex-wrap gap-x-4 justify-center w-full">
               {question.options.map((option) => {
@@ -375,7 +378,7 @@ function EventsLog({ question }: { question: QuestionWithStandardIncludes }) {
             <span className="font-bold text-xl text-indigo-800">
               {formatDecimalNicely(communityAverage * 100, 1)}%
             </span>
-            <InfoButton tooltip="The geometric mean of odds of all forecasters' latest predictions" />
+            <InfoButton tooltip="The average of everyone's latest confidence" />
           </div>
         )
       )}
@@ -422,19 +425,17 @@ function EditQuestionOverflow({
             className="dropdown-content z-50 menu p-2 shadow bg-base-100 rounded-box w-52"
           >
             <li>
-              <a onClick={() => setEditTitleDialogOpen(true)}>Edit question</a>
+              <a onClick={() => setEditTitleDialogOpen(true)}>Edit text</a>
             </li>
             <li>
-              <a onClick={() => setEditDateDialogOpen(true)}>
-                Edit resolve by date
-              </a>
+              <a onClick={() => setEditDateDialogOpen(true)}>Change the date</a>
             </li>
             <li>
               <a
                 onClick={() => {
                   if (
                     confirm(
-                      "Are you sure you want to delete this question? This cannot be undone",
+                      "Withdraw this? It will be hidden everywhere, including your public track record. Nothing is deleted: its history is kept.",
                     )
                   ) {
                     deleteQuestion.mutate({
@@ -446,7 +447,7 @@ function EditQuestionOverflow({
                   }
                 }}
               >
-                Delete question
+                Withdraw
               </a>
             </li>
           </ul>
@@ -456,8 +457,8 @@ function EditQuestionOverflow({
       <PromptDialog
         isOpen={editTitleDialogOpen}
         onClose={() => setEditTitleDialogOpen(false)}
-        title="Edit question"
-        description="Update the title of your question"
+        title="Edit text"
+        description="Change the wording. The change is recorded in its history."
         defaultValue={question.title}
         submitLabel="Save"
         onSubmit={(newTitle) => {
@@ -473,8 +474,8 @@ function EditQuestionOverflow({
       <PromptDialog
         isOpen={editDateDialogOpen}
         onClose={() => setEditDateDialogOpen(false)}
-        title="Edit resolution date"
-        description="When should I remind you to resolve this question?"
+        title="Change the date"
+        description="When does this come due?"
         defaultValue={getDateYYYYMMDD(question.resolveBy)}
         type="date"
         submitLabel="Save"

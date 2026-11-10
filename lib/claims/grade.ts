@@ -14,6 +14,7 @@
  */
 import { ClaimShape } from "@prisma/client"
 import { OutcomeParts, PartName, SHAPE_PARTS } from "./types"
+import { partWords } from "./words"
 
 export type Grade = 1 | 2 | 3 | 4 | 5
 
@@ -59,7 +60,7 @@ export function gradeClaim(input: GradeInput): GradeResult {
     return {
       grade: 1,
       missing: [],
-      reason: "Free text: nothing here can be checked yet.",
+      reason: "Nothing here can be checked yet.",
     }
   }
 
@@ -73,11 +74,11 @@ export function gradeClaim(input: GradeInput): GradeResult {
     return {
       grade: 2,
       missing,
-      reason: `Missing ${missingCoreOrDeadline.join(" and ")}.`,
+      reason: `Missing ${partWords(missingCoreOrDeadline)}.`,
     }
   }
   if (missing.length > 0) {
-    return { grade: 3, missing, reason: `Missing ${missing.join(" and ")}.` }
+    return { grade: 3, missing, reason: `Missing ${partWords(missing)}.` }
   }
   if (!input.checkLinkConfirmed) {
     return {
@@ -110,7 +111,9 @@ export function canPublish(input: GradeInput): PublishCheck {
   const reasons: string[] = []
 
   if (grade < 4) {
-    reasons.push(`Grade ${grade}, needs 4 or 5 to be public. ${reason}`)
+    reasons.push(
+      `This is still a hunch (grade ${grade}). Only a prediction, grade 4 or 5, can be public. ${reason}`,
+    )
   }
 
   const shape = input.shape ?? "FREE_TEXT"
@@ -119,7 +122,7 @@ export function canPublish(input: GradeInput): PublishCheck {
     (p) => has(parts, p) && parts[p]!.status !== "stated",
   )
   if (unconfirmed.length > 0) {
-    reasons.push(`Not yet confirmed: ${unconfirmed.join(", ")}.`)
+    reasons.push(`Not yet confirmed: ${partWords(unconfirmed)}.`)
   }
 
   return reasons.length === 0 ? { ok: true } : { ok: false, reasons }

@@ -19,7 +19,7 @@ export default function ImportPage() {
     <div className="px-4 pt-12 lg:pt-16 mx-auto max-w-6xl">
       <NextSeo title="Import from PredictionBook" />
       <div className="prose mx-auto">
-        <h4>Import all your PredictionBook predictions to Fatebook</h4>
+        <h4>Import your predictions from PredictionBook</h4>
         {userId ? (
           <PredictionBookImport />
         ) : (
@@ -81,7 +81,7 @@ function PredictionBookImport() {
     <>
       <NextSeo
         title="Import from PredictionBook"
-        description="Import all of your historical predictions from PredictionBook into Fatebook"
+        description="Bring your past predictions in from PredictionBook"
       />
       <form onSubmit={void handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-2">
@@ -128,14 +128,14 @@ function PredictionBookImport() {
             }}
             disabled={!userId || deleteAllPredictionBookQuestions.isLoading}
           >
-            Delete all your questions imported from PredictionBook
+            Delete everything imported from PredictionBook
           </button>
         </div>
       </form>
       <div className="mt-20">
         <Questions
-          title="Your questions imported from PredictionBook"
-          noQuestionsText="No questions imported from PredictionBook yet"
+          title="Imported from PredictionBook"
+          noQuestionsText="Nothing imported from PredictionBook yet"
           filterClientSide={(question) =>
             question.id.startsWith(getPredictionBookIdPrefix()) &&
             question.userId === userId

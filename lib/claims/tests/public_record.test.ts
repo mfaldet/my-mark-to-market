@@ -70,7 +70,7 @@ describe("buildPublicRecord", () => {
     expect(record.app.builtOn).toBe("Fatebook by Sage")
   })
 
-  it("counts right, wrong, ambiguous, open and close calls", () => {
+  it("counts right, wrong, can't tell, open and close calls", () => {
     const record = buildPublicRecord(
       { name: "Mac" },
       [
@@ -88,7 +88,7 @@ describe("buildPublicRecord", () => {
       resolved: 4,
       right: 2,
       wrong: 1,
-      ambiguous: 1,
+      cantTell: 1,
       closeCalls: 1,
       accuracy: 0.667, // ambiguous claims are left out of accuracy
     })

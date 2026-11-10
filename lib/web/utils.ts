@@ -128,7 +128,7 @@ export function getChartJsParams(
             y: {
               title: {
                 display: true,
-                text: "% of questions that resolved Yes",
+                text: "How often you were right",
                 color: hideTitles ? "transparent" : "gray",
               },
               ticks: {
@@ -142,7 +142,7 @@ export function getChartJsParams(
               max: 100,
               title: {
                 display: true,
-                text: `${pronoun} forecast`,
+                text: "How sure you said you were",
                 color: hideTitles ? "transparent" : "gray",
               },
               ticks: {

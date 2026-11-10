@@ -15,6 +15,7 @@ import { z } from "zod"
 import { findUserByApiKey } from "../api_keys"
 import { getBaseHost } from "../base_url"
 import { parseConfidenceWord } from "../claims/confidence"
+import { parseResult } from "../claims/words"
 import {
   answerQuestion,
   getClaim,
@@ -104,13 +105,14 @@ const claim = z.object({
   withdrawn: z.boolean(),
   resolved: z.boolean(),
   resolution: z.string().nullable(),
+  result: z.enum(["right", "wrong", "can't tell"]).nullable(),
   closeCall: z.boolean(),
   actualResult: z.string().nullable(),
   nextQuestion: question,
   questionsAsked: z.number(),
 })
 
-const tags = ["Claims"]
+const tags = ["Hunches and predictions"]
 
 export const claimsApiRouter = router({
   log: publicProcedure
@@ -120,7 +122,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/log",
         tags,
         description:
-          "Log a claim from raw text. The text is saved exactly as given. Returns the claim with its grade and the engine's first question (nextQuestion), if it has one.",
+          "Log a hunch from raw text. The text is saved exactly as given. Returns the item with its kind (hunch or prediction), its grade and the first question to answer (nextQuestion), if there is one.",
         example: {
           request: {
             text: "S&P 500 falls 20% from today's close by end of 2027, likely",
@@ -134,7 +136,7 @@ export const claimsApiRouter = router({
         claimDate: z
           .string({
             description:
-              "YYYY-MM-DD. When you made the claim, if not today. Relative dates in the text are worked out from this.",
+              "YYYY-MM-DD. When you said it, if not today. Relative dates in the text are worked out from this.",
           })
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional(),
@@ -160,7 +162,7 @@ export const claimsApiRouter = router({
         method: "GET",
         path: "/v0/claims/get",
         tags,
-        description: "Get one of your claims.",
+        description: "Get one of your hunches or predictions.",
       },
     })
     .input(z.object({ claimId: z.string(), apiKey }))
@@ -178,7 +180,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/nextQuestion",
         tags,
         description:
-          "The engine's one open question about a claim: the most important gap, with a suggested default where there is one. `question` is null when there is nothing to ask or three have been asked.",
+          "The one open question on a hunch or prediction: the most important gap, with a suggested default where there is one. `question` is null when there is nothing to ask or three have been asked.",
       },
     })
     .input(z.object({ claimId: z.string(), apiKey }))
@@ -210,7 +212,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/answer",
         tags,
         description:
-          'Answer the open question. Send exactly one of: `accept: true` (take the suggested default; it is stored as "working"), `value` (your own answer; stored as "stated"), or `skip: true`. Returns the updated claim and the next question.',
+          'Answer the open question. Send exactly one of: `accept: true` (take the suggested default; it is stored as "working"), `value` (your own answer; stored as "stated"), or `skip: true`. Returns the updated item, including whether it has become a prediction, and the next question.',
         example: { request: { claimId: "CLAIM_ID", accept: true } },
       },
     })
@@ -256,7 +258,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/confidence",
         tags,
         description:
-          "Update your confidence with a word or a number, and an optional note on why. Words: almost certain, very likely, likely, toss-up, unlikely, very unlikely, almost no chance. A word is stored with the midpoint of its range as the forecast.",
+          "Update how sure you are with a word or a number, and an optional note on why. Words: almost certain, very likely, likely, toss-up, unlikely, very unlikely, almost no chance. A word is stored with the midpoint of its range as the number.",
         example: {
           request: {
             claimId: "CLAIM_ID",
@@ -309,7 +311,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/linkParent",
         tags,
         description:
-          "Link a claim to the earlier, vaguer claim it grew out of. Send parentId null to remove the link.",
+          "Link an item to the earlier, vaguer hunch it grew out of. Send parentId null to remove the link.",
       },
     })
     .input(
@@ -337,7 +339,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/list",
         tags,
         description:
-          'List your claims, newest first. To ask "what\'s due?", set `due`: "soon" (deadline today or within `withinDays`, default 7), "overdue" (deadline passed, not resolved) or "soon_or_overdue". Those come back most pressing first.',
+          'List your hunches and predictions, newest first. To ask "what\'s due?", set `due`: "soon" (deadline today or within `withinDays`, default 7), "overdue" (deadline passed, not resolved) or "soon_or_overdue". Those come back most pressing first.',
       },
     })
     .input(
@@ -366,26 +368,44 @@ export const claimsApiRouter = router({
         path: "/v0/claims/resolve",
         tags,
         description:
-          'Resolve a claim. Give `resolution` (YES, NO or AMBIGUOUS), or for a number claim just give `actual` and the code works out YES or NO. A near miss on an "about" claim is marked as a close call.',
+          'Resolve a prediction. Give `result` (right, wrong or can\'t tell), or for a prediction about a number just give `actual` and the code works out right or wrong. A near miss on an "about" number is marked as a close call. A hunch cannot be resolved.',
         example: { request: { claimId: "CLAIM_ID", actual: 5.8 } },
       },
     })
     .input(
       z.object({
         claimId: z.string(),
-        resolution: z.enum(["YES", "NO", "AMBIGUOUS"]).optional(),
+        result: z
+          .string({ description: "right, wrong or can't tell" })
+          .optional(),
+        resolution: z
+          .enum(["YES", "NO", "AMBIGUOUS"], {
+            description: "Older form of `result`. Still accepted.",
+          })
+          .optional(),
         actual: z.union([z.string(), z.number()]).optional(),
         source,
         apiKey,
       }),
     )
     .output(claim)
-    .mutation(async ({ input, ctx }) =>
-      resolveClaim(
+    .mutation(async ({ input, ctx }) => {
+      let resolution = input.resolution
+      if (input.result !== undefined) {
+        const parsed = parseResult(input.result)
+        if (!parsed) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "result must be right, wrong or can't tell.",
+          })
+        }
+        resolution = parsed
+      }
+      return resolveClaim(
         await requireUser(ctx, input.apiKey),
         input.claimId,
-        { resolution: input.resolution, actual: input.actual },
+        { resolution, actual: input.actual },
         toSource(input.source),
-      ).catch(toTrpcError),
-    ),
+      ).catch(toTrpcError)
+    }),
 })

@@ -90,6 +90,7 @@
     "@types/graceful-fs": "^4.1.9",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^18.3.3",
     "@types/swagger-ui-react": "^4.18.3",
     "@typescript-eslint/eslint-plugin": "^7.13.1",
