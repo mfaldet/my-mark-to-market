@@ -1,186 +1,180 @@
 # My Mark-to-Market
 
-A personal log of my claims and predictions: what I said, when, how sure I was, and how it turned out.
+A personal log of my claims and predictions: what I said, when I said it, how sure I was, and how it turned out.
 
-This is a fork of [Fatebook](https://fatebook.io) by [Sage](https://sage-future.org), used under the [MIT license](LICENSE). Fatebook does the forecasting, scoring and calibration; this fork adds a standard for what counts as a checkable claim, a grading engine, and an append-only history. A full write-up of what was added will replace this note once the work is finished.
+Built on [Fatebook](https://fatebook.io) by [Sage](https://sage-future.org), under the [MIT license](LICENSE).
 
-Everything below is Fatebook's original README.
+![Logging a claim: the grade, the engine's one question, and each outcome part with its status](docs/images/log-claim.png)
 
----
+## What it is and why I built it
 
-# [Fatebook](https://fatebook.io)
+I make a lot of loose predictions in conversation: "the labor market is weakening", "rates get cut this year". Most are too vague to ever be shown right or wrong, which makes it easy to remember the hits and forget the misses.
 
-The fastest way to make and track predictions.
+This app is where I write those down in my own words, at the moment I say them. It then asks, one question at a time, what I would have to see for the claim to be true, and grades how checkable the claim is. Vague hunches are welcome and stay private. Only claims that are complete and checkable can be made public, and every change I make afterwards is kept in a history I cannot quietly edit.
 
-This repo includes [fatebook.io](https://fatebook.io), [Fatebook for Slack](fatebook.io/for-slack) and [Fatebook for Chrome](https://fatebook.io/extension).
+It is for my own use. There are no other people's claims, no social features and no markets.
 
-You can report bugs in the [Issues](https://github.com/Sage-Future/fatebook/issues) tab. You can make feature requests there or in our [Discord](https://discord.gg/mt9YVB8VDE).
+It is also a portfolio piece: I took a working open-source app, read it, and extended it without rewriting it.
 
-## Tech stack
+## What Fatebook already did, and what I added
 
-- Prisma
-- Next.js
-- Vercel
-- Slack API
-- TRPC
-- Tailwind
+**Fatebook already did**
 
-## User-made integrations
+- Questions with a title, a resolve-by date, notes and tags
+- A probability forecast you can update, with every update kept
+- Resolving as yes, no or ambiguous
+- Brier scoring and a calibration chart
+- Sign-in, an API with keys, embeddable question pages
+- Slack and Discord bots, a browser extension, teams and tournaments
 
-Using the [Fatebook API](https://fatebook.io/api-setup), Fatebook users have created:
+**I added**
 
-- [An Obsidian plugin to create and preview Fatebook questions right inside your editor](https://github.com/GarretteBaker/obsidian-fatebook)
-- [An iOS shortcut to create a Fatebook question](https://www.icloud.com/shortcuts/25903acfcd3d4fd5bed31c2f50322928)
-- [An Alfred workflow to create Fatebook questions](https://github.com/Calebp98/alfred-fatebook-workflow)
-- [An Emacs plugin to create Fatebook questions](https://github.com/sonofhypnos/fatebook.el)
+|                               | What                                                                                                                                                                | Where                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| A claim standard              | Claim text kept in my own words, a claim date separate from the logged date, and an outcome stored as one of five shapes with the parts that shape needs            | `lib/claims/types.ts`                               |
+| Honest provenance             | Every outcome part is marked _stated_ (I said it), _extracted_ (the AI read it from my text) or _working_ (a default I accepted), and I can confirm each one        | `components/claims/ClaimPanel.tsx`                  |
+| A grade from 1 to 5           | Plain code, no AI: the same claim always gets the same grade                                                                                                        | `lib/claims/grade.ts`                               |
+| One question at a time        | The most important gap, with a one-tap default where one makes sense, and never more than three                                                                     | `lib/claims/next_question.ts`                       |
+| Confidence words              | "likely", "toss-up", "almost no chance" and so on, each mapped to a range; and a rule for when a percentage is confidence and when it is just a number in the claim | `lib/claims/confidence.ts`                          |
+| Deadlines from the claim date | "This year" in a claim made in July 2025 means December 31, 2025, whenever I log it                                                                                 | `lib/claims/dates.ts`                               |
+| Close calls                   | "About 6%" that lands at 5.8% is scored wrong, and marked as a near miss                                                                                            | `lib/claims/tolerance.ts`                           |
+| A publish gate                | Private by default. Public only at grade 4 or 5 with every part confirmed. An edit that would break that is blocked, never silently fixed                           | `lib/claims/service.ts`                             |
+| Append-only history           | Every change writes a full snapshot, chained to the one before by a hash, with a button that re-checks the chain                                                    | `lib/claims/history.ts`                             |
+| Parent claims                 | A link from a sharp claim back to the hunch it grew out of                                                                                                          | `lib/claims/service.ts`                             |
+| Logging from anywhere         | API endpoints, a hosted MCP server for Claude, and an iPhone Shortcut. Each claim records how it came in: web, API, phone or agent                                  | `lib/web/claims_api_router.ts`, `lib/mcp/server.ts` |
+| A public track record         | A JSON feed and an embeddable page showing only the claims I have shared                                                                                            | `lib/claims/public_record.ts`                       |
 
-Share your own API creations in [Discord](https://discord.gg/mt9YVB8VDE)!
+**I changed in Fatebook itself**
 
-## Contributing
+- The site address comes from an environment variable instead of being fixed to `fatebook.io`.
+- API keys are generated securely, stored only as a hash, and can be sent in a header.
+- Delete became "withdraw": hidden everywhere, but kept with its history.
+- Slack, Discord, the browser extension, teams, tournaments, the public feed and Sage's own pages are switched off behind flags in `lib/features.ts`. No code was deleted; setting a flag to `true` brings a feature back.
+- GitHub now runs the type check, lint and database tests, not only the unit tests.
 
-If you're interested in contributing, [let us know](https://github.com/Sage-Future/fatebook/issues), and we can help you get up and running - thank you!
+## How it fits together
 
-### Using Docker
+```mermaid
+flowchart TD
+    subgraph sources["How a claim comes in"]
+        web["Web app"]
+        shortcut["iPhone Shortcut"]
+        claude["Claude"]
+    end
 
-The easiest way to get a local dev environment running:
+    api["API<br/>/api/v0/claims"]
+    mcp["MCP server<br/>/api/mcp"]
+
+    web --> service
+    shortcut --> api --> service
+    claude --> mcp --> service
+
+    service["Claim service<br/>one place for every rule"]
+
+    service --> ai["AI step (optional)<br/>picks the shape,<br/>reads the parts"]
+    ai -.-> anthropic["Claude API"]
+    service --> code["Plain code<br/>grade, deadline, confidence,<br/>next question, publish gate"]
+
+    service --> db[("Postgres")]
+    db --- claims["Claims<br/>and forecasts"]
+    db --- versions["Version table<br/>append-only, hash-chained"]
+
+    service --> public["Public track record<br/>JSON feed and embed page"]
+```
+
+The important line is the one in the middle. The web app, the API and the MCP server all call the same claim service, so they cannot disagree about a grade, the publish gate or what goes into the history.
+
+The AI step is deliberately small. It picks the claim's shape and reads the parts out of my text, and everything it returns is marked "extracted" until I confirm it. It does not grade, does not decide the deadline and does not read my confidence; plain code does those, so the answers are repeatable. Without an API key the app works the same and I fill the fields in by hand.
+
+## What it looks like
+
+**A hunch.** Grade 1 and private. The engine asks what I would actually see, and my answer moves it up a grade.
+
+![A vague claim after answering the engine's first question](docs/images/hunch-question.png)
+
+**The timeline and history check.** Every version, what changed, how it came in, and the result of recomputing the hash chain.
+
+![A claim's timeline with seven versions and a passing history check](docs/images/timeline.png)
+
+**The public track record.** Only claims I have shared. This is the page my own site embeds.
+
+![The public track record page](docs/images/public-record.png)
+
+_These screenshots were taken from the app running locally, with a stand-in for the Claude API returning the claim shape and parts._
+
+## What the history does and does not prove
+
+Each history row stores a hash of its own contents and of the row before it. If any row is changed, removed or reordered, the chain stops matching, and "Verify history" says at which version.
+
+This **detects** tampering. It cannot **prevent** it. There are two layers: the database itself rejects any edit or delete on the history table, and if someone with full database access switches that off, the hash chain shows the damage.
+
+Someone with full database access could still rewrite a row and recompute every hash after it. The guard against that is outside the database: the public feed publishes each shared claim's latest hash, so a rewritten history would no longer match what my site, or anyone who saved the feed, has on record.
+
+## Run it locally
+
+You need Docker and Node 20.
 
 ```shell
-git clone https://github.com/Sage-Future/fatebook.git
-cd fatebook
+git clone https://github.com/mfaldet/my-mark-to-market.git
+cd my-mark-to-market
 cp .env.example .env
 docker compose up
 ```
 
-The app will be available at http://localhost:3000. The database is created automatically and migrations run on startup.
+Open http://localhost:3000. To sign in, choose the email option and pick up the sign-in email from the local mail catcher at http://localhost:8025.
 
-**Signing in:** Use the email magic link option. Docker Compose includes [Mailpit](https://mailpit.axllent.org/) as a local mail catcher — check http://localhost:8025 to see the sign-in email after requesting one. No SMTP account needed.
-
-**Note:** The local dev SSL proxy is skipped in Docker, so the app runs on plain HTTP. The `.env.example` shared Google OAuth credentials require HTTPS and won't work; either set up your own OAuth credentials with `http://localhost:3000` redirect URIs, or use the email provider instead.
-
----
-
-The following instructions assume you're using macOS and Homebrew.
-
-### Clone the repository
+If you would rather run the app outside Docker and keep only the database and mail catcher in it:
 
 ```shell
-git clone https://github.com/Sage-Future/fatebook.git
-cd fatebook
-cp .env.example .env
+docker compose up -d db mail
+npm install
+npx prisma migrate deploy
+NEXTAUTH_URL=http://localhost:3000/api/auth HOST_URL=http://localhost:3000 \
+AUTH_EMAIL_SERVER=smtp://localhost:1025 AUTH_EMAIL_FROM=app@localhost \
+npx dotenv -- next dev -p 3000
 ```
 
-### Create TLS certificate for localhost
+To switch the AI step on, add `ANTHROPIC_API_KEY=...` to `.env`. It uses a small model by default; set `CLAIM_AI_MODEL` to change it.
+
+### Tests
 
 ```shell
-brew install mkcert
-mkcert -install
-mkcert localhost
+npm test                                    # unit tests, no database needed
+RUN_DB_TESTS=1 npx dotenv -- npx jest       # also the tests that use Postgres
+RUN_LIVE_AI=1 npx dotenv -- npx jest extract.live   # the AI step against the real API (needs a key)
 ```
 
-### Set up the database
+## Deploy it
 
-```shell
-brew install postgresql@15
-# Or download and install from https://www.postgresql.org/download
-# If you do this, follow the instructions there for starting the database.
+It is built for Vercel plus a hosted Postgres. Set at least:
 
-# Follow the instructions that the installer provides on how to add postgresql@15 to your PATH.
-# For example, on some systems it will tell you to do this:
-echo 'export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"' >> ~/.zshrc
-. ~/.zshrc
+| Variable                               | What it is                                                                               |
+| -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `DATABASE_URL`, `DATABASE_DIRECT_URL`  | Your Postgres                                                                            |
+| `SECRET`                               | Any long random string                                                                   |
+| `NEXT_PUBLIC_BASE_URL`                 | Your public address, e.g. `https://claims.example.com`                                   |
+| `NEXTAUTH_URL`                         | The same address followed by `/api/auth`                                                 |
+| `AUTH_EMAIL_SERVER`, `AUTH_EMAIL_FROM` | An SMTP account for sign-in emails, or use `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` |
+| `ANTHROPIC_API_KEY`                    | Optional. Switches the AI step on                                                        |
 
-# If you're using Bash rather than Z shell, substitute `~/.bash_profile` for
-# `~/.zshrc` in the previous commands.
+`.env.example` lists every variable, including the feature switches.
 
-# Start postgres
-LC_ALL="C" /opt/homebrew/opt/postgresql@15/bin/postgres -D /opt/homebrew/var/postgresql@15
-```
+## Connect Claude and your phone
 
-Open a new terminal window and run the following commands:
+- **Claude** (Claude Code, and the web, desktop and phone apps): [docs/connect-claude.md](docs/connect-claude.md)
+- **iPhone Shortcut** that dictates a claim and shows the engine's first question: [docs/iphone-shortcut.md](docs/iphone-shortcut.md)
+- **API:** sign in and open **API** in the menu for your key and interactive documentation of every endpoint.
 
-```shell
-# create `fatebook` role
-createuser fatebook
+## Honest limits
 
-# create `fatebook_development` database, owned by the `fatebook` user
-createdb fatebook_development --owner fatebook
-```
+- The AI step has been tested with a stand-in for the Claude API, not yet against the real one. `extract.live.test.ts` does that once a key is available.
+- The MCP server has been tested with the official MCP client library, not yet from inside the Claude apps.
+- The iPhone Shortcut instructions have not been built on a phone.
+- The MCP server signs in with an API key. It does not implement OAuth.
+- Confidence words are read by plain pattern matching, so a word that is part of the claim itself ("the Fed says a cut is likely") is read as my confidence. The app shows what it read so I can correct it.
 
-1. Run `npm install` to install dependencies.
-2. Run `npm run vercel-build` to set up the Fatebook schema.
+## Credit and license
 
-### Start the server
+This is a fork of [Fatebook](https://github.com/Sage-Future/fatebook), made by [Sage](https://sage-future.org). The forecasting, scoring, calibration, sign-in and most of the interface are their work, and I am grateful they published it openly. Fatebook's original README is kept at [docs/FATEBOOK_README.md](docs/FATEBOOK_README.md).
 
-1. Run `npm run dev`.
-2. Go to https://localhost:3000. You should be able to sign in and create predictions.
-
-### Running tests
-
-Run jest tests with `npm run test`.
-
-You can also generate a coverage report by running `npm run test -- --coverage`, the report will be printed to the console and also saved in the `coverage/` directory. The best way to view it is in the html format under `coverage/lcov-report/index.html` (run `open coverage/lcov-report/index.html`).
-
-### Running in the vscode debugger
-
-There is a launch config for vscode/Cursor called "Next.js: debug fatebook full stack" that will run the web app in the debugger (frontend and backend, breakpoints will work on the client or during SSR).
-
-### Developing the Fatebook browser extension
-
-Fatebook has a Chrome and Firefox [extension](https://fatebook.io/extension). The source is in [/chrome-extension](https://github.com/Sage-Future/fatebook/tree/main/chrome-extension)
-
-To test changes to the Chrome extension:
-
-1. Follow the general Fatebook dev setup steps above
-2. In `after.js`, make sure `extensionInfo.isDev = true`
-3. `npm run dev`, and check that your dev server is running at https://localhost:3000
-4. Go to `chrome://extensions`
-5. Disable the prod Fatebook extension, if you have it installed
-6. "Load unpacked", and select the chrome-extension directory
-7. In `chrome://extensions/shortcuts`, set the shortcut for "Make a new prediction" to Cmd-Shift-F, if it's not already set
-8. Before committing, make sure `extensionInfo.isDev = false` in `after.js`
-
-If you make a change to the contents of a file in `chrome-extension`, to see the changes in your browser you'll need to reload the extension:
-
-1. Go to `chrome://extensions`
-2. Click the refresh button next to the unpacked version of Fatebook for Chrome
-3. Refresh any tabs where you want to test the extension
-
-Changes to Fatebook itself (e.g. changes to `/pages/embed/q/[id].tsx`) will be reflected without needing to reload the extension.
-
-<details>
-  <summary>Deploying updates to the Chrome extension</summary>
-
-Contributors - a maintainer will test and deploy your changes.
-
-Instructions for maintainers:
-
-1. Test changes locally in Chrome and Firefox
-2. Set `extensionInfo.isDev = false` in `after.js`
-3. Deploy any changes to fatebook.io, and test your local unpacked extension with the prod environment
-4. Increment the `version` field in `manifest.json`
-5. Run `npm run zip`
-6. Upload the Chrome extension to the webstore and the Firefox version to Mozilla addons. Approval normally takes <24 hours
-
-</details>
-
-### Addendum
-
-If you want to make or test changes to the Slack integration, you'll need to set up a Slack app. This is more involved - [get in touch](https://github.com/Sage-Future/fatebook/issues) and we'll help you get up and running.
-
-<details>
-  <summary>Optional extra step: Or set up your own Google OAuth credentials</summary>
-
-Your `.env.example` is prefilled with the shared Fatebook developer Google OAuth credentials. If you'd like to create your own (e.g., to change the configuration), follow these steps:
-
-1. Go to https://console.cloud.google.com/apis/credentials.
-2. Click <kbd>Configure a project</kbd>. (Or, if you've previously made a project, click <kbd>Your project</kbd> -> <kbd>New project</kbd> -> Select your new project)
-3. Click <kbd>CREATE CREDENTIALS</kbd>.
-4. Select `OAuth client ID`.
-5. You may need to follow the instructions in "Create consent screen" - select all non-sensitive scopes. Then try 3-4 again.
-6. For `Application type` select `Web application`.
-7. Under `Name` type something like `Fatebook development`.
-8. Under `Authorized redirect URIs`, click <kbd>ADD URI</kbd> and under `URIs 1` type `https://localhost:3000/api/auth/callback/google`.
-9. Open the `.env` file in the root of the `fatebook` repository. Copy and paste the `Client ID` value after `GOOGLE_CLIENT_ID=` in `fatebook/.env`, and do the same for `Client secret` and `GOOGLE_CLIENT_SECRET=`.
-</details>
-
-If you have any problems, [let us know](https://github.com/Sage-Future/fatebook/issues)!
+Both Fatebook and this fork are released under the [MIT license](LICENSE).

@@ -118,7 +118,7 @@ This is what you see when the engine has nothing to ask.
 - add it to your Home Screen: open the shortcut, tap the name at the top, then **Add to Home Screen**, or
 - put it on the Action Button: **Settings → Action Button → Shortcut**.
 
-Try: *"Unemployment will hit six percent by 2028, probably."* You should see something like **"Grade 4. Is this the deadline you meant?"** with **"Yes By Dec 31, 2028?"** as the first choice.
+Try: _"Unemployment will hit six percent by 2028, probably."_ You should see something like **"Grade 4. Is this the deadline you meant?"** with **"Yes By Dec 31, 2028?"** as the first choice.
 
 ## Things to know
 
@@ -129,13 +129,13 @@ Try: *"Unemployment will hit six percent by 2028, probably."* You should see som
 
 ## If something goes wrong
 
-| What you see | Likely cause |
-| --- | --- |
-| "Missing or unknown API key" | The header value is missing `Bearer `, or the key was regenerated |
-| The menu never appears | Step 5's key is not exactly `nextQuestion.question`, or the claim was complete and there was nothing to ask |
-| "Send exactly one of: accept, value, skip" | A menu branch is sending more than one of those fields |
-| "Expected a date like 2027-12-31" | You answered the deadline question in words. Run it again and choose "Yes" |
-| Nothing happens, no error | The address is wrong, or the app is not deployed where your phone can reach it |
+| What you see                               | Likely cause                                                                                                |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| "Missing or unknown API key"               | The header value is missing `Bearer `, or the key was regenerated                                           |
+| The menu never appears                     | Step 5's key is not exactly `nextQuestion.question`, or the claim was complete and there was nothing to ask |
+| "Send exactly one of: accept, value, skip" | A menu branch is sending more than one of those fields                                                      |
+| "Expected a date like 2027-12-31"          | You answered the deadline question in words. Run it again and choose "Yes"                                  |
+| Nothing happens, no error                  | The address is wrong, or the app is not deployed where your phone can reach it                              |
 
 ## What has and has not been tested
 
