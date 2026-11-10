@@ -90,7 +90,7 @@ describe("the MCP tools", () => {
   })
 
   it("tells Claude to pass my words unchanged and not answer for me", () => {
-    expect(MCP_INSTRUCTIONS).toMatch(/exactly as they said it/)
+    expect(MCP_INSTRUCTIONS).toMatch(/exactly as they said them/)
     expect(MCP_INSTRUCTIONS).toMatch(/Do not answer it yourself/)
   })
 
@@ -253,7 +253,7 @@ describe("summarize", () => {
       probability: null,
       confidenceWord: null,
       resolved: true,
-      resolution: "NO",
+      result: "wrong",
       closeCall: true,
       actualResult: "5.8",
       nextQuestion: null,
@@ -261,7 +261,7 @@ describe("summarize", () => {
     expect(summary).toMatchObject({
       deadline: "2028-12-31",
       confidence: "not given",
-      resolution: "NO",
+      result: "wrong",
       closeCall: true,
       actualResult: "5.8",
       nextQuestion: null,

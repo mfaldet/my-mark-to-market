@@ -201,7 +201,7 @@ export function Question({
                       className="[text-wrap:balanced]"
                       prefix={
                         <span className="font-semibold">
-                          {isHunch ? "Time to check back" : "Ready to resolve"}
+                          {isHunch ? "Time to check back" : "Past due"}
                           <br />
                         </span>
                       }
@@ -214,7 +214,7 @@ export function Question({
                   ) : (
                     <span>
                       <span>
-                        {isHunch ? "Check back by" : "Resolves"} <br />
+                        {isHunch ? "Check back by" : "Due"} <br />
                       </span>
                       <FormattedDate
                         className="[text-wrap:balanced]"
@@ -280,8 +280,8 @@ export function Question({
       <PromptDialog
         isOpen={editDateDialogOpen}
         onClose={() => setEditDateDialogOpen(false)}
-        title="Edit resolution date"
-        description="Select the new resolution date"
+        title="Change the date"
+        description="When does this come due?"
         defaultValue={getDateYYYYMMDD(question.resolveBy)}
         type="date"
         submitLabel="Save"
@@ -336,11 +336,9 @@ export function ActivityNumbers({
       onClick={() => !embedded && setManuallyExpanded(!manuallyExpanded)}
     >
       <InfoButton
-        tooltip={`${forecasts} forecast${
+        tooltip={`${forecasts} confidence update${
           forecasts !== 1 ? "s" : ""
-        }, ${forecasters} forecaster${
-          forecasters !== 1 ? "s" : ""
-        }, ${numComments} comment${numComments !== 1 ? "s" : ""}`}
+        }, ${numComments} note${numComments !== 1 ? "s" : ""}`}
         showInfoButton={false}
         className="flex gap-2"
       >

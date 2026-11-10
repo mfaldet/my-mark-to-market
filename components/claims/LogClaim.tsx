@@ -42,7 +42,7 @@ export function LogClaim() {
           className="button primary"
           onClick={() => void signInToFatebook()}
         >
-          Sign in to log a claim
+          Sign in to log a hunch
         </button>
       </div>
     )
@@ -63,7 +63,7 @@ export function LogClaim() {
       >
         <TextareaAutosize
           className="w-full rounded-md border border-neutral-300 p-3 text-xl font-semibold focus:outline-indigo-500 resize-none"
-          placeholder="What's your claim? Say it in your own words."
+          placeholder="What's your hunch? Say it in your own words."
           minRows={2}
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -97,7 +97,7 @@ export function LogClaim() {
             className="button primary ml-auto"
             disabled={!text.trim() || log.isLoading}
           >
-            {log.isLoading ? "Logging..." : "Log claim"}
+            {log.isLoading ? "Logging..." : "Log hunch"}
           </button>
         </div>
       </form>

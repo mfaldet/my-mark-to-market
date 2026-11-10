@@ -4,6 +4,7 @@ import NextAuth, { NextAuthOptions, Session, User } from "next-auth"
 import { JWT } from "next-auth/jwt"
 import EmailProvider from "next-auth/providers/email"
 import GoogleProvider from "next-auth/providers/google"
+import { sendSignInEmail } from "../../../lib/signin_email"
 import {
   capitalizeFirstLetter,
   subscribeToMailingList,
@@ -152,10 +153,12 @@ export const authOptions: NextAuthOptions = {
             server: process.env.AUTH_EMAIL_SERVER,
             from: process.env.AUTH_EMAIL_FROM,
             maxAge: 20 * 60, // 20 minutes in seconds. Reduced because of Outlook SafeLink workaround
+            sendVerificationRequest: sendSignInEmail,
           }),
         ]
       : []),
   ],
+  pages: { signIn: "/signin", error: "/signin" },
   theme: {
     colorScheme: "light",
     brandColor: "#4338ca",

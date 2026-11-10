@@ -19,6 +19,7 @@ import {
 import { z } from "zod"
 import { APP_NAME } from "../app_name"
 import { parseConfidenceWord } from "../claims/confidence"
+import { parseResult } from "../claims/words"
 import {
   answerQuestion,
   ClaimError,
@@ -31,13 +32,20 @@ import {
 } from "../claims/service"
 
 /** What Claude is told about how to use these tools. */
-export const MCP_INSTRUCTIONS = `${APP_NAME} is the user's personal log of their own claims and predictions.
+export const MCP_INSTRUCTIONS = `${APP_NAME} is the user's personal tracker for their own hunches and predictions.
 
-- Log a claim only when the user asks you to, or clearly states a prediction and wants it recorded. Never log claims made by other people.
-- Pass the user's claim in their own words, exactly as they said it. Do not tidy, sharpen or complete it: the app grades how checkable the claim is, and filling gaps for them would hide what they actually said.
+Two words matter here:
+- A hunch is anything the user logs. It can be loose ("the labor market is weakening"). Hunches are private.
+- A prediction is a hunch sharpened until it can be checked: an outcome, a deadline and a way to tell. Only predictions can be made public, resolved and scored. It is the same item throughout; the app says when a hunch has become a prediction.
+
+How to help:
+- Log a hunch only when the user asks you to, or clearly states one and wants it recorded. Never log things other people said.
+- Pass the user's words exactly as they said them. Do not tidy, sharpen or complete them: the app's job is to help the user sharpen a hunch into a prediction, and filling gaps for them would hide what they actually said.
 - After logging, the app may return one question. Ask the user that question, with its suggested default if there is one, and wait for their reply. Do not answer it yourself. Use accept only when the user agrees to the suggested default.
-- When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each claim's text and its "due" line. Do not resolve anything unless they tell you how it turned out.
-- A grade of 1 to 3 is fine. Those are hunches, and they stay private. Do not push the user to keep answering.`
+- A hunch is fine as a hunch. Do not push the user to keep answering.
+- When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each item's text and its "due" line.
+- Record how a prediction turned out only when the user tells you. A hunch cannot be resolved: the user can sharpen it, move its check-back date in the app, or leave it.
+- Say "hunch" and "prediction" to the user. The tool and field names say "claim" for technical reasons; do not repeat that word to them.`
 
 /** A compact, readable summary of a claim for the model. */
 export function summarize(claim: ClaimView) {
@@ -72,7 +80,7 @@ export function summarize(claim: ClaimView) {
     parent: claim.parent,
     ...(claim.resolved
       ? {
-          resolution: claim.resolution,
+          result: claim.result,
           closeCall: claim.closeCall,
           actualResult: claim.actualResult,
         }
@@ -125,18 +133,18 @@ const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
 export const TOOLS: Tool[] = [
   {
     name: "log_claim",
-    title: "Log a claim",
+    title: "Log a hunch",
     description:
-      "Log one of the user's own claims or predictions. Pass their words exactly as said, unedited. Returns the claim's id, its grade (1-5, how checkable it is) and nextQuestion: one question from the app about the most important gap, which you should ask the user.",
+      "Log one of the user's own hunches. Pass their words exactly as said, unedited. Returns its id, whether it is a hunch or already a prediction, its grade (1-5, how checkable it is) and nextQuestion: one question from the app about the most important gap, which you should ask the user.",
     inputSchema: {
       type: "object",
       properties: {
-        text: str("The claim, in the user's own words. Do not rewrite it."),
+        text: str("The hunch, in the user's own words. Do not rewrite it."),
         claim_date: str(
-          "YYYY-MM-DD. Only if the user says they made the claim on an earlier day. Leave out for today.",
+          "YYYY-MM-DD. Only if the user says they said it on an earlier day. Leave out for today.",
         ),
         parent_id: str(
-          "Id of an earlier, vaguer claim this one grew out of, if the user says so.",
+          "Id of an earlier, vaguer hunch this one grew out of, if the user says so.",
         ),
       },
       required: ["text"],
@@ -161,7 +169,7 @@ export const TOOLS: Tool[] = [
     name: "answer_question",
     title: "Answer the app's question",
     description:
-      "Give the user's reply to a claim's open question. Send exactly one of: accept=true (the user agreed to the suggested default), value (the user's own answer, in their words; a date as YYYY-MM-DD), or skip=true. Returns the updated claim and the next question, if any.",
+      "Give the user's reply to the open question on a hunch or prediction. Send exactly one of: accept=true (the user agreed to the suggested default), value (the user's own answer, in their words; a date as YYYY-MM-DD), or skip=true. Returns the updated item, whether it has become a prediction, and the next question, if any.",
     inputSchema: {
       type: "object",
       properties: {
@@ -208,7 +216,7 @@ export const TOOLS: Tool[] = [
     name: "update_confidence",
     title: "Update confidence",
     description:
-      "Record a change in how confident the user is in a claim. Give either word or probability, plus an optional note on why they changed their mind.",
+      'Record a change in how sure the user is. Give either a word from the fixed list ("probably" means likely) or a probability, plus an optional note on why they changed their mind.',
     inputSchema: {
       type: "object",
       properties: {
@@ -248,9 +256,9 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "link_parent",
-    title: "Link to a parent claim",
+    title: "Link to an earlier hunch",
     description:
-      "Link a claim to the earlier, vaguer claim it grew out of, so the user can see how a hunch became a sharper claim. Pass parent_id null to remove the link.",
+      "Link an item to the earlier, vaguer hunch it grew out of, so the user can see how a hunch became a sharper prediction. Pass parent_id null to remove the link.",
     inputSchema: {
       type: "object",
       properties: {
@@ -267,9 +275,9 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "list_claims",
-    title: "List claims",
+    title: "List hunches and predictions",
     description:
-      'List the user\'s claims, newest first, with ids, grades, deadlines and confidence. Use it to find a claim\'s id before updating it. To answer "what\'s due?", set due: "soon" for unresolved claims due today or within within_days (default 7), "overdue" for unresolved claims whose deadline has passed, or "soon_or_overdue" for both. Those come back most pressing first, each with a "due" line such as "overdue by 3 days".',
+      'List the user\'s hunches and predictions, newest first, with ids, grades, dates and confidence. Use it to find an id before updating something. To answer "what\'s due?", set due: "soon" for open items due today or within within_days (default 7), "overdue" for open items whose date has passed, or "soon_or_overdue" for both. Those come back most pressing first, each with a "due" line such as "overdue by 3 days".',
     inputSchema: {
       type: "object",
       properties: {
@@ -277,8 +285,7 @@ export const TOOLS: Tool[] = [
         due: {
           type: "string",
           enum: ["soon", "overdue", "soon_or_overdue"],
-          description:
-            "Only unresolved claims that are due soon, overdue, or either.",
+          description: "Only open items that are due soon, overdue, or either.",
         },
         within_days: {
           type: "integer",
@@ -308,14 +315,14 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "resolve_claim",
-    title: "Resolve a claim",
+    title: "Resolve a prediction",
     description:
-      'Record how a claim turned out. Only on the user\'s say-so. Give resolution (YES, NO or AMBIGUOUS), or for a number claim give actual and the app works out YES or NO itself. A near miss on an "about" claim is marked as a close call.',
+      "Record how a prediction turned out. Only on the user's say-so, and only for a prediction: a hunch cannot be resolved. Give result (right, wrong or can't tell), or for a prediction about a number give actual and the app works out right or wrong itself. A near miss on an \"about\" number is marked as a close call.",
     inputSchema: {
       type: "object",
       properties: {
         claim_id: str(),
-        resolution: { type: "string", enum: ["YES", "NO", "AMBIGUOUS"] },
+        result: { type: "string", enum: ["right", "wrong", "can't tell"] },
         actual: stringOrNumber(
           "What actually happened: a number, or a short phrase.",
         ),
@@ -324,6 +331,8 @@ export const TOOLS: Tool[] = [
     },
     input: z.object({
       claim_id: z.string(),
+      result: z.enum(["right", "wrong", "can't tell"]).optional(),
+      // accepted for older callers
       resolution: z.enum(["YES", "NO", "AMBIGUOUS"]).optional(),
       actual: z.union([z.string(), z.number()]).optional(),
     }),
@@ -332,7 +341,13 @@ export const TOOLS: Tool[] = [
         await resolveClaim(
           userId,
           args.claim_id,
-          { resolution: args.resolution, actual: args.actual },
+          {
+            resolution:
+              (args.result && parseResult(args.result)) ||
+              args.resolution ||
+              undefined,
+            actual: args.actual,
+          },
           "AGENT",
         ),
       ),

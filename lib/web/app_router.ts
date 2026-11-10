@@ -291,7 +291,9 @@ export const appRouter = router({
       openapi: {
         method: "GET",
         path: "/v0/countForecasts",
-        description: "Count the total number of forecasts that a user has made",
+        tags: ["Older endpoints"],
+        description:
+          "Count the total number of confidence updates that a user has made",
       },
     })
     .output(
@@ -340,3 +342,8 @@ export const openApiDocument = generateOpenApiDocument(appRouter, {
   version: "1.0.0",
   baseUrl: getClientBaseUrl(false) + "/api",
 })
+// newest first in the docs: this app's own endpoints, then Fatebook's
+openApiDocument.tags = [
+  { name: "Hunches and predictions" },
+  { name: "Older endpoints" },
+]

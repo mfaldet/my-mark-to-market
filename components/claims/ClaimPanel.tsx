@@ -6,6 +6,7 @@ import { ClaimView } from "../../lib/claims/service"
 import { allowedParts, COMPARISONS, SHAPE_PARTS } from "../../lib/claims/types"
 import { api } from "../../lib/web/trpc"
 import { ClaimTimeline } from "./ClaimTimeline"
+import { ConfidenceRow } from "./ConfidenceRow"
 import { EngineQuestionCard } from "./EngineQuestionCard"
 import { GradeBadge, StatusChip } from "./GradeBadge"
 import {
@@ -93,7 +94,7 @@ export function ClaimPanel({
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
         <span>
-          Claimed {formatDay(claim.claimDate)}
+          Said {formatDay(claim.claimDate)}
           {claim.backDated && (
             <span
               className="ml-1 rounded bg-neutral-200 px-1 text-neutral-700"
@@ -121,9 +122,9 @@ export function ClaimPanel({
       {!locked && <EngineQuestionCard claim={claim} />}
 
       <div className="flex items-center gap-2">
-        <label className="text-neutral-500 w-36 shrink-0">Claim shape</label>
+        <label className="text-neutral-500 w-24 sm:w-36 shrink-0">Shape</label>
         <select
-          className="select select-sm select-bordered"
+          className="select select-sm select-bordered min-w-0 shrink"
           value={shape}
           disabled={locked || setShape.isLoading}
           onChange={(e) =>
@@ -141,7 +142,7 @@ export function ClaimPanel({
         </select>
         {claim.shape === null && (
           <span className="text-xs text-neutral-400">
-            not picked yet (no AI key, or the AI was unavailable)
+            not picked yet: choose one to start sharpening this hunch
           </span>
         )}
       </div>
@@ -149,9 +150,11 @@ export function ClaimPanel({
       {partNames.map((name) => {
         const part = claim.parts[name as keyof typeof claim.parts]
         const isEditing = editing === name
+        // no date of my own yet: the app's default check-back date applies
+        const defaultDate = name === "deadline" && !part
         return (
           <div key={name} className="flex items-center gap-2 min-h-8">
-            <span className="text-neutral-500 w-36 shrink-0">
+            <span className="text-neutral-500 w-24 sm:w-36 shrink-0">
               {name === "deadline" && claim.deadlineKind !== "deadline"
                 ? "Check back by"
                 : PART_LABELS[name] ?? name}
@@ -219,15 +222,29 @@ export function ClaimPanel({
               </form>
             ) : (
               <>
-                <span className={clsx(!part && "text-neutral-400 italic")}>
+                <span
+                  className={clsx(
+                    !part && !defaultDate && "text-neutral-400 italic",
+                  )}
+                >
                   {part
                     ? display(name, part.value)
-                    : (
-                          SHAPE_PARTS[shape].required as readonly string[]
-                        ).includes(name) || name === "valueHigh"
-                      ? "missing"
-                      : "not set"}
+                    : defaultDate
+                      ? formatDay(claim.deadline)
+                      : (
+                            SHAPE_PARTS[shape].required as readonly string[]
+                          ).includes(name) || name === "valueHigh"
+                        ? "missing"
+                        : "not set"}
                 </span>
+                {defaultDate && (
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600"
+                    title="You didn't set a date, so the app picked this one. Change it any time."
+                  >
+                    default
+                  </span>
+                )}
                 {part && (
                   <StatusChip
                     status={part.status}
@@ -250,11 +267,17 @@ export function ClaimPanel({
                     <button
                       className="btn btn-xs btn-ghost normal-case"
                       onClick={() => {
-                        setDraft(part ? String(part.value) : "")
+                        setDraft(
+                          part
+                            ? String(part.value)
+                            : defaultDate
+                              ? claim.deadline
+                              : "",
+                        )
                         setEditing(name)
                       }}
                     >
-                      {part ? "Edit" : "Add"}
+                      {part ? "Edit" : defaultDate ? "Change" : "Add"}
                     </button>
                   </span>
                 )}
@@ -264,8 +287,12 @@ export function ClaimPanel({
         )
       })}
 
+      <ConfidenceRow claim={claim} />
+
       <div className="flex items-center gap-2 min-h-8">
-        <span className="text-neutral-500 w-36 shrink-0">Check link</span>
+        <span className="text-neutral-500 w-24 sm:w-36 shrink-0">
+          Check link
+        </span>
         {linkDraft !== null ? (
           <form
             className="flex gap-2 grow"
@@ -382,8 +409,8 @@ export function ClaimPanel({
             <span>
               Public{" "}
               <span className="text-neutral-400">
-                (private by default; needs grade 4 or 5 with every part
-                confirmed)
+                (private unless you tick this; only a prediction with every part
+                confirmed can be public)
               </span>
             </span>
           </label>

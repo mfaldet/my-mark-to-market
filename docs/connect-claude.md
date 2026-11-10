@@ -1,12 +1,12 @@
 # Connect Claude
 
-My Mark-to-Market includes an MCP server, so Claude can log and update your claims in the middle of a conversation. It is hosted by the app itself at:
+My Mark-to-Market includes an MCP server, so Claude can log your hunches, help sharpen them into predictions, and tell you what is due, in the middle of a conversation. It is hosted by the app itself at:
 
 ```
 https://YOUR-APP-ADDRESS/api/mcp
 ```
 
-It offers six tools: `log_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims` and `resolve_claim`. Everything Claude logs is recorded as entered through an **agent**, which shows on the claim and in its history.
+It offers six tools: `log_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a hunch or prediction, and Claude is told to say "hunch" and "prediction" to you. Everything Claude logs is recorded as entered through an **agent**, which shows on the claim and in its history.
 
 ## Before you start
 
@@ -34,7 +34,7 @@ Custom connectors are added once, on the web or desktop app, and are then availa
 3. For sign-in choose **No sign-in**, and under **Request headers** add:
    - name: `authorization`
    - value: `Bearer YOUR_API_KEY` (include the word `Bearer`)
-4. Save, then start a chat and ask Claude to "list my claims".
+4. Save, then start a chat and ask Claude "what's due?".
 
 ### If your account has no "Request headers" field
 
@@ -53,18 +53,24 @@ https://YOUR-APP-ADDRESS/api/mcp?key=YOUR_API_KEY
 
 The server sends Claude these instructions with the tools:
 
-- Log a claim only when you ask, or clearly state a prediction and want it recorded.
-- Pass your claim in your own words, exactly as you said it, without tidying or completing it.
+- Log a hunch only when you ask, or clearly state one and want it recorded.
+- Pass your words exactly as you said them, without tidying or completing them.
 - After logging, ask you the app's one question (with its suggested default) and wait for your reply, not answer it itself.
-- Treat grades 1 to 3 as fine. They are hunches and stay private.
+- Tell you when a hunch has become a prediction.
+- Record how a prediction turned out only when you say. A hunch can't be resolved.
+- Leave a hunch as a hunch if you want. It stays private.
 
 ## Try it
 
-> Log this claim: unemployment will hit 6% by 2028, probably.
+> Log a hunch: unemployment will hit 6% by 2028, probably.
 
-Claude should reply with the grade and the app's question, something like "By Dec 31, 2028?". Answer it, then:
+Claude should say whether it is a hunch or a prediction and ask you the app's question, something like "By Dec 31, 2028?". Answer it, then:
 
 > Actually I'm less sure now. Make that unlikely, because the jobs report came in strong.
+
+And any time:
+
+> What's due?
 
 ## What has and has not been tested
 

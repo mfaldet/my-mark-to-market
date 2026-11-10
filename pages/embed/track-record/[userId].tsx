@@ -11,6 +11,7 @@ import React from "react"
 import { GradeBadge } from "../../../components/claims/GradeBadge"
 import { formatDay } from "../../../components/claims/labels"
 import { APP_NAME, UPSTREAM } from "../../../lib/app_name"
+import { BRIER_LINE } from "../../../lib/claims/words"
 import {
   loadPublicRecord,
   PublicRecord,
@@ -35,7 +36,7 @@ const STATUS_STYLES: Record<string, string> = {
   open: "bg-neutral-100 text-neutral-600",
   right: "bg-green-100 text-green-800",
   wrong: "bg-red-100 text-red-800",
-  ambiguous: "bg-neutral-200 text-neutral-700",
+  "can't tell": "bg-neutral-200 text-neutral-700",
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -54,7 +55,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
   return (
     <div className="bg-neutral-50 min-h-screen p-4 sm:p-6 text-neutral-900">
       <NextSeo
-        title={`${record.owner.name ?? "Track record"}: public claims`}
+        title={`${record.owner.name ?? "Track record"}: public predictions`}
         noindex={true}
       />
       <div className="max-w-3xl mx-auto flex flex-col gap-6">
@@ -64,20 +65,21 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
             record
           </h1>
           <p className="text-sm text-neutral-500">
-            Claims logged in advance, with a deadline and a stated outcome, then
-            marked right or wrong. Only claims shared publicly are shown.
+            Predictions logged in advance, each with a deadline and a stated
+            outcome, then marked right or wrong. Only predictions made public
+            are shown.
           </p>
         </header>
 
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="public claims" value={summary.publicPredictions} />
+          <Stat label="public predictions" value={summary.publicPredictions} />
           <Stat label="resolved" value={summary.resolved} />
           <Stat
-            label={`right of ${summary.right + summary.wrong} decided`}
+            label={`right out of ${summary.right + summary.wrong} settled`}
             value={percent(summary.accuracy)}
           />
           <Stat
-            label="Brier score (lower is better)"
+            label={`Brier score: ${BRIER_LINE}`}
             value={summary.brierScore ?? "–"}
           />
         </section>
@@ -86,8 +88,9 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
           <section>
             <h2 className="font-semibold mb-2">Calibration</h2>
             <p className="text-xs text-neutral-500 mb-2">
-              Of the claims given each level of confidence, how many came true.
-              Well calibrated means the bar lands inside the shaded range.
+              Of the predictions given each level of confidence, how many came
+              true. Well calibrated means the mark lands inside the shaded
+              range.
             </p>
             <div className="flex flex-col gap-1.5">
               {bands.map((band) => (
@@ -121,10 +124,10 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
         )}
 
         <section>
-          <h2 className="font-semibold mb-2">Claims</h2>
+          <h2 className="font-semibold mb-2">Predictions</h2>
           {record.predictions.length === 0 && (
             <p className="text-sm text-neutral-500">
-              No claims have been shared publicly yet.
+              No predictions have been made public yet.
             </p>
           )}
           <ul className="flex flex-col gap-3">
@@ -156,7 +159,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                     </span>
                   )}
                   <span>
-                    Claimed {formatDay(claim.claimDate)}
+                    Said {formatDay(claim.claimDate)}
                     {claim.backDated && " (back-dated)"}
                   </span>
                   <span>Due {formatDay(claim.deadline)}</span>
@@ -169,7 +172,10 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                       ` (${claim.confidenceHistory.length} updates)`}
                   </span>
                   {claim.enteredVia && (
-                    <span>Logged via {claim.enteredVia}</span>
+                    <span>
+                      Logged via{" "}
+                      {claim.enteredVia === "api" ? "API" : claim.enteredVia}
+                    </span>
                   )}
                   {claim.actualResult && (
                     <span>Actual: {claim.actualResult}</span>
@@ -188,7 +194,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                 {claim.history.latestHash && (
                   <div
                     className="text-[10px] text-neutral-400 font-mono"
-                    title="Hash of the latest entry in this claim's append-only history"
+                    title="Hash of the latest entry in this prediction's append-only history"
                   >
                     {claim.history.versions} version
                     {claim.history.versions === 1 ? "" : "s"} ·{" "}

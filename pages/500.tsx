@@ -6,8 +6,7 @@ export default function Custom500() {
       <NextSeo title="Error: 500" />
       <div className="prose mx-auto">
         <h4>
-          Sorry, looks like an error on our end. Try again,{" "}
-          <Link href="mailto:hello@sage-future.org">email us</Link>, or{" "}
+          Something went wrong on our side. Try again, or{" "}
           <Link href="/">go home</Link>.
         </h4>
       </div>

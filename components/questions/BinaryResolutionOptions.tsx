@@ -2,7 +2,7 @@ import { Menu } from "@headlessui/react"
 import { Question, QuestionType, Resolution } from "@prisma/client"
 import { UseTRPCMutationResult } from "@trpc/react-query/shared"
 import clsx from "clsx"
-import { toSentenceCase } from "../../lib/_utils_common"
+import { resultLabel } from "../../lib/claims/words"
 
 interface BinaryResolutionOptionsProps {
   question: Question
@@ -45,7 +45,7 @@ export function BinaryResolutionOptions({
                       : "bg-neutral-200",
               )}
             />
-            {toSentenceCase(resolution.toLowerCase())}
+            {resultLabel(resolution)}
           </button>
         )}
       </Menu.Item>

@@ -20,15 +20,20 @@ export default function ImportFromSpreadsheetPage() {
     <div className="px-4 pt-12 lg:pt-16 mx-auto max-w-4xl">
       <NextSeo
         title="Import from spreadsheet"
-        description="Import your predictions from a spreadsheet into Fatebook"
+        description="Bring past predictions in from a spreadsheet"
       />
       <div className="mx-auto">
         <div className="prose mx-auto">
-          <h3>Import questions from a spreadsheet into Fatebook</h3>
+          <h3>Import from a spreadsheet</h3>
+          <p>
+            Imported entries are labelled “imported” everywhere, because they
+            were not logged here in advance and have no history from before the
+            import.
+          </p>
           <ol>
             <li>
               {
-                "Export your forecasts as a CSV file (e.g. from Google Sheets or Excel)"
+                "Save your spreadsheet as a CSV file (for example from Google Sheets or Excel)"
               }
             </li>
             <li>
@@ -62,12 +67,12 @@ export default function ImportFromSpreadsheetPage() {
                 }}
                 disabled={!userId || deleteAllCsvQuestions.isLoading}
               >
-                Delete all your questions imported from spreadsheets
+                Remove everything imported from spreadsheets
               </button>
 
               <Questions
-                title="Your questions imported from spreadsheets"
-                noQuestionsText="No questions imported from spreadsheets yet"
+                title="Imported from spreadsheets"
+                noQuestionsText="Nothing imported from spreadsheets yet"
                 filterClientSide={(question) =>
                   question.id.startsWith(getCsvIdPrefix()) &&
                   question.userId === userId
@@ -91,36 +96,37 @@ export default function ImportFromSpreadsheetPage() {
 const rows = [
   {
     name: "questionTitle",
-    label: "Question title",
+    label: "The prediction, in words",
   },
   {
     name: "forecast",
-    label: "Your forecast (as a number between 0% and 100%)",
+    label: "How sure you were (a number between 0% and 100%)",
   },
   {
     name: "qCreatedAt",
-    label: "Question created date",
+    label: "Date you made the prediction",
   },
   {
     name: "resolution",
-    label: "Resolution - must be either YES, NO, AMBIGUOUS or blank",
+    label:
+      "Result - the cell must read YES (right), NO (wrong), AMBIGUOUS (can't tell) or be blank",
   },
   {
     name: "resolvedAt",
     label:
-      "[Optional] Resolved at date - when the question resolved (if blank and the question is resolved we use the question creation date + 24h)",
+      "[Optional] Date it was resolved (if blank and there is a result, we use the date you made it + 24h)",
     optional: true,
   },
   {
     name: "resolveBy",
     label:
-      "[Optional] Resolve by date - Fatebook will remind you to resolve on this day (if blank we use the question creation date + 24h)",
+      "[Optional] Date it comes due (if blank we use the date you made it + 24h)",
     optional: true,
   },
   {
     name: "fCreatedAt",
     label:
-      "[Optional] Forecast created date (if blank we use the question creation date)",
+      "[Optional] Date of the confidence (if blank we use the date you made the prediction)",
     optional: true,
   },
   {

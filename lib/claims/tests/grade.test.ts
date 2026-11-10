@@ -240,7 +240,7 @@ describe("canPublish: the publish gate", () => {
       checkLinkConfirmed: false,
     })
     expect(free.ok).toBe(false)
-    expect(!free.ok && free.reasons[0]).toMatch(/Grade 1, needs 4 or 5/)
+    expect(!free.ok && free.reasons[0]).toMatch(/still a hunch \(grade 1\)/)
 
     const rest = without(completeNumber, "value")
     const three = canPublish({
@@ -248,7 +248,7 @@ describe("canPublish: the publish gate", () => {
       parts: rest,
       checkLinkConfirmed: true,
     })
-    expect(!three.ok && three.reasons[0]).toMatch(/Grade 3.*Missing value/)
+    expect(!three.ok && three.reasons[0]).toMatch(/grade 3.*Missing the number/)
   })
 
   it("blocks a complete claim with an extracted or working part, naming it", () => {
@@ -263,7 +263,7 @@ describe("canPublish: the publish gate", () => {
       })
       expect(result).toEqual({
         ok: false,
-        reasons: ["Not yet confirmed: measure."],
+        reasons: ["Not yet confirmed: what's measured."],
       })
     }
   })

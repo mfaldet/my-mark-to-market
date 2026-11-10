@@ -118,7 +118,7 @@ db("claim service, against the database", () => {
     ).rejects.toMatchObject({
       code: "BLOCKED",
       reasons: [
-        "Not yet confirmed: measure, deadline, value, comparison, unit.",
+        "Not yet confirmed: what's measured, the deadline, the number, the comparison and the unit.",
       ],
     })
     await confirmAll(claim.id)
@@ -136,7 +136,7 @@ db("claim service, against the database", () => {
     await expect(attempt).rejects.toBeInstanceOf(ClaimError)
     await expect(attempt).rejects.toMatchObject({
       code: "BLOCKED",
-      reasons: [expect.stringContaining("Grade 3")],
+      reasons: [expect.stringContaining("still a hunch (grade 3)")],
     })
 
     const row = await prisma.question.findUniqueOrThrow({

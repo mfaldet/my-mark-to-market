@@ -75,7 +75,7 @@ export function FilterControls({
 
   const filters = [
     {
-      name: "Resolving soon",
+      name: "Due soon",
       effect: () =>
         setExtraFilters({
           ...extraFilters,
@@ -89,7 +89,7 @@ export function FilterControls({
       overflowClassName: "",
     },
     {
-      name: "Ready to resolve",
+      name: "Past due",
       effect: () =>
         setExtraFilters({
           ...extraFilters,
@@ -116,7 +116,7 @@ export function FilterControls({
       overflowClassName: "@xs:hidden",
     },
     {
-      name: "Unresolved",
+      name: "Open",
       effect: () =>
         setExtraFilters({
           ...extraFilters,

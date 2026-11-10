@@ -45,7 +45,9 @@ export function MultiChoiceResolutionOptions({
                     : "bg-green-500", // is an MCQ option
             )}
           />
-          {toSentenceCase(option.toLowerCase())}
+          {option === "AMBIGUOUS"
+            ? "Can't tell"
+            : toSentenceCase(option.toLowerCase())}
         </button>
       )}
     </Menu.Item>

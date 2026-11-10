@@ -152,7 +152,7 @@ export function TagsSelect({
         noOptionsMessage={() =>
           allowCreation
             ? "Type to add a tag. Your tags are visible only to you."
-            : "Tag your forecasting questions, then you can filter by them here to see your track record for specific tags (e.g. 'time tracking', 'AI' or 'in-depth forecasts')."
+            : "Add tags to your hunches and predictions, then filter by them here."
         }
         closeMenuOnSelect={false}
         components={{

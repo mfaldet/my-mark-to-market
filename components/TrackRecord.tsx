@@ -1,3 +1,4 @@
+import { BRIER_LINE, standardBrier } from "../lib/claims/words"
 import { ChevronDownIcon, ChevronLeftIcon } from "@heroicons/react/24/solid"
 import clsx from "clsx"
 import { useRouter } from "next/router"
@@ -143,7 +144,7 @@ export function TrackRecord({
                     <div className="stat-title flex flex-row gap-0.5 md:gap-1">
                       Brier score
                       <InfoButton
-                        tooltip="Lower is better! Calculated as 2x the average squared difference between your forecast and the outcome."
+                        tooltip={`${BRIER_LINE}. It measures how far your stated confidence was from what happened.`}
                         className="tooltip-bottom"
                       />
                     </div>
@@ -154,10 +155,18 @@ export function TrackRecord({
                       )}
                     >
                       {details?.brierScore
-                        ? showSignificantFigures(details.brierScore, 2)
-                        : "..."}
+                        ? showSignificantFigures(
+                            standardBrier(details.brierScore),
+                            2,
+                          )
+                        : "–"}
                     </div>
-                    <div className="stat-desc">{title}</div>
+                    <div className="stat-desc">
+                      {title}
+                      <span className="block whitespace-normal">
+                        {BRIER_LINE}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -279,7 +288,7 @@ export function ForecastsCalendarHeatmap({
           {userId === thisUserId ? "You" : "They"}
           {"'ve made "}
           <span className="font-semibold">{forecasts.data?.total}</span>
-          {" forecasts"}
+          {" confidence updates"}
           {tags.length > 0 &&
             ` tagged ${joinWithOr(tags.map((tag) => `"${tag}"`))}`}
         </div>

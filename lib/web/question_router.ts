@@ -118,54 +118,48 @@ const questionIncludes = (userId: string | undefined) => ({
 })
 
 const zodExtraFilters = z.object({
-  resolved: z
-    .boolean({ description: "Only get resolved questions" })
-    .optional(),
+  resolved: z.boolean({ description: "Only get resolved items" }).optional(),
   unresolved: z
-    .boolean({ description: "Only get unresolved questions" })
+    .boolean({ description: "Only get unresolved items" })
     .optional(),
   readyToResolve: z
-    .boolean({ description: "Only get questions ready to be resolved" })
+    .boolean({ description: "Only get items ready to be resolved" })
     .optional(),
   resolvingSoon: z
-    .boolean({ description: "Only get questions that are resolving soon" })
+    .boolean({ description: "Only get items that are resolving soon" })
     .optional(),
   filterTagIds: z
-    .array(
-      z.string({ description: "Only get questions with any of these tags" }),
-    )
+    .array(z.string({ description: "Only get items with any of these tags" }))
     .optional(),
   showAllPublic: z
     .boolean({
-      description: `Show all public questions from ${getBaseHost()}/public (if false, get only questions you've created, forecasted on, or are shared with you)`,
+      description: `Show all public items from ${getBaseHost()}/public (if false, get only your own hunches and predictions)`,
     })
     .optional(),
   searchString: z
     .string({
-      description: "Only get questions or tags containing this search string",
+      description: "Only get items or tags containing this search string",
     })
     .optional(),
   theirUserId: z
     .string({
-      description:
-        "Show questions created by this user (instead of your questions)",
+      description: "Show items created by this user (instead of your items)",
     })
     .optional(),
   filterTournamentId: z
     .string({
-      description:
-        "Show questions in this tournament (instead of your questions)",
+      description: "Show items in this tournament (instead of your items)",
     })
     .optional(),
   filterUserListId: z
     .string({
-      description: "Show questions in this team (instead of your questions)",
+      description: "Show items in this team (instead of your items)",
     })
     .optional(),
   sortEarliestFirst: z
     .boolean({
       description:
-        "Show questions in chronological order. If not true, usually shows them in reverse-chronological (latest first).",
+        "Show items in chronological order. If not true, usually shows them in reverse-chronological (latest first).",
     })
     .optional(),
 })
@@ -345,19 +339,19 @@ export const questionRouter = router({
           filterTagIds: z
             .string({
               description:
-                "Comma-separated list of tag IDs. Only get questions with at least one of these tags",
+                "Comma-separated list of tag IDs. Only get items with at least one of these tags",
             })
             .optional(),
         },
         limit: z
           .number({
-            description: "Maximum number of questions to return. Default = 100",
+            description: "Maximum number of items to return. Default = 100",
           })
           .optional(),
         cursor: z
           .number({
             description:
-              "Used for pagination. 0 = return the first [limit] questions, 100 = skip the first 100 questions and return the next [limit] questions.",
+              "Used for pagination. 0 = return the first [limit] items, 100 = skip the first 100 items and return the next [limit] items.",
           })
           .optional(),
       }),
@@ -366,7 +360,8 @@ export const questionRouter = router({
       openapi: {
         method: "GET",
         path: "/v0/getQuestions",
-        description: `By default, this fetches all questions that you've created, forecasted on, or are shared with you. Alternatively, if you set showAllPublic to true, it fetches all public questions from ${getBaseHost()}/public.`,
+        tags: ["Older endpoints"],
+        description: `By default, this fetches all items that you've created, given a confidence on, or had shared with you. Alternatively, if you set showAllPublic to true, it fetches all public items from ${getBaseHost()}/public.`,
       },
     })
     .output(
@@ -635,7 +630,7 @@ export const questionRouter = router({
         questionId: z.string(),
         resolution: z.string({
           description:
-            "Resolve to YES, NO or AMBIGUOUS if it's a binary question and AMBIGUOUS, OTHER, or $OPTION if it's a multi-choice question. You can only resolve your own questions.",
+            "Resolve to YES (right), NO (wrong) or AMBIGUOUS (can't tell) if it's a binary item and AMBIGUOUS, OTHER, or $OPTION if it's a multi-choice item. You can only resolve your own items.",
         }),
         questionType: z.string(),
         apiKey: z.string().optional(),
@@ -646,8 +641,9 @@ export const questionRouter = router({
       openapi: {
         method: "POST",
         path: "/v0/resolveQuestion",
+        tags: ["Older endpoints"],
         description:
-          "Resolve to YES, NO or AMBIGUOUS if it's a binary question and AMBIGUOUS, OTHER, or $OPTION if it's a multi-choice question",
+          "Resolve to YES (right), NO (wrong) or AMBIGUOUS (can't tell) if it's a binary item and AMBIGUOUS, OTHER, or $OPTION if it's a multi-choice item",
         example: {
           request: {
             questionId: "cm05iuuhx00066e7a1hncujn0",
@@ -725,12 +721,12 @@ export const questionRouter = router({
         sharedPublicly: z
           .boolean({
             description:
-              "Change whether the question is shared with anyone with the link",
+              "Change whether the item is shared with anyone with the link",
           })
           .optional(),
         unlisted: z
           .boolean({
-            description: `Change whether the question is unlisted (not shown on ${getBaseHost()}/public)`,
+            description: `Change whether the item is unlisted (not shown on ${getBaseHost()}/public)`,
           })
           .optional(),
         apiKey: z.string().optional(),
@@ -740,7 +736,8 @@ export const questionRouter = router({
       openapi: {
         method: "PATCH",
         path: "/v0/setSharedPublicly",
-        description: `Change the visibility of the question. The 'sharedPublicly' parameter sets whether the question is accessible to anyone via a direct link. The 'unlisted' parameter sets whether the question is visible on ${getBaseHost()}/public`,
+        tags: ["Older endpoints"],
+        description: `Change the visibility of the item. The 'sharedPublicly' parameter sets whether the item is accessible to anyone via a direct link. The 'unlisted' parameter sets whether the item is visible on ${getBaseHost()}/public`,
       },
     })
     .output(z.undefined())
@@ -936,7 +933,7 @@ export const questionRouter = router({
         questionId: z.string(),
         forecast: z
           .number({
-            description: "The forecast to add. Must be between 0 and 1.",
+            description: "The confidence to record. Must be between 0 and 1.",
           })
           .max(1)
           .min(0),
@@ -944,7 +941,7 @@ export const questionRouter = router({
           .string()
           .optional()
           .describe(
-            "The ID of the selected option for multiple-choice questions. Only required for multiple-choice questions.",
+            "The ID of the selected option for multiple-choice items. Only required for multiple-choice items.",
           ),
         apiKey: z.string().optional(),
       }),
@@ -954,8 +951,9 @@ export const questionRouter = router({
       openapi: {
         method: "POST",
         path: "/v0/addForecast",
+        tags: ["Older endpoints"],
         description:
-          "Add a forecast to the question. Forecasts are between 0 and 1.",
+          "Add a confidence to the item, as a number between 0 and 1.",
         example: {
           request: {
             questionId: "cm05iuuhx00066e7a1hncujn0",
@@ -1154,11 +1152,12 @@ export const questionRouter = router({
       openapi: {
         method: "POST",
         path: "/v0/addComment",
-        description: "Add a comment to the question.",
+        tags: ["Older endpoints"],
+        description: "Add a comment to the item.",
         example: {
           request: {
             questionId: "cm05iuuhx00066e7a1hncujn0",
-            comment: "This is an interesting question!",
+            comment: "Worth watching the next jobs report.",
             apiKey: "your_api_key_here",
           },
         },
@@ -1378,6 +1377,7 @@ export const questionRouter = router({
       openapi: {
         method: "DELETE",
         path: "/v0/deleteQuestion",
+        tags: ["Older endpoints"],
         description:
           "Withdraws the item. Nothing is ever deleted: a withdrawn hunch or prediction is hidden everywhere, including the public track record, and is kept with its full history.",
       },
@@ -1414,7 +1414,15 @@ export const questionRouter = router({
       }),
     )
     .output(z.undefined())
-    .meta({ openapi: { method: "PATCH", path: "/v0/editQuestion" } })
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/v0/editQuestion",
+        tags: ["Older endpoints"],
+        description:
+          "Change the text, date or notes. Every change is recorded in the history.",
+      },
+    })
     .mutation(async ({ input, ctx }) => {
       const existing = await getQuestionAssertAuthor(
         ctx,

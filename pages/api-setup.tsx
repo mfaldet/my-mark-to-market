@@ -1,13 +1,12 @@
 import { NextSeo } from "next-seo"
 import { useState } from "react"
 import dynamic from "next/dynamic"
-import Link from "next/link"
 import "swagger-ui-react/swagger-ui.css"
 import { CopyToClipboard } from "../components/ui/CopyToClipboard"
 import { api } from "../lib/web/trpc"
 import { signInToFatebook, useUserId } from "../lib/web/utils"
 import { getBaseUrl } from "../lib/base_url"
-import { APP_NAME } from "../lib/app_name"
+import { REPO_URL } from "../lib/app_name"
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const SwaggerUI = dynamic(() => import("swagger-ui-react"), { ssr: false })
@@ -26,19 +25,23 @@ export default function ApiPage() {
       await utils.getApiKey.invalidate()
     },
   })
-  // used in the examples further down the page
-  const apiKey = { data: newKey }
+  // used in the example further down the page
+  const shownKey = newKey ?? "YOUR_API_KEY"
   const hasKey = !!existingKey.data || !!newKey
 
   return (
     <div className="px-4 pt-12 lg:pt-16 mx-auto max-w-6xl">
       <NextSeo
         title="API"
-        description={`Use the ${APP_NAME} API`}
+        description="Log hunches and update predictions from anywhere"
       />
       <div className="mx-auto prose">
-        <h2>{APP_NAME} API</h2>
-        <h3>Use the API to create questions from a URL</h3>
+        <h2>Connect</h2>
+        <p>
+          Log a hunch, answer the next question, change how sure you are, or
+          check what is due, from Claude, your phone or your own scripts.
+        </p>
+        <h3>Your key</h3>
         {!userId && (
           <div className="flex w-full p-4">
             <button
@@ -58,6 +61,7 @@ export default function ApiPage() {
               <div className="flex flex-grow gap-2">
                 <div className="relative flex-grow">
                   <input
+                    aria-label="Your API key"
                     className="input w-full pr-10"
                     type="text"
                     value={
@@ -69,10 +73,10 @@ export default function ApiPage() {
                     readOnly
                     disabled={!newKey || regenerateApiKey.isLoading}
                   />
-                  {apiKey.data && (
+                  {newKey && (
                     <div className="absolute inset-y-0 right-0 flex items-center pr-2">
                       <CopyToClipboard
-                        textToCopy={apiKey.data ?? ""}
+                        textToCopy={newKey ?? ""}
                         buttonLabel="Copy"
                       />
                     </div>
@@ -119,195 +123,92 @@ export default function ApiPage() {
               )
             )}
             <p className="text-sm text-neutral-500 m-0">
-              Send the key in a header to keep it out of URLs and logs:{" "}
+              Send the key in a header:{" "}
               <code>Authorization: Bearer YOUR_API_KEY</code> or{" "}
-              <code>X-Api-Key: YOUR_API_KEY</code>. Putting{" "}
-              <code>apiKey=</code> in the URL or body, as below, also still
-              works.
+              <code>X-Api-Key: YOUR_API_KEY</code>. That keeps it out of
+              addresses and logs.
             </p>
           </div>
         )}
+        <h3>Claude</h3>
         <p>
-          You can use your API key to create Fatebook questions just by going
-          this URL (separated onto multiple lines for readability):
-        </p>
-
-        <p className="bg-neutral-100 outline outline-neutral-300 outline-1 p-2 rounded-md break-words">
-          {`${getBaseUrl()}/api/v0/createQuestion`}
-          {"?apiKey="}
-          {apiKey.data || "YOUR_API_KEY"}
-          <br />
-          {"&title="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"YOUR_QUESTION_TITLE"}
-          </span>
-          <br />
-          {"&resolveBy="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"RESOLUTION_DATE_YYYY-MM-DD"}
-          </span>
-          <br />
-          {"&forecast="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"FORECAST_BETWEEN_0_AND_1"}
-          </span>
-          <br />
-        </p>
-
-        <p>{"Note: a date by itself will default to a time of 00:00 in the UTC timezone, which may not be the date you intended in your local timezone.  You can pass an ISO 8601 datetime for localization; for example, 2025-01-01T00:00+00:00.  You can also add some optional parameters, here's an example:"}</p>
-
-        <p className="bg-neutral-100 outline outline-neutral-300 outline-1 p-2 rounded-md break-words">
-          {`${getBaseUrl()}/api/v0/createQuestion`}
-          {"?apiKey="}
-          {apiKey.data || "YOUR_API_KEY"}
-          <br />
-          {"&title="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"YOUR_QUESTION_TITLE"}
-          </span>
-          <br />
-          {"&resolveBy="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"RESOLUTION_DATE_YYYY-MM-DD"}
-          </span>
-          <br />
-          {"&forecast="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"FORECAST_BETWEEN_0_AND_1"}
-          </span>
-          <br />
-          {"&tags="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"TAG_1"}
-          </span>
-          <br />
-          {"&tags="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"TAG_2"}
-          </span>
-          <br />
-          {"&sharePublicly="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"yes"}
-          </span>
-          <br />
-          {"&shareWithLists="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"LIST_NAME_1"}
-          </span>
-          <br />
-          {"&shareWithLists="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"LIST_NAME_2"}
-          </span>
-          <br />
-          {"&shareWithEmail="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"EMAIL_1"}
-          </span>
-          <br />
-          {"&shareWithEmail="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"EMAIL_2"}
-          </span>
-          <br />
-          {"&hideForecastsUntil="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"HIDE_FORECASTS_UNTIL_DATE_YYYY-MM-DD"}
-          </span>
-          <br />
-        </p>
-
-        <p>
-          You can use this to integrate Fatebook with other tools, like iOS
-          shortcuts. If you create an integration, let us know and we can tell
-          other Fatebook users about it!
-        </p>
-
-        <p>
-          Having trouble? Ask for help in{" "}
-          <Link href="https://discord.gg/mt9YVB8VDE" target="_blank">
-            Discord
-          </Link>
-          .
-        </p>
-
-        <h3>Integrations that other Fatebook users have created:</h3>
-        <ul>
-          <li>
-            <Link href="https://github.com/GarretteBaker/obsidian-fatebook">
-              An Obsidian plugin to create and preview Fatebook questions right
-              inside your editor
-            </Link>
-            {" - by D0TheMath"}
-          </li>
-          <li>
-            <Link href="https://www.icloud.com/shortcuts/25903acfcd3d4fd5bed31c2f50322928">
-              An iOS shortcut to create a Fatebook question
-            </Link>
-            {
-              " - by @JasperGo. You can add it to your homescreen or use Siri to create a question!"
-            }
-          </li>
-          <li>
-            <Link href="https://github.com/sonofhypnos/fatebook.el">
-              An Emacs plugin to create Fatebook questions
-            </Link>
-            {" - by @sonofhypnos"}
-          </li>
-          <li>
-            <Link href="https://github.com/Calebp98/alfred-fatebook-workflow">
-              An Alfred workflow to create Fatebook questions
-            </Link>
-            {" - by Caleb Parikh"}
-          </li>
-        </ul>
-        <h3>Use the API to get Fatebook questions by ID</h3>
-        <p>
-          {
-            "You can also use the API to get Fatebook questions by ID, here's an example:"
-          }
-        </p>
-
-        <p className="bg-neutral-100 outline outline-neutral-300 outline-1 p-2 rounded-md break-words">
-          {`${getBaseUrl()}/api/v0/getQuestion`}
-          {"?apiKey="}
-          {apiKey.data || "YOUR_API_KEY"}
-          <br />
-          {"&questionId="}
-          <span className="bg-indigo-100 text-indigo-800 font-semibold">
-            {"QUESTION_ID"}
-          </span>
-          <br />
-        </p>
-
-        <p>
-          {
-            "To get the question ID, go to the question page and copy the ID from the URL. The ID is the part after the --, e.g. for this question:"
-          }{" "}
-          <span className="bg-neutral-100 outline outline-neutral-300 outline-1 p-0.5 rounded-md">
-            {getBaseUrl()}/q/will-adam-win-the-next-aoe-game---clkqtczp00001l008qcrma6s7
-          </span>{" "}
-          the ID is{" "}
-          <span className="bg-neutral-100 outline outline-neutral-300 outline-1 p-0.5 rounded-md">
-            {"clkqtczp00001l008qcrma6s7"}
-          </span>
-          .
-        </p>
-
-        <p>
-          Click{" "}
+          Claude can log a hunch for you in the middle of a conversation, ask
+          you the next question, and tell you what is due. Setup takes a few
+          minutes:{" "}
           <a
-            href={`${getBaseUrl()}/api/v0/getQuestion?apiKey=${
-              apiKey.data || "YOUR_API_KEY"
-            }&questionId=clkqtczp00001l008qcrma6s7`}
+            href={`${REPO_URL}/blob/main/docs/connect-claude.md`}
             target="_blank"
             rel="noreferrer"
           >
-            here
-          </a>{" "}
-          to see an example of the getQuestion endpoint in action.
+            Connect Claude
+          </a>
+          .
         </p>
+
+        <h3>iPhone</h3>
+        <p>
+          A Shortcut that listens to you say a hunch, logs it, and shows the
+          first question:{" "}
+          <a
+            href={`${REPO_URL}/blob/main/docs/iphone-shortcut.md`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Build the Shortcut
+          </a>
+          .
+        </p>
+
+        <h3>Your own scripts</h3>
+        <p>Log a hunch:</p>
+        <pre className="whitespace-pre-wrap break-words">{`curl -X POST ${getBaseUrl()}/api/v0/claims/log \\
+  -H "Authorization: Bearer ${shownKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"text": "Rates get cut this year, likely"}'`}</pre>
+        <p>
+          The reply says whether it is a hunch or a prediction, its grade, and
+          the next question to answer. The main endpoints:
+        </p>
+        <ul>
+          <li>
+            <code>POST /api/v0/claims/log</code>: log a hunch in your own words
+          </li>
+          <li>
+            <code>GET /api/v0/claims/nextQuestion</code>: the one question to
+            answer next
+          </li>
+          <li>
+            <code>POST /api/v0/claims/answer</code>: accept the suggestion, give
+            your own answer, or skip
+          </li>
+          <li>
+            <code>POST /api/v0/claims/confidence</code>: say how sure you are,
+            with a word or a number
+          </li>
+          <li>
+            <code>GET /api/v0/claims/list</code>: list everything, or just what
+            is due
+          </li>
+          <li>
+            <code>POST /api/v0/claims/resolve</code>: mark a prediction right,
+            wrong or can&apos;t tell
+          </li>
+        </ul>
+        <p>
+          The addresses and field names say “claim” for technical reasons. A
+          claim is the same thing as a hunch or prediction.
+        </p>
+
+        <h3>Older endpoints</h3>
+        <p>
+          The endpoints inherited from Fatebook still work, including sending
+          the key as <code>apiKey=</code> in the address or body. They are
+          listed under “Older endpoints” below. Anything they change follows the
+          same rules: nothing is deleted, only withdrawn, and only a prediction
+          can be made public or resolved.
+        </p>
+
+        <h3>Every endpoint</h3>
       </div>
       <SwaggerUI url="/api/openapi.json" />
     </div>
