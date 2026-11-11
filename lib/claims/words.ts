@@ -58,6 +58,7 @@ export const PART_WORDS: Record<string, string> = {
   subject: "who or what",
   rankOrAward: "the rank or award",
   deadline: "the deadline",
+  howToTell: "a way to tell",
 }
 
 export function partWords(names: readonly string[]): string {

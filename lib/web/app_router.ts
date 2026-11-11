@@ -8,6 +8,7 @@ import {
 } from "../_utils_server"
 import { generateApiKey, hashApiKey, lastFour } from "../api_keys"
 import prisma from "../prisma"
+import { ClaimError, setTimeZone, timeZoneOf } from "../claims/service"
 import { claimsApiRouter } from "./claims_api_router"
 import { claimsRouter } from "./claims_router"
 import { feedbackRouter } from "./feedback_router"
@@ -108,6 +109,24 @@ export const appRouter = router({
           email: input.userEmail,
         },
       )
+    }),
+
+  getTimeZone: publicProcedure.query(async ({ ctx }) =>
+    ctx.userId ? { timeZone: await timeZoneOf(ctx.userId) } : null,
+  ),
+
+  setTimeZone: publicProcedure
+    .input(z.object({ timeZone: z.string().min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      if (!ctx.userId) throw new TRPCError({ code: "UNAUTHORIZED" })
+      try {
+        return await setTimeZone(ctx.userId, input.timeZone.trim())
+      } catch (error) {
+        if (error instanceof ClaimError) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error.message })
+        }
+        throw error
+      }
     }),
 
   editName: publicProcedure

@@ -17,6 +17,14 @@ jest.mock("trpc-transformer", () => ({ __esModule: true, default: {} }))
 
 import {
   answerQuestion,
+  applyRuleUpdates,
+  confirmProposal,
+  editClaim,
+  getClaim,
+  logWithSplit,
+  setTimeZone,
+  SplitItem,
+  writeVersion,
   assertCanResolve,
   ClaimError,
   confirmPart,
@@ -306,7 +314,8 @@ db("claim service, against the database", () => {
     beforeAll(async () => {
       owner = (
         await prisma.user.create({
-          data: { email: `due-${Date.now()}@test.local` },
+          // these tests are written in UTC days; time zones have their own tests below
+          data: { email: `due-${Date.now()}@test.local`, timeZone: "UTC" },
         })
       ).id
       const make = async (key: string, deadline: string) => {
@@ -462,10 +471,18 @@ db("claim service, against the database", () => {
         { value: "Unemployment above 5%" },
         "WEB",
       )
-      const sharpened = await answerQuestion(
+      const dated = await answerQuestion(
         userId,
         claim.id,
         { accept: true },
+        "WEB",
+      )
+      // an event with a date but no way to tell is still a hunch
+      expect(dated.kind).toBe("hunch")
+      const sharpened = await answerQuestion(
+        userId,
+        claim.id,
+        { value: "the BLS monthly jobs report" },
         "WEB",
       )
       expect(sharpened.kind).toBe("prediction")
@@ -505,6 +522,355 @@ db("claim service, against the database", () => {
       const view = toClaimView(row)
       expect(view).toMatchObject({ imported: true, kind: "hunch" })
       expect(() => assertCanResolve(row)).not.toThrow()
+    })
+  })
+
+  describe("time zones (from the first real entries, logged at 8:30pm Central on Nov 10)", () => {
+    // 8:30pm on Nov 10 in Chicago is 02:30 on Nov 11 in UTC
+    const evening = new Date("2026-11-11T02:30:00.000Z")
+    let chicago: string
+    const noAi: Extraction = {
+      source: "ai",
+      shape: "FREE_TEXT",
+      parts: {},
+      deadline: null,
+    }
+
+    beforeAll(async () => {
+      chicago = (
+        await prisma.user.create({
+          data: { email: `tz-${Date.now()}@test.local` },
+        })
+      ).id
+    })
+
+    it("a new account is in America/Chicago, and an unknown zone is refused", async () => {
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: chicago },
+      })
+      expect(user.timeZone).toBe("America/Chicago")
+      await expect(setTimeZone(chicago, "Mars/Olympus")).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+      })
+    })
+
+    it("an entry logged that evening is dated Nov 10, not Nov 11", async () => {
+      const claim = await logClaim({
+        userId: chicago,
+        text: "The board won't fire Jensen Huang at NVIDIA",
+        source: "AGENT",
+        extraction: noAi,
+        now: evening,
+      })
+      expect(claim.claimDate).toBe("2026-11-10")
+      // the default check-back date counts from my date too
+      expect(claim.deadline).toBe("2027-12-31")
+    })
+
+    it('"this year" said on New Year\'s Eve evening means the year it still is for me', async () => {
+      const claim = await logClaim({
+        userId: chicago,
+        text: "Rates get cut this year",
+        source: "AGENT",
+        extraction: { ...noAi, shape: "EVENT_BY_DATE" },
+        now: new Date("2027-01-01T03:00:00.000Z"), // 9pm on Dec 31, 2026 in Chicago
+      })
+      expect(claim.claimDate).toBe("2026-12-31")
+      expect(claim.deadline).toBe("2026-12-31")
+    })
+
+    it("a call can pass its own time zone", async () => {
+      const claim = await logClaim({
+        userId: chicago,
+        text: "Logged while travelling",
+        source: "API",
+        extraction: noAi,
+        timeZone: "Asia/Tokyo",
+        now: evening,
+      })
+      expect(claim.claimDate).toBe("2026-11-11")
+      await expect(
+        logClaim({
+          userId: chicago,
+          text: "x",
+          source: "API",
+          extraction: noAi,
+          timeZone: "Not/AZone",
+        }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+    })
+
+    it("my date can't be in my future, even if it is already that day in UTC", async () => {
+      await expect(
+        logClaim({
+          userId: chicago,
+          text: "x",
+          claimDate: "2026-11-11",
+          source: "API",
+          extraction: noAi,
+          now: evening,
+        }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+    })
+
+    it('"due today" and the daily job turn over at my midnight', async () => {
+      const dueNov10 = await logClaim({
+        userId: chicago,
+        text: "Something due on the tenth",
+        source: "WEB",
+        extraction: {
+          source: "ai",
+          shape: "EVENT_BY_DATE",
+          parts: {
+            event: x("it happens"),
+            howToTell: x("the announcement"),
+          },
+          deadline: "2026-11-10",
+        },
+        now: new Date("2026-11-10T18:00:00.000Z"),
+      })
+      const due = async (now: Date) =>
+        (await listClaims(chicago, { due: "soon_or_overdue", now })).find(
+          (c) => c.id === dueNov10.id,
+        )?.dueText
+      // 8:30pm on the 10th: still due today, though UTC says the 11th
+      expect(await due(evening)).toBe("due today")
+      expect((await notifyReadyToResolve(evening, chicago)).notified).toEqual(
+        [],
+      )
+      // 12:30am on the 11th in Chicago: now overdue, and announced
+      const afterMidnight = new Date("2026-11-11T06:30:00.000Z")
+      expect(await due(afterMidnight)).toBe("overdue by 1 day")
+      expect(
+        (await notifyReadyToResolve(afterMidnight, chicago)).notified,
+      ).toEqual([dueNov10.id])
+    })
+  })
+
+  describe("bringing the first real entries up to date", () => {
+    let owner: string
+    let claimId: string
+
+    beforeAll(async () => {
+      owner = (
+        await prisma.user.create({
+          data: { email: `fix-${Date.now()}@test.local` },
+        })
+      ).id
+      // Recreate exactly what the old code stored: logged at 8:30pm Central
+      // on Nov 10, dated Nov 11, an "if ... then" event graded 4, with
+      // version 1 of its history saying the same.
+      const row = await prisma.question.create({
+        data: {
+          title: "The board won't fire Jensen Huang at NVIDIA",
+          userId: owner,
+          createdAt: new Date("2026-11-11T02:30:00.000Z"),
+          claimDate: new Date("2026-11-11T00:00:00.000Z"),
+          resolveBy: new Date("2027-12-31T00:00:00.000Z"),
+          claimShape: "EVENT_BY_DATE",
+          entrySource: "AGENT",
+          grade: 4,
+          outcomeParts: {
+            event: {
+              value:
+                "If the board doesn't fire Jensen Huang at NVIDIA, then NVIDIA will beat the S&P 500 over 2027. If not, then NVIDIA doesn't outperform the S&P 500 over 2027.",
+              status: "stated",
+            },
+            deadline: { value: "2027-12-31", status: "stated" },
+          },
+        },
+      })
+      claimId = row.id
+      await prisma.$transaction((tx) => writeVersion(tx, row, owner, "AGENT"))
+    })
+
+    it("corrects the date and the grade as one recorded version, by the app", async () => {
+      const before = await prisma.claimVersion.count({
+        where: { questionId: claimId },
+      })
+      const { changed } = await applyRuleUpdates(owner, { force: true })
+      expect(changed).toEqual([claimId])
+
+      const row = await prisma.question.findUniqueOrThrow({
+        where: { id: claimId },
+      })
+      expect(row.claimDate?.toISOString().slice(0, 10)).toBe("2026-11-10")
+      expect(row.grade).toBe(3)
+      // my words are untouched
+      expect(row.title).toBe("The board won't fire Jensen Huang at NVIDIA")
+
+      const versions = await prisma.claimVersion.findMany({
+        where: { questionId: claimId },
+        orderBy: { version: "asc" },
+      })
+      expect(versions).toHaveLength(before + 1)
+      const last = versions[versions.length - 1]
+      expect(last.source).toBe("SYSTEM")
+      expect([...last.changedFields].sort()).toEqual(["claimDate", "grade"])
+      expect(await verifyHistory(owner, claimId)).toMatchObject({ ok: true })
+    })
+
+    it("says why it is no longer a prediction, and flags the measure my words never named", async () => {
+      const claim = await getClaim(owner, claimId)
+      expect(claim.kind).toBe("hunch")
+      expect(claim.compound).toBe(true)
+      expect(claim.gradeReason).toMatch(/if … then/)
+      expect(claim.flags).toEqual([expect.stringContaining("mentions S&P 500")])
+      expect(claim.nextQuestion?.question).toMatch(/more than one prediction/)
+    })
+
+    it("does nothing the second time", async () => {
+      expect((await applyRuleUpdates(owner, { force: true })).changed).toEqual(
+        [],
+      )
+    })
+  })
+
+  describe("an agent proposing the sharpening in one go", () => {
+    const original =
+      "The board won't fire Jensen Huang at NVIDIA, and NVIDIA stock price will still out perform Mag 7 average over 2027, but this Jensen scandal will be a huge WMD (weapon of mass distraction) for the new capitol hill."
+    const split: SplitItem[] = [
+      {
+        text: "The board won't fire Jensen Huang at NVIDIA",
+        shape: "EVENT_BY_DATE" as const,
+        parts: {
+          event: "Jensen Huang is still NVIDIA's CEO on Dec 31, 2027",
+          howToTell: "NVIDIA's leadership page",
+        },
+        deadline: "2027-12-31",
+      },
+      {
+        text: "NVIDIA stock price will still out perform Mag 7 average over 2027",
+        shape: "A_BEATS_B" as const,
+        parts: {
+          a: "NVIDIA stock",
+          b: "the Mag 7 average",
+          metric: "total return over calendar 2027",
+        },
+        deadline: "2027-12-31",
+      },
+    ]
+
+    it("keeps my exact words as the hunch, and saves each piece as extracted, linked to it", async () => {
+      const { original: parent, pieces } = await logWithSplit({
+        userId,
+        text: original,
+        source: "AGENT",
+        split,
+      })
+      expect(parent.text).toBe(original)
+      expect(parent.kind).toBe("hunch")
+      expect(parent.children.map((c) => c.id).sort()).toEqual(
+        pieces.map((p) => p.id).sort(),
+      )
+      expect(pieces.map((p) => p.text)).toEqual(split.map((s) => s.text))
+      for (const piece of pieces) {
+        expect(piece.parent?.id).toBe(parent.id)
+        expect(piece.entrySource).toBe("AGENT")
+        // complete enough to grade 4, but nothing is mine yet
+        expect(piece.grade).toBe(4)
+        expect(Object.values(piece.parts).map((p) => p.status)).toEqual(
+          Object.values(piece.parts).map(() => "extracted"),
+        )
+        expect(piece.canPublish).toBe(false)
+        expect(piece.flags).toEqual([])
+      }
+    })
+
+    it("refuses a piece whose text is not my own words, and saves nothing", async () => {
+      const count = () => prisma.question.count({ where: { userId } })
+      const before = await count()
+      await expect(
+        logWithSplit({
+          userId,
+          text: original,
+          source: "AGENT",
+          split: [
+            {
+              ...split[0],
+              text: "Jensen Huang is still NVIDIA's CEO on Dec 31, 2027.",
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("excerpt of the user's own words"),
+      })
+      expect(await count()).toBe(before)
+    })
+
+    it("one confirmation applies my corrections, makes every part mine and records my confidence", async () => {
+      const { pieces } = await logWithSplit({
+        userId,
+        text: original,
+        source: "AGENT",
+        split,
+      })
+      const confirmed = await confirmProposal(
+        userId,
+        pieces[1].id,
+        {
+          edit: { parts: { metric: "price return over calendar 2027" } },
+          confidence: { word: "LIKELY" },
+        },
+        "AGENT",
+      )
+      expect(confirmed.parts.metric).toEqual({
+        value: "price return over calendar 2027",
+        status: "stated",
+      })
+      expect(
+        Object.values(confirmed.parts).every((p) => p.status === "stated"),
+      ).toBe(true)
+      expect(confirmed.confidenceWord).toBe("LIKELY")
+      expect(confirmed.kind).toBe("prediction")
+      expect(confirmed.text).toBe(split[1].text)
+    })
+
+    it("an edit is a recorded version; my text changes only when I correct it", async () => {
+      const claim = await logClaim({
+        userId,
+        text: "Jensen stays",
+        source: "AGENT",
+        proposal: {
+          shape: "EVENT_BY_DATE",
+          parts: { event: "Jensen Huang is still NVIDIA's CEO" },
+          deadline: "2027-12-31",
+        },
+      })
+      const count = () =>
+        prisma.claimVersion.count({ where: { questionId: claim.id } })
+      const before = await count()
+
+      const edited = await editClaim(
+        userId,
+        claim.id,
+        {
+          parts: { howToTell: "NVIDIA's leadership page" },
+          deadline: "2028-06-30",
+        },
+        "AGENT",
+      )
+      expect(edited.text).toBe("Jensen stays")
+      expect(edited.deadline).toBe("2028-06-30")
+      expect(edited.parts.howToTell?.status).toBe("stated")
+      expect(await count()).toBe(before + 1)
+
+      const corrected = await editClaim(
+        userId,
+        claim.id,
+        { correctedText: "Jensen stays as CEO" },
+        "AGENT",
+      )
+      expect(corrected.text).toBe("Jensen stays as CEO")
+      expect(await count()).toBe(before + 2)
+      const timeline = await getTimeline(userId, claim.id)
+      expect(
+        timeline.some(
+          (e) => e.kind === "version" && e.changedFields.includes("text"),
+        ),
+      ).toBe(true)
+      expect(await verifyHistory(userId, claim.id)).toMatchObject({ ok: true })
     })
   })
 })

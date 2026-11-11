@@ -129,9 +129,40 @@ describe("nextQuestion", () => {
         claim("Rates get cut this year", "EVENT_BY_DATE", {
           event: x("rates get cut"),
           deadline: x("2025-12-31"),
+          howToTell: x("the Fed's statement"),
         }),
       ),
     ).toBeNull()
+  })
+
+  it("an event with no way to tell is asked for one", () => {
+    const event = claim("Rates get cut this year", "EVENT_BY_DATE", {
+      event: x("rates get cut"),
+      deadline: x("2025-12-31"),
+    })
+    expect(nextQuestion(event)).toMatchObject({
+      part: "howToTell",
+      kind: "fill",
+      question: expect.stringMatching(/How will you tell/),
+    })
+    // a check link is a way to tell, so the question is not asked
+    expect(nextQuestion({ ...event, hasCheckLink: true })).toBeNull()
+  })
+
+  it("an outcome holding two predictions is asked to be split, before anything else", () => {
+    expect(
+      nextQuestion(
+        claim("x", "EVENT_BY_DATE", {
+          event: x(
+            "If the board doesn't fire Jensen Huang at NVIDIA, then NVIDIA will beat the S&P 500 over 2027.",
+          ),
+          deadline: x("2027-12-31"),
+        }),
+      ),
+    ).toMatchObject({
+      part: "event",
+      question: expect.stringMatching(/more than one prediction/),
+    })
   })
 
   it("stops after three questions, whatever is still missing", () => {
@@ -172,6 +203,7 @@ describe("applyAnswer", () => {
   it("saying yes to a confirm question makes it stated", () => {
     const c = claim("x by 2028", "EVENT_BY_DATE", {
       event: x("x"),
+      howToTell: x("the official announcement"),
       deadline: { value: "2028-12-31", status: "working" },
     })
     const result = applyAnswer(c, { accept: true })
@@ -237,12 +269,13 @@ describe("applyAnswer", () => {
     for (const answer of [
       { value: "Unemployment rate above 5%" },
       { accept: true as const },
+      { value: "the BLS monthly jobs report" },
     ]) {
       const result = applyAnswer(c, answer)
       if (!result.ok) throw new Error(result.error)
       c = result.claim
     }
     expect(grade(c)).toBe(4)
-    expect(c.questionsAsked).toBe(2)
+    expect(c.questionsAsked).toBe(3)
   })
 })

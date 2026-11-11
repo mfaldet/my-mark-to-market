@@ -100,7 +100,7 @@ describe("analyzeClaim: the deadline", () => {
     })
     expect(result.deadline).toBeNull()
     expect(result.grade.grade).toBe(2)
-    expect(result.grade.missing).toEqual(["deadline"])
+    expect(result.grade.missing).toEqual(["deadline", "howToTell"])
   })
 })
 

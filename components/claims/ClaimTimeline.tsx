@@ -204,9 +204,23 @@ export function ClaimTimeline({ claimId }: { claimId: string }) {
                 <div>
                   <span className="font-semibold">Version {event.version}</span>{" "}
                   <span className="text-neutral-500">
-                    via {SOURCE_LABELS[event.source]}
+                    {event.source === "SYSTEM"
+                      ? "by the app"
+                      : `via ${SOURCE_LABELS[event.source]}`}
                     {event.version === 1 && " · logged"}
                   </span>
+                  {event.source === "SYSTEM" && (
+                    <div className="text-neutral-600 italic">
+                      {[
+                        event.changedFields.includes("claimDate") &&
+                          "The date was stamped a day ahead of your time zone and has been corrected.",
+                        event.changedFields.includes("grade") &&
+                          "Re-graded after the grading rules changed.",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </div>
+                  )}
                   <ul className="text-neutral-700">
                     {event.changes.flatMap(describe).map((line) => (
                       <li key={line}>{line}</li>

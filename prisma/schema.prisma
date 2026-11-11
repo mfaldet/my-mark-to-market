@@ -33,6 +33,7 @@ enum EntrySource {
   API // a direct API call
   PHONE // the iPhone Shortcut
   AGENT // an AI agent through the MCP server
+  SYSTEM // the app itself: a correction or a re-grade after a rule change
 }
 
 // Fixed list of confidence words. Each maps to a probability range in
@@ -253,6 +254,8 @@ model User {
   name                     String?
   createdAt                DateTime         @default(now())
   email                    String           @unique
+  // IANA time zone name. "Today", claim dates and due dates use it.
+  timeZone                 String           @default("America/Chicago")
   image                    String?
   forecasts                Forecast[]
   profiles                 Profile[]

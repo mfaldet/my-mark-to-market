@@ -49,6 +49,13 @@ import {
   EngineQuestion,
   nextQuestion,
 } from "./next_question"
+import { mismatchFlag } from "./outcome_checks"
+import {
+  dayIn,
+  isValidTimeZone,
+  localToday,
+  timeZoneOrDefault,
+} from "./timezone"
 import { evaluateNumber } from "./tolerance"
 import { Result, resultFor } from "./words"
 import {
@@ -84,6 +91,7 @@ type ClaimRow = Question & {
   forecasts: { forecast: Prisma.Decimal; createdAt: Date; userId: string }[]
   children?: { id: string; title: string }[]
   parent?: { id: string; title: string } | null
+  user?: { timeZone: string } | null
 }
 
 const CLAIM_INCLUDE = {
@@ -93,6 +101,8 @@ const CLAIM_INCLUDE = {
     select: { id: true, title: true },
   },
   parent: { select: { id: true, title: true } },
+  // "today" is worked out in the owner's time zone
+  user: { select: { timeZone: true } },
 } satisfies Prisma.QuestionInclude
 
 function partsOf(row: Question): OutcomeParts {
@@ -106,6 +116,17 @@ function engineClaim(row: Question): EngineClaim {
     shape: row.claimShape,
     parts: partsOf(row),
     questionsAsked: row.engineQuestionsAsked,
+    hasCheckLink: !!row.checkLinkUrl,
+  }
+}
+
+/** Everything the grading code looks at, for a stored row. */
+function gradeInputOf(row: Question) {
+  return {
+    shape: row.claimShape,
+    parts: partsOf(row),
+    checkLinkConfirmed: !!row.checkLinkConfirmedAt,
+    hasCheckLink: !!row.checkLinkUrl,
   }
 }
 
@@ -137,6 +158,10 @@ export type ClaimView = {
   approximate: boolean
   grade: number
   gradeReason: string
+  /** true when the outcome holds more than one prediction and should be split */
+  compound: boolean
+  /** things to look at, such as an outcome that names a measure my words did not */
+  flags: string[]
   missing: PartName[]
   canPublish: boolean
   publishBlockers: string[]
@@ -160,14 +185,20 @@ export type ClaimView = {
   questionsAsked: number
 }
 
-export function toClaimView(row: ClaimRow, now = new Date()): ClaimView {
+export function toClaimView(
+  row: ClaimRow,
+  now = new Date(),
+  /** overrides the owner's saved time zone for this one call */
+  timeZone?: string,
+): ClaimView {
   const parts = partsOf(row)
-  const gradeInput = {
-    shape: row.claimShape,
-    parts,
-    checkLinkConfirmed: !!row.checkLinkConfirmedAt,
-  }
+  const gradeInput = gradeInputOf(row)
   const grade = gradeClaim(gradeInput)
+  const zone = timeZoneOrDefault(timeZone ?? row.user?.timeZone)
+  // today's date where I am, so "due today" turns over at my midnight
+  const today = localToday(zone, now)
+  const flag =
+    row.resolved || row.withdrawnAt ? null : mismatchFlag(row.title, parts)
   const publish = canPublish(gradeInput)
   const claimDate = row.claimDate ?? row.createdAt
   const mine = row.forecasts
@@ -182,12 +213,15 @@ export function toClaimView(row: ClaimRow, now = new Date()): ClaimView {
     text: row.title,
     claimDate: isoDay(claimDate),
     loggedAt: row.createdAt.toISOString(),
-    backDated: isoDay(claimDate) < isoDay(row.createdAt),
+    backDated: isoDay(claimDate) < dayIn(zone, row.createdAt),
     entrySource: row.entrySource,
     deadline: isoDay(row.resolveBy),
-    due: row.resolved || row.withdrawnAt ? null : dueStatus(row.resolveBy, now),
+    due:
+      row.resolved || row.withdrawnAt ? null : dueStatus(row.resolveBy, today),
     dueText:
-      row.resolved || row.withdrawnAt ? null : describeDue(row.resolveBy, now),
+      row.resolved || row.withdrawnAt
+        ? null
+        : describeDue(row.resolveBy, today),
     deadlineKind:
       parts.deadline && parts.deadline.status !== "working"
         ? "deadline"
@@ -197,6 +231,8 @@ export function toClaimView(row: ClaimRow, now = new Date()): ClaimView {
     approximate: row.approximate,
     grade: grade.grade,
     gradeReason: grade.reason,
+    compound: grade.compound,
+    flags: flag ? [flag] : [],
     missing: grade.missing,
     canPublish: publish.ok,
     publishBlockers: publish.ok ? [] : publish.reasons,
@@ -473,7 +509,9 @@ async function updateClaim(
       ? !!data.sharedPublicly
       : row.sharedPublicly
 
-  const gradeInput = { shape, parts, checkLinkConfirmed }
+  const hasCheckLink =
+    data.checkLinkUrl !== undefined ? !!data.checkLinkUrl : !!row.checkLinkUrl
+  const gradeInput = { shape, parts, checkLinkConfirmed, hasCheckLink }
   const publish = canPublish(gradeInput)
   if (willBePublic && !publish.ok) {
     throw new ClaimError(
@@ -510,18 +548,90 @@ export type LogClaimInput = {
   parentId?: string
   /** only tests pass this, to avoid calling the AI */
   extraction?: Extraction
+  /**
+   * A shape and outcome parts proposed by an AI agent in conversation.
+   * Saved as "extracted": nothing here counts as mine until I confirm it.
+   * When given, the app's own AI step is skipped.
+   */
+  proposal?: Proposal
+  /** IANA name, e.g. "America/Chicago". Defaults to the one saved on my account. */
+  timeZone?: string
+  /** only tests pass this */
+  now?: Date
+}
+
+/** What an agent may propose for one item. Every part is saved as "extracted". */
+export type Proposal = {
+  shape: ClaimShape
+  /** part name -> value, e.g. { event: "...", howToTell: "..." } */
+  parts?: Record<string, string | number>
+  /** YYYY-MM-DD */
+  deadline?: string
+}
+
+function extractionFrom(proposal: Proposal): Extraction {
+  const parts: Record<string, OutcomePart> = {}
+  for (const [name, value] of Object.entries(proposal.parts ?? {})) {
+    if (name === "deadline" || value === "" || value === null) continue
+    parts[name] = { value, status: "extracted" }
+  }
+  const checked = parseOutcomeParts(proposal.shape, parts)
+  if (!checked.ok) throw new ClaimError("BAD_REQUEST", checked.error)
+  const deadline = proposal.deadline ?? proposal.parts?.deadline
+  if (deadline !== undefined && !isIsoDay(String(deadline))) {
+    throw new ClaimError("BAD_REQUEST", "The deadline must be YYYY-MM-DD.")
+  }
+  return {
+    source: "ai",
+    shape: proposal.shape,
+    parts: checked.parts,
+    deadline: deadline === undefined ? null : String(deadline),
+  }
+}
+
+const isIsoDay = (text: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(text) &&
+  !isNaN(Date.parse(`${text}T00:00:00.000Z`))
+
+/** The time zone saved on an account. */
+export async function timeZoneOf(userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { timeZone: true },
+  })
+  return timeZoneOrDefault(user?.timeZone)
+}
+
+export async function setTimeZone(userId: string, timeZone: string) {
+  if (!isValidTimeZone(timeZone)) {
+    throw new ClaimError(
+      "BAD_REQUEST",
+      'That is not a time zone I know. Use a name like "America/Chicago".',
+    )
+  }
+  await prisma.user.update({ where: { id: userId }, data: { timeZone } })
+  return { timeZone }
 }
 
 export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
   const text = input.text.trim()
   if (!text) throw new ClaimError("BAD_REQUEST", "There is nothing to log.")
 
-  const now = new Date()
-  const claimDate = input.claimDate ? day(input.claimDate) : day(isoDay(now))
+  const now = input.now ?? new Date()
+  if (input.timeZone !== undefined && !isValidTimeZone(input.timeZone)) {
+    throw new ClaimError(
+      "BAD_REQUEST",
+      'That is not a time zone I know. Use a name like "America/Chicago".',
+    )
+  }
+  const zone = input.timeZone ?? (await timeZoneOf(input.userId))
+  // "today" is today where I am, not in UTC
+  const today = dayIn(zone, now)
+  const claimDate = input.claimDate ? day(input.claimDate) : day(today)
   if (isNaN(claimDate.getTime())) {
     throw new ClaimError("BAD_REQUEST", "claimDate must be YYYY-MM-DD.")
   }
-  if (isoDay(claimDate) > isoDay(now)) {
+  if (isoDay(claimDate) > today) {
     throw new ClaimError(
       "BAD_REQUEST",
       "The date you said it can't be in the future.",
@@ -530,7 +640,10 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
   if (input.parentId) await loadOwned(input.userId, input.parentId)
 
   const extraction =
-    input.extraction ?? (await extractClaim({ text, claimDate }))
+    input.extraction ??
+    (input.proposal
+      ? extractionFrom(input.proposal)
+      : await extractClaim({ text, claimDate }))
   const analysis = analyzeClaim(text, claimDate, extraction)
 
   const confidence = analysis.confidence
@@ -571,12 +684,13 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
     await writeVersion(tx, created, input.userId, input.source)
     return created
   })
-  return toClaimView(row)
+  return toClaimView(row, now, zone)
 }
 
 // --- Reading ---------------------------------------------------------------
 
 export async function getClaim(userId: string, claimId: string) {
+  await applyRuleUpdates(userId)
   return toClaimView(await loadOwned(userId, claimId))
 }
 
@@ -598,13 +712,25 @@ export async function listClaims(
     withinDays?: number
     includeWithdrawn?: boolean
     limit?: number
+    /** IANA name; defaults to the one saved on my account */
+    timeZone?: string
     /** only tests pass this */
     now?: Date
   } = {},
 ): Promise<ClaimView[]> {
   const now = options.now ?? new Date()
-  const today = startOfToday(now)
-  const cutoff = dueSoonCutoff(now, options.withinDays)
+  if (options.timeZone !== undefined && !isValidTimeZone(options.timeZone)) {
+    throw new ClaimError(
+      "BAD_REQUEST",
+      'That is not a time zone I know. Use a name like "America/Chicago".',
+    )
+  }
+  const zone = options.timeZone ?? (await timeZoneOf(userId))
+  await applyRuleUpdates(userId)
+  // what is due is judged by today's date where I am
+  const localNow = localToday(zone, now)
+  const today = startOfToday(localNow)
+  const cutoff = dueSoonCutoff(localNow, options.withinDays)
   const deadline: Prisma.DateTimeFilter | undefined =
     options.due === "overdue"
       ? { lt: today }
@@ -631,7 +757,7 @@ export async function listClaims(
     take: Math.min(options.limit ?? 50, 200),
     include: CLAIM_INCLUDE,
   })
-  return rows.map((row) => toClaimView(row, now))
+  return rows.map((row) => toClaimView(row, now, zone))
 }
 
 /**
@@ -645,16 +771,24 @@ export async function notifyReadyToResolve(
   /** only tests pass this, to stay inside their own test user */
   onlyUserId?: string,
 ) {
-  const due = await prisma.question.findMany({
+  // Fetch a day wide, then keep only what has passed in each owner's own
+  // time zone: 7pm in Chicago is already tomorrow in UTC.
+  const candidates = await prisma.question.findMany({
     where: {
       userId: onlyUserId,
-      resolveBy: { lt: startOfToday(now) },
+      resolveBy: { lt: new Date(startOfToday(now).getTime() + 86_400_000) },
       resolved: false,
       pingedForResolution: false,
       withdrawnAt: null,
     },
     orderBy: { resolveBy: "asc" },
+    include: { user: { select: { timeZone: true } } },
   })
+  const due = candidates.filter(
+    (claim) =>
+      claim.resolveBy <
+      startOfToday(localToday(timeZoneOrDefault(claim.user?.timeZone), now)),
+  )
 
   const notified: string[] = []
   for (const claim of due) {
@@ -924,11 +1058,7 @@ export async function withdrawClaim(
  */
 export function assertCanResolve(row: Question) {
   if (isImported(row.id)) return
-  const grade = gradeClaim({
-    shape: row.claimShape,
-    parts: partsOf(row),
-    checkLinkConfirmed: !!row.checkLinkConfirmedAt,
-  })
+  const grade = gradeClaim(gradeInputOf(row))
   if (kindForGrade(grade.grade) === "hunch") {
     throw new ClaimError(
       "BLOCKED",
@@ -1021,4 +1151,242 @@ export async function resolveClaim(
   await recordVersion(claimId, userId, source)
 
   return getClaim(userId, claimId)
+}
+
+// --- A whole proposal at once (for an agent sharpening in conversation) ----
+
+const squashText = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[\s]+/g, " ")
+    .replace(/^[\s"'“”.,;:]+|[\s"'“”.,;:]+$/g, "")
+
+export type SplitItem = Proposal & {
+  /** which of my words this piece is; must be an excerpt of what I said */
+  text: string
+}
+
+/**
+ * Logs a hunch in my exact words and, when it is really several
+ * predictions, one child for each piece, linked back to it. Each child's
+ * text must be an excerpt of my own words: the sharpened wording goes in
+ * the outcome parts, where it is marked "extracted" until I confirm it.
+ */
+export async function logWithSplit(
+  input: LogClaimInput & { split: SplitItem[] },
+): Promise<{ original: ClaimView; pieces: ClaimView[] }> {
+  const mine = squashText(input.text)
+  for (const item of input.split) {
+    if (!squashText(item.text) || !mine.includes(squashText(item.text))) {
+      throw new ClaimError(
+        "BAD_REQUEST",
+        `Each piece's text must be an excerpt of the user's own words. "${item.text}" is not. Put your sharpened wording in the outcome parts instead.`,
+      )
+    }
+    extractionFrom(item) // check every piece before saving anything
+  }
+  const { split, ...rest } = input
+  // The original stays as the hunch I said. Its pieces carry the
+  // predictions, so the app's own AI step is not run on it.
+  const original = await logClaim({
+    ...rest,
+    extraction:
+      rest.extraction ??
+      (rest.proposal
+        ? undefined
+        : { source: "manual", shape: null, parts: {}, deadline: null }),
+  })
+  const pieces: ClaimView[] = []
+  for (const item of split) {
+    pieces.push(
+      await logClaim({
+        userId: input.userId,
+        text: item.text.trim(),
+        claimDate: original.claimDate,
+        source: input.source,
+        parentId: original.id,
+        proposal: {
+          shape: item.shape,
+          parts: item.parts,
+          deadline: item.deadline,
+        },
+        timeZone: input.timeZone,
+        now: input.now,
+      }),
+    )
+  }
+  return { original: await getClaim(input.userId, original.id), pieces }
+}
+
+export type ClaimEdit = {
+  shape?: ClaimShape
+  /** part name -> my value, or null to remove it */
+  parts?: Record<string, string | number | null>
+  /** the deadline, or for a hunch the check-back date: YYYY-MM-DD */
+  deadline?: string
+  /** only when I explicitly correct what I said; otherwise my words stay as they are */
+  correctedText?: string
+}
+
+function applyEdit(row: ClaimRow, edit: ClaimEdit) {
+  const shape = edit.shape ?? row.claimShape ?? "FREE_TEXT"
+  const allowed = allowedParts(shape)
+  const parts: Record<string, OutcomePart> = Object.fromEntries(
+    Object.entries(partsOf(row)).filter(([name]) => allowed.includes(name)),
+  ) as Record<string, OutcomePart>
+  for (const [name, value] of Object.entries(edit.parts ?? {})) {
+    if (name === "deadline") continue
+    if (value === null || value === "") delete parts[name]
+    else parts[name] = { value, status: "stated" }
+  }
+  const deadline = edit.deadline ?? edit.parts?.deadline
+  if (deadline !== undefined && deadline !== null) {
+    if (!isIsoDay(String(deadline))) {
+      throw new ClaimError("BAD_REQUEST", "The date must be YYYY-MM-DD.")
+    }
+    parts.deadline = { value: String(deadline), status: "stated" }
+  }
+  const checked = parseOutcomeParts(shape, parts)
+  if (!checked.ok) throw new ClaimError("BAD_REQUEST", checked.error)
+  const text = edit.correctedText?.trim()
+  if (edit.correctedText !== undefined && !text) {
+    throw new ClaimError("BAD_REQUEST", "The corrected text is empty.")
+  }
+  return {
+    data: {
+      claimShape: edit.shape ?? row.claimShape,
+      outcomeParts: checked.parts as Prisma.InputJsonValue,
+      resolveBy:
+        deadline !== undefined && deadline !== null
+          ? day(String(deadline))
+          : undefined,
+      title: text || undefined,
+    } satisfies Prisma.QuestionUncheckedUpdateInput,
+    parts: checked.parts as Record<string, OutcomePart>,
+  }
+}
+
+/** Change the shape, outcome parts, date or (explicitly) the text: one recorded version. */
+export async function editClaim(
+  userId: string,
+  claimId: string,
+  edit: ClaimEdit,
+  source: EntrySource,
+) {
+  return await updateClaim(userId, claimId, source, (row) => {
+    if (row.resolved) {
+      throw new ClaimError("BAD_REQUEST", "This is already resolved.")
+    }
+    return applyEdit(row, edit).data
+  })
+}
+
+/**
+ * "Yes, that's right" to a whole proposal: apply any edits I made, then
+ * mark every remaining extracted or working part as stated, in one recorded
+ * version. A confidence given here is mine, so it is recorded too.
+ */
+export async function confirmProposal(
+  userId: string,
+  claimId: string,
+  input: { edit?: ClaimEdit; confidence?: ConfidenceUpdate },
+  source: EntrySource,
+) {
+  let view = await updateClaim(userId, claimId, source, (row) => {
+    if (row.resolved) {
+      throw new ClaimError("BAD_REQUEST", "This is already resolved.")
+    }
+    const { data, parts } = applyEdit(row, input.edit ?? {})
+    const confirmed = Object.fromEntries(
+      Object.entries(parts).map(([name, part]) => [
+        name,
+        { ...part, status: "stated" as const },
+      ]),
+    )
+    return { ...data, outcomeParts: confirmed as Prisma.InputJsonValue }
+  })
+  if (input.confidence) {
+    view = await updateConfidence(userId, claimId, input.confidence, source)
+  }
+  return view
+}
+
+// --- Corrections the app makes itself ---------------------------------------
+
+/** Bump when the grading rules change, so every account is re-graded once. */
+const RULES_VERSION = 2
+const rulesApplied = new Map<string, number>()
+
+/**
+ * Brings stored entries in line with the current rules. Each change is a
+ * recorded version marked "by the app", never a silent edit.
+ *
+ *  1. Dates stamped a day ahead. Before time zones, "today" was UTC, so an
+ *     entry logged in the evening in Chicago got tomorrow's date. A claim
+ *     date later than the day it was logged (in my zone) can only be that
+ *     bug, since a date in the future is never accepted; it is set back to
+ *     the day it was logged.
+ *  2. Grades. The stored grade is recomputed under today's rules.
+ *
+ * Open entries only. Sharing is never changed here.
+ */
+export async function applyRuleUpdates(
+  userId: string,
+  { force = false } = {},
+): Promise<{ changed: string[] }> {
+  if (!force && rulesApplied.get(userId) === RULES_VERSION) {
+    return { changed: [] }
+  }
+  const zone = await timeZoneOf(userId)
+  const rows = await prisma.question.findMany({
+    where: {
+      userId,
+      resolved: false,
+      withdrawnAt: null,
+      grade: { not: null },
+    },
+  })
+  const changed: string[] = []
+  for (const row of rows) {
+    const data: Prisma.QuestionUncheckedUpdateInput = {}
+    if (row.claimDate) {
+      const logged = dayIn(zone, row.createdAt)
+      if (isoDay(row.claimDate) > logged) {
+        data.claimDate = day(logged)
+        // a check-back date that was only the default moves with it
+        if (
+          !partsOf(row).deadline &&
+          row.resolveBy.getTime() ===
+            defaultCheckBackBy(row.claimDate).getTime()
+        ) {
+          data.resolveBy = defaultCheckBackBy(day(logged))
+        }
+      }
+    }
+    const grade = gradeClaim(gradeInputOf(row)).grade
+    if (grade !== row.grade) data.grade = grade
+    if (Object.keys(data).length === 0) continue
+
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.question.update({ where: { id: row.id }, data })
+      await writeVersion(tx, updated, userId, "SYSTEM")
+    })
+    changed.push(row.id)
+  }
+  rulesApplied.set(userId, RULES_VERSION)
+  return { changed }
+}
+
+/** The daily job runs this for every account. */
+export async function applyRuleUpdatesForEveryone() {
+  const owners = await prisma.question.findMany({
+    where: { grade: { not: null }, resolved: false, withdrawnAt: null },
+    select: { userId: true },
+    distinct: ["userId"],
+  })
+  let changed = 0
+  for (const { userId } of owners) {
+    changed += (await applyRuleUpdates(userId, { force: true })).changed.length
+  }
+  return { changed }
 }

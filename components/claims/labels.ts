@@ -23,6 +23,7 @@ export const PART_LABELS: Record<string, string> = {
   subject: "Who or what",
   rankOrAward: "Rank or award",
   deadline: "Deadline",
+  howToTell: "How to tell",
 }
 
 export const COMPARISON_LABELS: Record<string, string> = {
@@ -48,6 +49,7 @@ export const SOURCE_LABELS: Record<EntrySource, string> = {
   API: "API",
   PHONE: "phone",
   AGENT: "agent",
+  SYSTEM: "the app",
 }
 
 export const STATUS_HELP: Record<string, string> = {

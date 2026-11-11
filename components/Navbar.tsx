@@ -440,6 +440,11 @@ function AccountMenu(showCreateAccountButton: boolean) {
   const router = useRouter()
   const [editNameDialogOpen, setEditNameDialogOpen] = useState(false)
   const [editImageDialogOpen, setEditImageDialogOpen] = useState(false)
+  const [timeZoneDialogOpen, setTimeZoneDialogOpen] = useState(false)
+  const timeZone = api.getTimeZone.useQuery(undefined, {
+    enabled: !!session?.user,
+  })
+  const setTimeZone = api.setTimeZone.useMutation()
 
   const user = {
     name: session?.user?.name ?? "",
@@ -499,11 +504,39 @@ function AccountMenu(showCreateAccountButton: boolean) {
           <li onClick={() => setEditImageDialogOpen(true)}>
             <a>Change your profile picture</a>
           </li>
+          <li onClick={() => setTimeZoneDialogOpen(true)}>
+            <a>
+              Time zone
+              <span className="text-neutral-500">
+                {timeZone.data?.timeZone ?? ""}
+              </span>
+            </a>
+          </li>
           <li onClick={() => void signOut({ redirect: true })}>
             <a>Sign out</a>
           </li>
         </ul>
       </details>
+
+      <PromptDialog
+        isOpen={timeZoneDialogOpen}
+        onClose={() => setTimeZoneDialogOpen(false)}
+        title="Time zone"
+        description='Dates and "due today" follow this zone. Use a name like America/Chicago or Europe/London.'
+        defaultValue={timeZone.data?.timeZone ?? "America/Chicago"}
+        onSubmit={(value: string) => {
+          setTimeZone.mutate(
+            { timeZone: value },
+            {
+              onSuccess: () => {
+                toast.success("Time zone saved.")
+                void timeZone.refetch()
+              },
+              onError: (error) => toast.error(error.message),
+            },
+          )
+        }}
+      />
 
       <PromptDialog
         isOpen={showWelcomeDialog || editNameDialogOpen}

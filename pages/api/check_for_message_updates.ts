@@ -23,7 +23,10 @@ import {
   ForecastWithQuestionWithQMessagesAndRMessagesAndForecasts,
   ForecastWithQuestionWithSlackMessagesAndForecasts,
 } from "../../prisma/additional"
-import { notifyReadyToResolve } from "../../lib/claims/service"
+import {
+  applyRuleUpdatesForEveryone,
+  notifyReadyToResolve,
+} from "../../lib/claims/service"
 import { isAuthorizedCron } from "../../lib/cron_auth"
 import { FEATURES } from "../../lib/features"
 
@@ -546,8 +549,11 @@ export default async function handler(
   // "ready to resolve" note to the notification bell and mark it pinged.
   // No email and no Slack.
   if (!FEATURES.fullDailyJob) {
+    // first bring stored entries in line with the current rules (re-grades
+    // and date corrections, each as a recorded version)
+    const { changed } = await applyRuleUpdatesForEveryone()
     const { notified } = await notifyReadyToResolve()
-    res.json({ readyToResolve: notified.length })
+    res.json({ readyToResolve: notified.length, broughtUpToDate: changed })
     return
   }
 

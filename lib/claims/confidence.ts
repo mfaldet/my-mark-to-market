@@ -104,3 +104,47 @@ export function parseConfidenceWord(raw: string): ConfidenceWord | null {
     .replace(/[\s-]+/g, "_")
   return key in CONFIDENCE_RANGES ? (key as ConfidenceWord) : null
 }
+
+export type ConfidenceReading =
+  | { ok: true; word: ConfidenceWord }
+  | { ok: true; probability: number }
+  | { ok: false; error: string }
+
+/**
+ * Reads a confidence given on its own, as I would say it to an assistant:
+ * "30%", "0.3", "likely", "toss up", "probably".
+ *
+ * A bare number of 1 or more is not guessed at: "3" could be 3% or 3 out
+ * of 10 or a typo for 30. It comes back as a question to ask me.
+ */
+export function readConfidence(raw: string | number): ConfidenceReading {
+  const text = String(raw).trim()
+  const percent = /^(\d+(?:\.\d+)?)\s*(?:%|percent|per cent)$/i.exec(text)
+  if (percent) {
+    const value = parseFloat(percent[1])
+    return value >= 0 && value <= 100
+      ? { ok: true, probability: value / 100 }
+      : { ok: false, error: "A percentage must be between 0% and 100%." }
+  }
+  if (/^(?:0?\.\d+|0(?:\.0+)?)$/.test(text)) {
+    return { ok: true, probability: parseFloat(text) }
+  }
+  if (/^\d+(?:\.\d+)?$/.test(text)) {
+    return {
+      ok: false,
+      error: `"${text}" on its own could mean several things. Ask the user what they mean, then send it as a percentage (like "${text}%"), a number between 0 and 1, or one of the confidence words.`,
+    }
+  }
+  const word = parseConfidenceWord(text)
+  if (word) return { ok: true, word }
+  const spoken = parseConfidence(text)
+  if (spoken.kind === "word") return { ok: true, word: spoken.word }
+  if (spoken.kind === "percent") {
+    return { ok: true, probability: spoken.probability }
+  }
+  return {
+    ok: false,
+    error:
+      'I could not read that as a confidence. Use a percentage ("30%"), a number between 0 and 1 ("0.3"), or one of: almost certain, very likely, likely, toss-up, unlikely, very unlikely, almost no chance.',
+  }
+}
