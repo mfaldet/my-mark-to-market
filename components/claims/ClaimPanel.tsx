@@ -91,6 +91,12 @@ export function ClaimPanel({
         )}
         <span className="text-neutral-500">{claim.gradeReason}</span>
       </div>
+      {/* yellow = caution: something here to look at before it can count */}
+      {claim.flags.map((flag) => (
+        <div key={flag} className="tone-change rounded-md px-2 py-1 text-xs">
+          {flag}
+        </div>
+      ))}
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
         <span>

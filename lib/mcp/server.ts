@@ -18,17 +18,22 @@ import {
 } from "@modelcontextprotocol/sdk/types.js"
 import { z } from "zod"
 import { APP_NAME } from "../app_name"
-import { parseConfidenceWord } from "../claims/confidence"
+import { readConfidence } from "../claims/confidence"
 import { parseResult } from "../claims/words"
 import {
   answerQuestion,
   ClaimError,
   ClaimView,
+  confirmProposal,
+  ConfidenceUpdate,
+  editClaim,
   linkParent,
   listClaims,
   logClaim,
+  logWithSplit,
   resolveClaim,
   updateConfidence,
+  withdrawClaim,
 } from "../claims/service"
 
 /** What Claude is told about how to use these tools. */
@@ -36,15 +41,25 @@ export const MCP_INSTRUCTIONS = `${APP_NAME} is the user's personal tracker for 
 
 Two words matter here:
 - A hunch is anything the user logs. It can be loose ("the labor market is weakening"). Hunches are private.
-- A prediction is a hunch sharpened until it can be checked: an outcome, a deadline and a way to tell. Only predictions can be made public, resolved and scored. It is the same item throughout; the app says when a hunch has become a prediction.
+- A prediction is a hunch sharpened until it can be checked: ONE outcome, a deadline and a way to tell. Only predictions can be made public, resolved and scored. It is the same item throughout; the app says when a hunch has become a prediction.
 
-How to help:
-- Log a hunch only when the user asks you to, or clearly states one and wants it recorded. Never log things other people said.
-- Pass the user's words exactly as they said them. Do not tidy, sharpen or complete them: the app's job is to help the user sharpen a hunch into a prediction, and filling gaps for them would hide what they actually said.
-- After logging, the app may return one question. Ask the user that question, with its suggested default if there is one, and wait for their reply. Do not answer it yourself. Use accept only when the user agrees to the suggested default.
-- A hunch is fine as a hunch. Do not push the user to keep answering.
+Logging, in as few replies as possible:
+1. Log a hunch only when the user asks you to, or clearly states one and wants it recorded. Never log things other people said.
+2. The user's exact words are always the hunch text. Pass them to log_claim unchanged. Never tidy, complete or rephrase them there.
+3. In the same log_claim call, propose the sharpening yourself. For one prediction, send proposal: a shape, the outcome parts, and a deadline. If the user's words hold several predictions ("X won't happen, and Y will beat Z, but W"), send split instead: one piece per prediction, each with the excerpt of the user's words it comes from (text) and its own shape, parts and deadline. The pieces are saved linked to the original as their parent; the original stays as the hunch they said.
+4. Each piece must be ONE outcome: no "if … then", no "and/or", no two results joined by "and". An event needs a way to tell (howToTell): a source, a measure or a fact anyone could look up. Do not swap in a different measure from the one the user named: if they said "Mag 7 average", do not write "S&P 500". If you cannot tell what they meant, leave that part out and ask.
+5. Everything you propose is saved as "extracted": it is not the user's until they confirm it. In ONE reply, show the whole proposal plainly (each piece: outcome, deadline, way to tell) with a suggested confidence word for each, and ask them to confirm or correct it all at once. Do not ask one field per message.
+6. When they answer, call confirm_proposal once per piece, with any corrections in edit and the confidence they agreed to. Until then, nothing you proposed counts as theirs. If they don't answer, leave it: an unconfirmed proposal is fine.
+
+Other rules:
+- A hunch is fine as a hunch. Do not push the user to sharpen it.
+- Confidence: pass what the user said ("30%", "0.3", "likely"). If they give a bare number like "3", ask what they mean before sending it.
+- If a reply includes flags, tell the user what they say.
+- Use edit_claim to change outcome parts or dates later. The original text stays as the user said it; pass corrected_text only when the user explicitly says their words were recorded wrongly.
+- Use withdraw_claim when the user wants something gone. Nothing is ever deleted; a withdrawn item is hidden but kept with its history.
 - When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each item's text and its "due" line.
-- Record how a prediction turned out only when the user tells you. A hunch cannot be resolved: the user can sharpen it, move its check-back date in the app, or leave it.
+- Record how a prediction turned out only when the user tells you. A hunch cannot be resolved.
+- Dates use the time zone saved on the user's account. If the user tells you they are somewhere else, pass time_zone.
 - Say "hunch" and "prediction" to the user. The tool and field names say "claim" for technical reasons; do not repeat that word to them.`
 
 /** A compact, readable summary of a claim for the model. */
@@ -61,6 +76,10 @@ export function summarize(claim: ClaimView) {
     ...(claim.dueText ? { due: claim.dueText } : {}),
     grade: claim.grade,
     gradeReason: claim.gradeReason,
+    ...(claim.compound
+      ? { split: "needed: this holds more than one prediction" }
+      : {}),
+    ...(claim.flags.length ? { flags: claim.flags } : {}),
     shape: claim.shape,
     outcome: Object.fromEntries(
       Object.entries(claim.parts).map(([name, part]) => [
@@ -76,8 +95,15 @@ export function summarize(claim: ClaimView) {
               ? ` (${claim.confidenceWord.toLowerCase().replace(/_/g, " ")})`
               : ""
           }`,
+    ...(Object.values(claim.parts).some((part) => part.status !== "stated")
+      ? {
+          unconfirmed:
+            "parts marked (extracted) or (working) are not the user's until they confirm them",
+        }
+      : {}),
     public: claim.sharedPublicly,
     parent: claim.parent,
+    ...(claim.withdrawn ? { withdrawn: true } : {}),
     ...(claim.resolved
       ? {
           result: claim.result,
@@ -130,40 +156,245 @@ type Tool = {
 
 const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
 
+const SHAPES = [
+  "NUMBER_BY_DATE",
+  "EVENT_BY_DATE",
+  "A_BEATS_B",
+  "RANK_OR_AWARD",
+] as const
+
+const PARTS_HELP =
+  "Outcome parts for the shape. NUMBER_BY_DATE: measure, comparison (above, below, at_least, at_most, between), value, unit, and optionally valueHigh, baseline. EVENT_BY_DATE: event (what would be seen to happen) and howToTell (a source, a measure or a fact anyone could look up). A_BEATS_B: a, b, metric. RANK_OR_AWARD: subject, rankOrAward."
+
+const proposalSchema = {
+  shape: { type: "string", enum: [...SHAPES] },
+  parts: { type: "object", description: PARTS_HELP },
+  deadline: str("YYYY-MM-DD."),
+}
+const partValues = z.record(z.union([z.string(), z.number()]))
+const proposalInput = z.object({
+  shape: z.enum(SHAPES),
+  parts: partValues.optional(),
+  deadline: isoDay.optional(),
+})
+const timeZoneProp = str(
+  'IANA time zone, e.g. "America/Chicago". Only if the user says they are somewhere other than usual; otherwise the one saved on their account is used.',
+)
+
+/** Reads "30%", "0.3" or a word; a bare "3" comes back as a question to ask. */
+function confidenceFrom(raw: string | number, note?: string): ConfidenceUpdate {
+  const reading = readConfidence(raw)
+  if (!reading.ok) throw new ClaimError("BAD_REQUEST", reading.error)
+  return "word" in reading
+    ? { word: reading.word, note }
+    : { probability: reading.probability, note }
+}
+
 export const TOOLS: Tool[] = [
   {
     name: "log_claim",
     title: "Log a hunch",
     description:
-      "Log one of the user's own hunches. Pass their words exactly as said, unedited. Returns its id, whether it is a hunch or already a prediction, its grade (1-5, how checkable it is) and nextQuestion: one question from the app about the most important gap, which you should ask the user.",
+      'Log one of the user\'s own hunches, in their exact words, and propose how to sharpen it in the same call. Send proposal for a single prediction, or split when their words hold several predictions (one piece each, linked to the original). Everything you propose is saved as "extracted" until the user confirms it with confirm_proposal. Returns the original and any pieces, each with its grade, any flags, and what is still missing.',
     inputSchema: {
       type: "object",
       properties: {
         text: str("The hunch, in the user's own words. Do not rewrite it."),
+        proposal: {
+          type: "object",
+          description:
+            "Your proposed sharpening when the hunch is ONE prediction. Leave out if it is too loose to sharpen, or if you are sending split.",
+          properties: proposalSchema,
+          required: ["shape"],
+        },
+        split: {
+          type: "array",
+          description:
+            "When the user's words hold more than one prediction: one piece per prediction. Each piece is saved as its own item with the original as its parent.",
+          items: {
+            type: "object",
+            properties: {
+              text: str(
+                "The excerpt of the user's words this piece comes from, copied exactly. Your sharpened wording goes in parts, not here.",
+              ),
+              ...proposalSchema,
+            },
+            required: ["text", "shape"],
+          },
+        },
         claim_date: str(
           "YYYY-MM-DD. Only if the user says they said it on an earlier day. Leave out for today.",
         ),
         parent_id: str(
           "Id of an earlier, vaguer hunch this one grew out of, if the user says so.",
         ),
+        time_zone: timeZoneProp,
       },
       required: ["text"],
     },
     input: z.object({
       text: z.string().min(1),
+      proposal: proposalInput.optional(),
+      split: z
+        .array(proposalInput.extend({ text: z.string().min(1) }))
+        .max(8)
+        .optional(),
       claim_date: isoDay.optional(),
       parent_id: z.string().optional(),
+      time_zone: z.string().optional(),
+    }),
+    handler: async (userId, args) => {
+      const base = {
+        userId,
+        text: args.text,
+        claimDate: args.claim_date,
+        parentId: args.parent_id,
+        source: "AGENT" as const,
+        timeZone: args.time_zone,
+        proposal: args.proposal,
+      }
+      if (args.split?.length) {
+        const { original, pieces } = await logWithSplit({
+          ...base,
+          split: args.split,
+        })
+        return {
+          // the original stays as the hunch; the questions belong to its pieces
+          original: { ...summarize(original), nextQuestion: null },
+          pieces: pieces.map(summarize),
+          next: "Show the user every piece in one reply and ask them to confirm or correct it all at once. Then call confirm_proposal once per piece.",
+        }
+      }
+      const logged = summarize(await logClaim(base))
+      return args.proposal
+        ? {
+            ...logged,
+            next: "Show the user this proposal in one reply and ask them to confirm or correct it. Then call confirm_proposal.",
+          }
+        : logged
+    },
+  },
+  {
+    name: "confirm_proposal",
+    title: "Confirm a proposal",
+    description:
+      "The user has confirmed (or corrected) what you proposed for one item. Applies their corrections, marks every part as stated by them, and records their confidence, as one recorded version. Call it only after the user has answered; once per item.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        claim_id: str(),
+        edit: {
+          type: "object",
+          description:
+            "The user's corrections, if any. parts: part name to the corrected value, or null to remove it.",
+          properties: {
+            shape: { type: "string", enum: [...SHAPES] },
+            parts: { type: "object", description: PARTS_HELP },
+            deadline: str("YYYY-MM-DD."),
+          },
+        },
+        confidence: stringOrNumber(
+          'How sure the user said they are: "30%", "0.3", or a confidence word. Leave out if they gave none.',
+        ),
+      },
+      required: ["claim_id"],
+    },
+    input: z.object({
+      claim_id: z.string(),
+      edit: z
+        .object({
+          shape: z.enum(SHAPES).optional(),
+          parts: z
+            .record(z.union([z.string(), z.number(), z.null()]))
+            .optional(),
+          deadline: isoDay.optional(),
+        })
+        .optional(),
+      confidence: z.union([z.string(), z.number()]).optional(),
     }),
     handler: async (userId, args) =>
       summarize(
-        await logClaim({
+        await confirmProposal(
           userId,
-          text: args.text,
-          claimDate: args.claim_date,
-          parentId: args.parent_id,
-          source: "AGENT",
-        }),
+          args.claim_id,
+          {
+            edit: args.edit,
+            confidence:
+              args.confidence === undefined
+                ? undefined
+                : confidenceFrom(args.confidence),
+          },
+          "AGENT",
+        ),
       ),
+  },
+  {
+    name: "edit_claim",
+    title: "Edit a hunch or prediction",
+    description:
+      "Change the shape, outcome parts, deadline or check-back date of an item. Each call is one recorded version; nothing is overwritten silently. The original text stays as the user said it: pass corrected_text only when the user explicitly says their words were recorded wrongly.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        claim_id: str(),
+        shape: { type: "string", enum: [...SHAPES] },
+        parts: {
+          type: "object",
+          description: `${PARTS_HELP} Give only the parts to change; null removes one.`,
+        },
+        deadline: str(
+          "YYYY-MM-DD. The deadline, or for a hunch the check-back date.",
+        ),
+        corrected_text: str(
+          "Only when the user explicitly corrects what they said. Their words, exactly.",
+        ),
+      },
+      required: ["claim_id"],
+    },
+    input: z.object({
+      claim_id: z.string(),
+      shape: z.enum(SHAPES).optional(),
+      parts: z.record(z.union([z.string(), z.number(), z.null()])).optional(),
+      deadline: isoDay.optional(),
+      corrected_text: z.string().min(1).optional(),
+    }),
+    handler: async (userId, args) => {
+      if (
+        args.shape === undefined &&
+        args.parts === undefined &&
+        args.deadline === undefined &&
+        args.corrected_text === undefined
+      ) {
+        throw new ClaimError("BAD_REQUEST", "Nothing to change was given.")
+      }
+      return summarize(
+        await editClaim(
+          userId,
+          args.claim_id,
+          {
+            shape: args.shape,
+            parts: args.parts,
+            deadline: args.deadline,
+            correctedText: args.corrected_text,
+          },
+          "AGENT",
+        ),
+      )
+    },
+  },
+  {
+    name: "withdraw_claim",
+    title: "Withdraw a hunch or prediction",
+    description:
+      "Withdraw an item at the user's request. It is hidden everywhere, including the public track record, but it is never deleted: it is kept with its full history.",
+    inputSchema: {
+      type: "object",
+      properties: { claim_id: str() },
+      required: ["claim_id"],
+    },
+    input: z.object({ claim_id: z.string() }),
+    handler: async (userId, args) =>
+      summarize(await withdrawClaim(userId, args.claim_id, "AGENT")),
   },
   {
     name: "answer_question",
@@ -216,43 +447,42 @@ export const TOOLS: Tool[] = [
     name: "update_confidence",
     title: "Update confidence",
     description:
-      'Record a change in how sure the user is. Give either a word from the fixed list ("probably" means likely) or a probability, plus an optional note on why they changed their mind.',
+      'Record how sure the user is, or a change in it. Pass what they said: a percentage ("30%"), a number between 0 and 1 ("0.3"), or a confidence word ("probably" means likely). A bare number like "3" is not accepted: ask the user what they mean first. Add a note on why, if they gave one.',
     inputSchema: {
       type: "object",
       properties: {
         claim_id: str(),
-        word: { type: "string", enum: [...CONFIDENCE_WORDS] },
-        probability: {
-          type: "number",
-          minimum: 0,
-          maximum: 1,
-          description: "Between 0 and 1, e.g. 0.7 for 70%.",
-        },
+        confidence: stringOrNumber(
+          `"30%", "0.3", or one of: ${CONFIDENCE_WORDS.join(", ")}.`,
+        ),
         note: str("Why, in the user's words."),
       },
       required: ["claim_id"],
     },
     input: z.object({
       claim_id: z.string(),
-      word: z.enum(CONFIDENCE_WORDS).optional(),
+      confidence: z.union([z.string(), z.number()]).optional(),
+      // accepted for older callers
+      word: z.string().optional(),
       probability: z.number().min(0).max(1).optional(),
       note: z.string().optional(),
     }),
-    handler: async (userId, args) =>
-      summarize(
-        await updateConfidence(
-          userId,
-          args.claim_id,
-          {
-            word: args.word
-              ? parseConfidenceWord(args.word) ?? undefined
-              : undefined,
-            probability: args.probability,
-            note: args.note,
-          },
-          "AGENT",
-        ),
-      ),
+    handler: async (userId, args) => {
+      const given = args.confidence ?? args.word ?? args.probability
+      if (given === undefined) {
+        throw new ClaimError(
+          "BAD_REQUEST",
+          'Give a confidence: a percentage ("30%"), a number between 0 and 1, or a confidence word.',
+        )
+      }
+      const update =
+        args.confidence === undefined && args.probability !== undefined
+          ? { probability: args.probability, note: args.note }
+          : confidenceFrom(given, args.note)
+      return summarize(
+        await updateConfidence(userId, args.claim_id, update, "AGENT"),
+      )
+    },
   },
   {
     name: "link_parent",
@@ -294,6 +524,7 @@ export const TOOLS: Tool[] = [
           description: 'How far ahead "soon" looks. Default 7.',
         },
         limit: { type: "integer", minimum: 1, maximum: 100 },
+        time_zone: timeZoneProp,
       },
     },
     readOnly: true,
@@ -302,6 +533,7 @@ export const TOOLS: Tool[] = [
       due: z.enum(["soon", "overdue", "soon_or_overdue"]).optional(),
       within_days: z.number().int().min(0).max(366).optional(),
       limit: z.number().int().min(1).max(100).optional(),
+      time_zone: z.string().optional(),
     }),
     handler: async (userId, args) =>
       (
@@ -310,6 +542,7 @@ export const TOOLS: Tool[] = [
           due: args.due,
           withinDays: args.within_days,
           limit: args.limit ?? 20,
+          timeZone: args.time_zone,
         })
       ).map(summarize),
   },

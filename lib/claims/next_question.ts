@@ -14,6 +14,7 @@
  * applyAnswer is the other half: it returns the claim with the answer
  * applied. Neither function touches the database.
  */
+import { findCompound, findCompoundIn } from "./outcome_checks"
 import { ClaimShape } from "@prisma/client"
 import { requiredParts } from "./grade"
 import { COMPARISONS, OutcomePart, OutcomeParts, PartName } from "./types"
@@ -28,6 +29,8 @@ export type EngineClaim = {
   parts: OutcomeParts
   /** how many questions have been answered or skipped so far */
   questionsAsked: number
+  /** a check link counts as a way to tell, so that question is not asked */
+  hasCheckLink?: boolean
 }
 
 export type EngineQuestion = {
@@ -88,6 +91,10 @@ function fillQuestion(part: PartName, claim: EngineClaim): EngineQuestion {
       return ask("What exactly is being measured?")
     case "event":
       return ask("What would you see happen if this is true?")
+    case "howToTell":
+      return ask(
+        "How will you tell? Name a source, a measure or a fact anyone could look up.",
+      )
     case "deadline": {
       // default: the end of the year after the claim was made
       const day = iso(
@@ -150,8 +157,28 @@ export function nextQuestion(claim: EngineClaim): EngineQuestion | null {
     return fillQuestion("event", claim)
   }
 
-  // 2. A needed part is missing. requiredParts lists them most important first.
-  const missing = requiredParts(shape, parts).find((p) => !present(p))
+  // 2. The outcome is really several predictions ("if ... then", "and/or",
+  //    two results joined by "and"). Ask for the one this entry should track.
+  const compound = findCompound(parts)
+  if (compound.compound) {
+    const part = (["event", "measure", "metric", "rankOrAward"] as const).find(
+      (name) =>
+        typeof parts[name]?.value === "string" &&
+        findCompoundIn(String(parts[name]!.value)).compound,
+    )!
+    return {
+      part,
+      kind: "fill",
+      question:
+        "This holds more than one prediction. Which single outcome should this one track? Log the others separately.",
+      suggestion: null,
+    }
+  }
+
+  // 3. A needed part is missing. requiredParts lists them most important first.
+  const missing = requiredParts(shape, parts).find(
+    (p) => !present(p) && !(p === "howToTell" && claim.hasCheckLink),
+  )
   if (missing) return fillQuestion(missing, claim)
 
   // 3. A change with no starting point ("falls 20%" - from where?).

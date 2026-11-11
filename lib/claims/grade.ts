@@ -5,7 +5,9 @@
  *   1  free text: nothing observable
  *   2  shape picked, but missing the thing being observed or the deadline
  *   3  thing and deadline present, but another needed part is missing
- *      (the number, the comparison, the unit, how "beats" is measured...)
+ *      (the number, the comparison, the unit, how "beats" is measured,
+ *      a way to tell whether an event happened...),
+ *      or the outcome is really more than one prediction
  *   4  complete and checkable, no confirmed check link
  *   5  complete and checkable, with a check link I have opened and confirmed
  *
@@ -13,6 +15,7 @@
  * working). Publishing is stricter: see canPublish.
  */
 import { ClaimShape } from "@prisma/client"
+import { findCompound } from "./outcome_checks"
 import { OutcomeParts, PartName, SHAPE_PARTS } from "./types"
 import { partWords } from "./words"
 
@@ -24,6 +27,12 @@ export type GradeInput = {
   parts: OutcomeParts | null
   /** true only once I have opened the check link and confirmed it */
   checkLinkConfirmed: boolean
+  /**
+   * true when a check link has been given, confirmed or not. A link to
+   * where the answer will be is a way to tell, so it stands in for the
+   * "how to tell" part of an event.
+   */
+  hasCheckLink?: boolean
 }
 
 export type GradeResult = {
@@ -32,6 +41,8 @@ export type GradeResult = {
   missing: PartName[]
   /** one plain sentence saying why it got this grade */
   reason: string
+  /** true when the outcome holds more than one prediction and should be split */
+  compound: boolean
 }
 
 function has(parts: OutcomeParts, name: PartName) {
@@ -61,10 +72,16 @@ export function gradeClaim(input: GradeInput): GradeResult {
       grade: 1,
       missing: [],
       reason: "Nothing here can be checked yet.",
+      compound: false,
     }
   }
 
-  const missing = requiredParts(shape, parts).filter((p) => !has(parts, p))
+  const missing = requiredParts(shape, parts).filter(
+    (p) =>
+      !has(parts, p) &&
+      // a check link is a way to tell
+      !(p === "howToTell" && (input.hasCheckLink || input.checkLinkConfirmed)),
+  )
   const core: readonly PartName[] = SHAPE_PARTS[shape].core
   const missingCoreOrDeadline = missing.filter(
     (p) => core.includes(p) || p === "deadline",
@@ -75,22 +92,39 @@ export function gradeClaim(input: GradeInput): GradeResult {
       grade: 2,
       missing,
       reason: `Missing ${partWords(missingCoreOrDeadline)}.`,
+      compound: false,
     }
   }
+  // More than one prediction in one outcome can't be marked right or wrong
+  // as a whole, however complete it looks. It stays a hunch until split.
+  const compound = findCompound(parts)
+  if (compound.compound) {
+    return { grade: 3, missing, reason: compound.reason, compound: true }
+  }
   if (missing.length > 0) {
-    return { grade: 3, missing, reason: `Missing ${partWords(missing)}.` }
+    return {
+      grade: 3,
+      missing,
+      reason:
+        missing.length === 1 && missing[0] === "howToTell"
+          ? "Missing a way to tell: a source, a measure or a fact anyone could look up."
+          : `Missing ${partWords(missing)}.`,
+      compound: false,
+    }
   }
   if (!input.checkLinkConfirmed) {
     return {
       grade: 4,
       missing,
       reason: "Complete and checkable. No confirmed check link.",
+      compound: false,
     }
   }
   return {
     grade: 5,
     missing,
     reason: "Complete and checkable, with a confirmed check link.",
+    compound: false,
   }
 }
 

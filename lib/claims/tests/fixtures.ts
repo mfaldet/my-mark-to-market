@@ -106,7 +106,8 @@ export const FIXTURES: ClaimFixture[] = [
       parts: { event: x("rates get cut"), deadline: x("2025-12-31") },
     },
     expect: {
-      grade: 4,
+      // an event with no way to tell is not yet a prediction
+      grade: 3,
       deadline: "2025-12-31",
       confidence: null,
       canPublish: false,

@@ -59,7 +59,9 @@ export const SHAPE_PARTS = {
   },
   EVENT_BY_DATE: {
     core: ["event"],
-    required: ["event", "deadline"],
+    // howToTell: a source, a measure or a fact anyone could look up.
+    // A confirmed or unconfirmed check link also counts (see grade.ts).
+    required: ["event", "deadline", "howToTell"],
     optional: [],
   },
   A_BEATS_B: {

@@ -14,7 +14,7 @@ import { TRPCError } from "@trpc/server"
 import { z } from "zod"
 import { findUserByApiKey } from "../api_keys"
 import { getBaseHost } from "../base_url"
-import { parseConfidenceWord } from "../claims/confidence"
+import { parseConfidenceWord, readConfidence } from "../claims/confidence"
 import { parseResult } from "../claims/words"
 import {
   answerQuestion,
@@ -92,6 +92,8 @@ const claim = z.object({
   approximate: z.boolean(),
   grade: z.number(),
   gradeReason: z.string(),
+  compound: z.boolean(),
+  flags: z.array(z.string()),
   missing: z.array(z.string()),
   canPublish: z.boolean(),
   publishBlockers: z.array(z.string()),
@@ -141,6 +143,12 @@ export const claimsApiRouter = router({
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional(),
         parentId: z.string().optional(),
+        timeZone: z
+          .string({
+            description:
+              'IANA time zone, e.g. "America/Chicago". "Today" and due dates are worked out in it. Defaults to the one saved on your account.',
+          })
+          .optional(),
         source,
         apiKey,
       }),
@@ -152,6 +160,7 @@ export const claimsApiRouter = router({
         text: input.text,
         claimDate: input.claimDate,
         parentId: input.parentId,
+        timeZone: input.timeZone,
         source: toSource(input.source),
       }).catch(toTrpcError),
     ),
@@ -271,6 +280,12 @@ export const claimsApiRouter = router({
     .input(
       z.object({
         claimId: z.string(),
+        confidence: z
+          .union([z.string(), z.number()], {
+            description:
+              'What you would say: "30%", "0.3" or a confidence word. A bare number like "3" is refused, because it could mean several things.',
+          })
+          .optional(),
         word: z.string().optional(),
         probability: z
           .number({ description: "Between 0 and 1" })
@@ -285,7 +300,15 @@ export const claimsApiRouter = router({
     .output(claim)
     .mutation(async ({ input, ctx }) => {
       let word: ConfidenceWord | undefined
-      if (input.word !== undefined) {
+      let probability = input.probability
+      if (input.confidence !== undefined) {
+        const reading = readConfidence(input.confidence)
+        if (!reading.ok) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: reading.error })
+        }
+        if ("word" in reading) word = reading.word
+        else probability = reading.probability
+      } else if (input.word !== undefined) {
         const parsed = parseConfidenceWord(input.word)
         if (!parsed) {
           throw new TRPCError({
@@ -299,7 +322,7 @@ export const claimsApiRouter = router({
       return updateConfidence(
         await requireUser(ctx, input.apiKey),
         input.claimId,
-        { word, probability: input.probability, note: input.note },
+        { word, probability, note: input.note },
         toSource(input.source),
       ).catch(toTrpcError)
     }),
@@ -348,6 +371,12 @@ export const claimsApiRouter = router({
         due: z.enum(["soon", "overdue", "soon_or_overdue"]).optional(),
         withinDays: z.coerce.number().int().min(0).max(366).optional(),
         limit: z.coerce.number().min(1).max(200).optional(),
+        timeZone: z
+          .string({
+            description:
+              'IANA time zone, e.g. "America/Chicago". "Today" and due dates are worked out in it. Defaults to the one saved on your account.',
+          })
+          .optional(),
         apiKey,
       }),
     )
@@ -358,6 +387,7 @@ export const claimsApiRouter = router({
         due: input.due,
         withinDays: input.withinDays,
         limit: input.limit,
+        timeZone: input.timeZone,
       }).catch(toTrpcError),
     })),
 

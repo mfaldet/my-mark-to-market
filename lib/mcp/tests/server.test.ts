@@ -22,6 +22,10 @@ jest.mock("../../claims/service", () => {
     linkParent: jest.fn(),
     listClaims: jest.fn(),
     resolveClaim: jest.fn(),
+    logWithSplit: jest.fn(),
+    confirmProposal: jest.fn(),
+    editClaim: jest.fn(),
+    withdrawClaim: jest.fn(),
   }
 })
 
@@ -38,6 +42,10 @@ const service: Record<string, jest.Mock> = {
   linkParent: mocked.linkParent,
   listClaims: mocked.listClaims,
   resolveClaim: mocked.resolveClaim,
+  logWithSplit: mocked.logWithSplit,
+  confirmProposal: mocked.confirmProposal,
+  editClaim: mocked.editClaim,
+  withdrawClaim: mocked.withdrawClaim,
 }
 
 const view = {
@@ -49,6 +57,8 @@ const view = {
   deadlineKind: "check back by",
   grade: 4,
   gradeReason: "Complete and checkable. No confirmed check link.",
+  compound: false,
+  flags: [],
   shape: "NUMBER_BY_DATE",
   parts: { value: { value: 6, status: "extracted" } },
   confidenceWord: "LIKELY",
@@ -74,9 +84,12 @@ beforeEach(() => {
 })
 
 describe("the MCP tools", () => {
-  it("offers exactly the six tools", () => {
+  it("offers exactly these tools", () => {
     expect(TOOLS.map((t) => t.name)).toEqual([
       "log_claim",
+      "confirm_proposal",
+      "edit_claim",
+      "withdraw_claim",
       "answer_question",
       "update_confidence",
       "link_parent",
@@ -89,9 +102,16 @@ describe("the MCP tools", () => {
     }
   })
 
-  it("tells Claude to pass my words unchanged and not answer for me", () => {
-    expect(MCP_INSTRUCTIONS).toMatch(/exactly as they said them/)
-    expect(MCP_INSTRUCTIONS).toMatch(/Do not answer it yourself/)
+  it("tells Claude to keep my words, propose in one reply, and wait for me to confirm", () => {
+    expect(MCP_INSTRUCTIONS).toMatch(/exact words are always the hunch text/)
+    expect(MCP_INSTRUCTIONS).toMatch(/In ONE reply/)
+    expect(MCP_INSTRUCTIONS).toMatch(/Do not ask one field per message/)
+    expect(MCP_INSTRUCTIONS).toMatch(/saved as "extracted"/)
+    // the three faults in the first real entries
+    expect(MCP_INSTRUCTIONS).toMatch(/no "if … then"/)
+    expect(MCP_INSTRUCTIONS).toMatch(/way to tell/)
+    expect(MCP_INSTRUCTIONS).toMatch(/do not write "S&P 500"/)
+    expect(MCP_INSTRUCTIONS).toMatch(/Nothing is ever deleted/)
   })
 
   it("log_claim passes the text through untouched and records the source as AGENT", async () => {
@@ -106,6 +126,8 @@ describe("the MCP tools", () => {
       claimDate: "2025-07-14",
       parentId: undefined,
       source: "AGENT",
+      timeZone: undefined,
+      proposal: undefined,
     })
     expect(parse(result)).toMatchObject({
       id: "c1",
@@ -162,6 +184,7 @@ describe("the MCP tools", () => {
     expect(service.listClaims).toHaveBeenCalledWith("u1", {
       status: undefined,
       limit: 20,
+      timeZone: undefined,
     })
   })
 
@@ -178,6 +201,7 @@ describe("the MCP tools", () => {
       due: "soon_or_overdue",
       withinDays: 14,
       limit: 20,
+      timeZone: undefined,
     })
     expect(parse(result)[0]).toMatchObject({
       id: "c1",
@@ -192,7 +216,9 @@ describe("the MCP tools", () => {
   it.each([
     ["log_claim", {}],
     ["log_claim", { text: "x", claim_date: "last July" }],
-    ["update_confidence", { claim_id: "c1", word: "maybe" }],
+    ["edit_claim", { claim_id: "c1", deadline: "next summer" }],
+    ["confirm_proposal", {}],
+    ["withdraw_claim", {}],
     ["update_confidence", { claim_id: "c1", probability: 70 }],
     ["resolve_claim", { claim_id: "c1", resolution: "PROBABLY" }],
     ["list_claims", { limit: 5000 }],
@@ -205,6 +231,159 @@ describe("the MCP tools", () => {
       Object.values(service).forEach((fn) => expect(fn).not.toHaveBeenCalled())
     },
   )
+
+  describe("from the first real use", () => {
+    const original =
+      "The board won't fire Jensen Huang at NVIDIA, and NVIDIA stock price will still out perform Mag 7 average over 2027, but this Jensen scandal will be a huge WMD (weapon of mass distraction) for the new capitol hill."
+    const split = [
+      {
+        text: "The board won't fire Jensen Huang at NVIDIA",
+        shape: "EVENT_BY_DATE",
+        parts: {
+          event: "Jensen Huang is still NVIDIA's CEO on Dec 31, 2027",
+          howToTell: "NVIDIA's leadership page",
+        },
+        deadline: "2027-12-31",
+      },
+      {
+        text: "NVIDIA stock price will still out perform Mag 7 average over 2027",
+        shape: "A_BEATS_B",
+        parts: { a: "NVIDIA", b: "Mag 7 average", metric: "total return" },
+        deadline: "2027-12-31",
+      },
+    ]
+
+    it("logs a compound hunch and its pieces in one call, and says what to do next", async () => {
+      service.logWithSplit.mockResolvedValue({
+        original: { ...view, id: "p", text: original },
+        pieces: [
+          { ...view, id: "a" },
+          { ...view, id: "b" },
+        ],
+      })
+      const result = parse(
+        await callTool("u1", "log_claim", {
+          text: original,
+          split,
+          time_zone: "America/Chicago",
+        }),
+      )
+      expect(service.logWithSplit).toHaveBeenCalledWith({
+        userId: "u1",
+        text: original,
+        claimDate: undefined,
+        parentId: undefined,
+        source: "AGENT",
+        timeZone: "America/Chicago",
+        proposal: undefined,
+        split,
+      })
+      expect(service.logClaim).not.toHaveBeenCalled()
+      expect(result.original.id).toBe("p")
+      expect(result.pieces.map((p: any) => p.id)).toEqual(["a", "b"])
+      expect(result.next).toMatch(/one reply/)
+      // parts that are not mine yet are pointed out
+      expect(result.pieces[0].unconfirmed).toMatch(/not the user's/)
+    })
+
+    it("one confirm_proposal call carries my corrections and my confidence", async () => {
+      await callTool("u1", "confirm_proposal", {
+        claim_id: "b",
+        edit: { parts: { metric: "price return" } },
+        confidence: "70%",
+      })
+      expect(service.confirmProposal).toHaveBeenCalledWith(
+        "u1",
+        "b",
+        {
+          edit: { parts: { metric: "price return" } },
+          confidence: { probability: 0.7, note: undefined },
+        },
+        "AGENT",
+      )
+    })
+
+    it.each([
+      ["30%", { probability: 0.3 }],
+      ["0.3", { probability: 0.3 }],
+      [0.3, { probability: 0.3 }],
+      ["likely", { word: "LIKELY" }],
+      ["toss up", { word: "TOSS_UP" }],
+      ["probably", { word: "LIKELY" }],
+    ])("update_confidence accepts %j", async (confidence, expected) => {
+      await callTool("u1", "update_confidence", { claim_id: "c1", confidence })
+      expect(service.updateConfidence).toHaveBeenCalledWith(
+        "u1",
+        "c1",
+        { ...expected, note: undefined },
+        "AGENT",
+      )
+    })
+
+    it.each(["3", 3, "70", "maybe"])(
+      "update_confidence does not guess at %j: it says to ask me",
+      async (confidence) => {
+        const result = await callTool("u1", "update_confidence", {
+          claim_id: "c1",
+          confidence,
+        })
+        expect(result.isError).toBe(true)
+        expect(service.updateConfidence).not.toHaveBeenCalled()
+        if (confidence !== "maybe") {
+          expect(result.content[0].text).toMatch(/Ask the user what they mean/)
+        }
+      },
+    )
+
+    it("edit_claim changes parts and dates; my text only when I correct it", async () => {
+      await callTool("u1", "edit_claim", {
+        claim_id: "c1",
+        parts: { event: "NVIDIA beats the Mag 7 average" },
+        deadline: "2027-12-31",
+      })
+      expect(service.editClaim).toHaveBeenLastCalledWith(
+        "u1",
+        "c1",
+        {
+          shape: undefined,
+          parts: { event: "NVIDIA beats the Mag 7 average" },
+          deadline: "2027-12-31",
+          correctedText: undefined,
+        },
+        "AGENT",
+      )
+      await callTool("u1", "edit_claim", {
+        claim_id: "c1",
+        corrected_text: "outperform, not out perform",
+      })
+      expect(service.editClaim.mock.calls[1][2].correctedText).toBe(
+        "outperform, not out perform",
+      )
+      expect(
+        (await callTool("u1", "edit_claim", { claim_id: "c1" })).isError,
+      ).toBe(true)
+    })
+
+    it("withdraw_claim withdraws; there is no tool that deletes", async () => {
+      service.withdrawClaim.mockResolvedValue({ ...view, withdrawn: true })
+      const result = parse(
+        await callTool("u1", "withdraw_claim", { claim_id: "c1" }),
+      )
+      expect(service.withdrawClaim).toHaveBeenCalledWith("u1", "c1", "AGENT")
+      expect(result.withdrawn).toBe(true)
+      expect(TOOLS.map((t) => t.name).join(" ")).not.toMatch(/delete/)
+    })
+
+    it("flags and a needed split are passed on to Claude", () => {
+      const summary = summarize({
+        ...view,
+        compound: true,
+        flags: ["The outcome mentions S&P 500, which your own words don't."],
+      }) as any
+      expect(summary.flags[0]).toMatch(/S&P 500/)
+      expect(summary.split).toMatch(/more than one prediction/)
+    })
+  })
 
   it("answer_question needs exactly one of accept, value, skip", async () => {
     for (const args of [
