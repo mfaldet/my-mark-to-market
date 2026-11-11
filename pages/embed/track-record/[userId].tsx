@@ -148,7 +148,9 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                 className="glass rounded-xl p-4 flex flex-col gap-2"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="font-medium">“{claim.text}”</span>
+                  <span className="font-medium">
+                    {claim.isHeadline ? claim.text : `“${claim.text}”`}
+                  </span>
                   <span className="flex flex-wrap justify-end gap-1 shrink-0">
                     {claim.closeCall && (
                       // yellow = caution: a near miss

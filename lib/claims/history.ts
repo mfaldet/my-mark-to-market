@@ -21,7 +21,14 @@ import { createHash } from "crypto"
 
 /** The full state of a claim at one moment. Dates are ISO strings. */
 export type ClaimState = {
+  /** my raw words */
   text: string
+  /**
+   * The approved clean statement, or null. Added later than the other
+   * fields, so older rows do not have it at all; a missing value is read
+   * as null.
+   */
+  headline?: string | null
   notes: string | null
   claimDate: string | null
   deadline: string
@@ -100,8 +107,10 @@ export function changedFields(
   const keys = Object.keys(next) as (keyof ClaimState)[]
   if (!previous)
     return keys.filter((k) => next[k] !== null && next[k] !== false)
+  // a field an older row never had counts as null, not as a change
   return keys.filter(
-    (k) => canonicalJson(previous[k]) !== canonicalJson(next[k]),
+    (k) =>
+      canonicalJson(previous[k] ?? null) !== canonicalJson(next[k] ?? null),
   )
 }
 

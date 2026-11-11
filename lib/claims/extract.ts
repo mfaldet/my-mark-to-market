@@ -48,6 +48,11 @@ export type Extraction = {
    * (dates.ts) finds no deadline phrase itself.
    */
   deadline: string | null
+  /**
+   * A clean, sharp one-sentence statement of the claim, proposed by the AI
+   * or an agent. Shown in a preview; saved only if I approve it.
+   */
+  headline?: string | null
   /** why the AI was not used, when source is "manual" */
   note?: string
 }
@@ -72,6 +77,7 @@ export const EXTRACTION_SCHEMA = {
   type: "object",
   properties: {
     shape: { type: "string", enum: SHAPES },
+    headline: nullableString,
     measure: nullableString,
     comparison: { type: ["string", "null"], enum: [...COMPARISONS, null] },
     value: { type: ["number", "null"] },
@@ -89,6 +95,7 @@ export const EXTRACTION_SCHEMA = {
   },
   required: [
     "shape",
+    "headline",
     "measure",
     "comparison",
     "value",
@@ -116,6 +123,8 @@ Pick the one shape that fits:
 - A_BEATS_B: one thing outdoes another. Parts: a, b, and metric (how "beats" is measured).
 - RANK_OR_AWARD: someone or something reaches a rank or wins an award. Parts: subject, rankOrAward.
 - FREE_TEXT: a general view with nothing specific to observe, such as "the labor market is weakening". No parts.
+
+Also write a headline: one clear, sharp sentence that says what the person means, in plain words, naming who or what, the measure, the threshold and the date where the text gives them. This is a rewrite, so here you should tidy loose phrasing and use precise terms; but do not add a number, a date or a claim the text does not contain. The person approves or changes the headline before it is used, and their original words are kept alongside it. If the text is too vague to restate more clearly, set headline to null.
 
 How to fill the parts:
 
@@ -178,7 +187,12 @@ export function toExtraction(raw: Record<string, unknown>): Extraction {
       ? raw.deadline
       : null
 
-  return { source: "ai", shape, parts: checked.parts, deadline }
+  const headline =
+    typeof raw.headline === "string" && raw.headline.trim() !== ""
+      ? raw.headline.trim()
+      : null
+
+  return { source: "ai", shape, parts: checked.parts, deadline, headline }
 }
 
 /**

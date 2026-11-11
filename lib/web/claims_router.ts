@@ -12,6 +12,7 @@ import {
   confirmCheckLink,
   confirmPart,
   getClaim,
+  editClaim,
   previewClaim,
   restoreClaim,
   getTimeline,
@@ -75,6 +76,7 @@ export const claimsRouter = router({
         text: z.string().min(1),
         claimDate: isoDay.optional(),
         proposal: proposalInput.optional(),
+        headline: z.string().max(500).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -99,6 +101,8 @@ export const claimsRouter = router({
         parentId: z.string().optional(),
         /** the version I approved in the preview; saved as mine */
         proposal: proposalInput.optional(),
+        /** the headline I approved in the preview */
+        headline: z.string().max(500).optional(),
       }),
     )
     .mutation(({ input, ctx }) =>
@@ -249,6 +253,18 @@ export const claimsRouter = router({
     .input(id)
     .mutation(({ input, ctx }) =>
       withdrawClaim(requireUser(ctx), input.claimId, "WEB").catch(toTrpcError),
+    ),
+
+  /** Set, change or (with null) remove the headline: a recorded version. */
+  setHeadline: publicProcedure
+    .input(id.extend({ headline: z.string().max(500).nullable() }))
+    .mutation(({ input, ctx }) =>
+      editClaim(
+        requireUser(ctx),
+        input.claimId,
+        { headline: input.headline },
+        "WEB",
+      ).catch(toTrpcError),
     ),
 
   restore: publicProcedure

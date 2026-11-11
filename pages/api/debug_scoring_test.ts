@@ -64,6 +64,7 @@ function getQuestion(days: number): Question {
   return {
     id: questionid,
     title: "Will cubs win?",
+    headline: null,
     resolution: Resolution.YES,
     createdAt: startDate,
     resolvedAt: addDays(startDate, days),

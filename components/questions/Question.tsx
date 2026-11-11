@@ -138,7 +138,7 @@ export function Question({
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {question.title}
+                  {question.headline ?? question.title}
                   {embedded && (
                     <ArrowTopRightOnSquareIcon className="inline ml-2 h-3 w-3 text-neutral-600" />
                   )}

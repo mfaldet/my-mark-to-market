@@ -12,6 +12,8 @@ import {
 } from "./labels"
 
 export type Proposal = {
+  /** the clean statement that will show everywhere; my words stay underneath */
+  headline?: string
   shape: ClaimShape
   parts: Record<string, string | number>
   deadline?: string
@@ -26,6 +28,7 @@ export function proposalOf(preview: ClaimPreview): Proposal | null {
   }
   const deadline = preview.parts.deadline?.value
   return {
+    headline: preview.headline ?? undefined,
     shape: preview.shape,
     parts,
     deadline: deadline === undefined ? undefined : String(deadline),
@@ -89,7 +92,41 @@ export function PreviewCard({
           Said {formatDay(preview.claimDate)}
         </span>
       </div>
-      <div className="font-semibold text-base">“{preview.text}”</div>
+      {editing ? (
+        <label className="flex flex-col gap-1">
+          <span className="text-neutral-500">Headline</span>
+          <input
+            aria-label="Headline"
+            className="input input-sm input-bordered w-full font-semibold"
+            defaultValue={draft.headline ?? ""}
+            placeholder="A clear, sharp statement of what you mean"
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                headline: e.target.value.trim() || undefined,
+              })
+            }
+          />
+        </label>
+      ) : (
+        shown.headline && (
+          <div className="font-semibold text-base">{shown.headline}</div>
+        )
+      )}
+      <div
+        className={
+          shown.headline && !editing
+            ? "text-neutral-600"
+            : "font-semibold text-base"
+        }
+      >
+        {shown.headline && !editing && (
+          <span className="text-neutral-500">Originally said: </span>
+        )}
+        <span className={shown.headline && !editing ? "italic" : ""}>
+          “{preview.text}”
+        </span>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <span
@@ -104,11 +141,6 @@ export function PreviewCard({
         <GradeBadge grade={preview.grade} reason={preview.gradeReason} />
         <span className="text-neutral-500">{preview.gradeReason}</span>
       </div>
-      {preview.flags.map((flag) => (
-        <div key={flag} className="tone-change rounded-md px-2 py-1 text-xs">
-          {flag}
-        </div>
-      ))}
 
       <div className="flex flex-col gap-2 border-t border-neutral-200 pt-3">
         <Row label="Shape">

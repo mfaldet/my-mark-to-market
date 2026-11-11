@@ -79,7 +79,10 @@ export function Notifications() {
                   }}
                 >
                   {(notification.question?.title
-                    ? `**${notification.question.title}**\n\n`
+                    ? `**${
+                        notification.question.headline ??
+                        notification.question.title
+                      }**\n\n`
                     : "") + notification.content}
                 </ReactMarkdown>
                 <FormattedDate

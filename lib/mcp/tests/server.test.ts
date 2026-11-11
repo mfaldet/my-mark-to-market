@@ -63,7 +63,7 @@ const view = {
   grade: 4,
   gradeReason: "Complete and checkable. No confirmed check link.",
   compound: false,
-  flags: [],
+  headline: null,
   shape: "NUMBER_BY_DATE",
   parts: { value: { value: 6, status: "extracted" } },
   confidenceWord: "LIKELY",
@@ -109,22 +109,27 @@ describe("the MCP tools", () => {
   })
 
   it("tells Claude to preview first, show it all in one reply, and save only what I approve", () => {
-    expect(MCP_INSTRUCTIONS).toMatch(/exact words are always the hunch text/)
+    expect(MCP_INSTRUCTIONS).toMatch(/raw words unchanged as text/)
+    expect(MCP_INSTRUCTIONS).toMatch(/Clean aggressively, up front/)
+    expect(MCP_INSTRUCTIONS).toMatch(/Write a headline/)
     expect(MCP_INSTRUCTIONS).toMatch(/Call preview_claim/)
     expect(MCP_INSTRUCTIONS).toMatch(/It saves NOTHING/)
     expect(MCP_INSTRUCTIONS).toMatch(/In ONE reply/)
+    expect(MCP_INSTRUCTIONS).toMatch(/Expect them to steer/)
     expect(MCP_INSTRUCTIONS).toMatch(/Do not ask one field per message/)
     expect(MCP_INSTRUCTIONS).toMatch(/Only when they approve/)
     expect(MCP_INSTRUCTIONS).toMatch(
-      /nothing you guessed is saved unless they said yes/,
+      /Nothing you wrote or guessed is saved unless they said yes/,
     )
     expect(MCP_INSTRUCTIONS).toMatch(
       /when they first said it, not when they approved it/,
     )
-    // the three faults in the first real entries
+    // the hard rules that stay
     expect(MCP_INSTRUCTIONS).toMatch(/no "if … then"/)
-    expect(MCP_INSTRUCTIONS).toMatch(/howToTell/)
-    expect(MCP_INSTRUCTIONS).toMatch(/do not write "S&P 500"/)
+    expect(MCP_INSTRUCTIONS).toMatch(/an event needs a way to tell/)
+    // the old rule against using different words from mine is gone
+    expect(MCP_INSTRUCTIONS).not.toMatch(/Do not swap in a different measure/)
+    expect(MCP_INSTRUCTIONS).not.toMatch(/excerpt/)
     expect(MCP_INSTRUCTIONS).toMatch(/Nothing is ever deleted/)
   })
 
@@ -253,7 +258,7 @@ describe("the MCP tools", () => {
       "The board won't fire Jensen Huang at NVIDIA, and NVIDIA stock price will still out perform Mag 7 average over 2027, but this Jensen scandal will be a huge WMD (weapon of mass distraction) for the new capitol hill."
     const split = [
       {
-        text: "The board won't fire Jensen Huang at NVIDIA",
+        headline: "Jensen Huang is still NVIDIA's CEO at the end of 2027",
         shape: "EVENT_BY_DATE",
         parts: {
           event: "Jensen Huang is still NVIDIA's CEO on Dec 31, 2027",
@@ -262,7 +267,7 @@ describe("the MCP tools", () => {
         deadline: "2027-12-31",
       },
       {
-        text: "NVIDIA stock price will still out perform Mag 7 average over 2027",
+        headline: "NVIDIA stock beats the Magnificent 7 average over 2027",
         shape: "A_BEATS_B",
         parts: { a: "NVIDIA", b: "Mag 7 average", metric: "total return" },
         deadline: "2027-12-31",
@@ -389,6 +394,71 @@ describe("the MCP tools", () => {
       expect(result.pieces.map((p: any) => p.id)).toEqual(["a", "b"])
     })
 
+    it("a headline is saved only with my approval, and shows in place of my words", async () => {
+      const refused = await callTool("u1", "log_claim", {
+        text: "jensen stays i reckon",
+        headline: "Jensen Huang is still NVIDIA's CEO at the end of 2027",
+      })
+      expect(refused.isError).toBe(true)
+      expect(refused.content[0].text).toMatch(/Nothing was saved/)
+      expect(service.logClaim).not.toHaveBeenCalled()
+
+      service.logClaim.mockResolvedValue({
+        ...view,
+        text: "jensen stays i reckon",
+        headline: "Jensen Huang is still NVIDIA's CEO at the end of 2027",
+      })
+      const saved = parse(
+        await callTool("u1", "log_claim", {
+          text: "jensen stays i reckon",
+          headline: "Jensen Huang is still NVIDIA's CEO at the end of 2027",
+          approved: true,
+        }),
+      )
+      expect(service.logClaim).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: "jensen stays i reckon",
+          headline: "Jensen Huang is still NVIDIA's CEO at the end of 2027",
+          proposalStatus: "stated",
+        }),
+      )
+      expect(saved.headline).toBe(
+        "Jensen Huang is still NVIDIA's CEO at the end of 2027",
+      )
+      expect(saved.originallySaid).toBe("jensen stays i reckon")
+      expect(saved).not.toHaveProperty("text")
+    })
+
+    it("an item with no headline is reported with my words, as before", () => {
+      const summary = summarize(view) as any
+      expect(summary.text).toBe(view.text)
+      expect(summary.headline).toBeNull()
+    })
+
+    it("edit_claim can add a headline to an older item", async () => {
+      await callTool("u1", "edit_claim", {
+        claim_id: "c1",
+        headline: "US unemployment reaches 6% by the end of 2028",
+      })
+      expect(service.editClaim).toHaveBeenLastCalledWith(
+        "u1",
+        "c1",
+        expect.objectContaining({
+          headline: "US unemployment reaches 6% by the end of 2028",
+        }),
+        "AGENT",
+      )
+    })
+
+    it("a split piece needs a headline", async () => {
+      const result = await callTool("u1", "preview_claim", {
+        text: original,
+        split: [{ shape: "EVENT_BY_DATE", parts: { event: "x" } }],
+      })
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toMatch(/headline/)
+    })
+
     it("my words alone can still be logged as a plain hunch, with no approval step", async () => {
       await callTool("u1", "log_claim", {
         text: "The labor market is weakening",
@@ -463,6 +533,7 @@ describe("the MCP tools", () => {
           shape: undefined,
           parts: { event: "NVIDIA beats the Mag 7 average" },
           deadline: "2027-12-31",
+          headline: undefined,
           correctedText: undefined,
         },
         "AGENT",
@@ -489,14 +560,12 @@ describe("the MCP tools", () => {
       expect(TOOLS.map((t) => t.name).join(" ")).not.toMatch(/delete/)
     })
 
-    it("flags and a needed split are passed on to Claude", () => {
-      const summary = summarize({
-        ...view,
-        compound: true,
-        flags: ["The outcome mentions S&P 500, which your own words don't."],
-      }) as any
-      expect(summary.flags[0]).toMatch(/S&P 500/)
+    it("a needed split is passed on to Claude; there is no flag for different wording", () => {
+      const summary = summarize({ ...view, compound: true }) as any
       expect(summary.split).toMatch(/more than one prediction/)
+      expect(summary).not.toHaveProperty("flags")
+      expect(MCP_INSTRUCTIONS).not.toMatch(/flag/i)
+      expect(MCP_INSTRUCTIONS).not.toMatch(/S&P 500/)
     })
   })
 

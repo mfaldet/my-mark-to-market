@@ -13,7 +13,8 @@ import {
 } from "./labels"
 
 const FIELD_LABELS: Record<string, string> = {
-  text: "Text",
+  text: "My words",
+  headline: "Headline",
   notes: "Notes",
   claimDate: "Date said",
   deadline: "Deadline",

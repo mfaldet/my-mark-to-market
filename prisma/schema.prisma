@@ -107,6 +107,9 @@ model Question {
   comment                      String? // todo remove, unused
   profileId                    Int?
   title                        String                   @db.Text
+  // The approved, clean statement shown everywhere. "title" above keeps my
+  // raw words, unchanged. Null = no headline yet: show the raw words.
+  headline                 String?
   type                         QuestionType             @default(BINARY)
   options                      QuestionOption[]
   resolveBy                    DateTime

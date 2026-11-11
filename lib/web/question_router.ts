@@ -1732,6 +1732,12 @@ async function getQuestionsUserCreatedOrForecastedOnOrIsSharedWith(
                     },
                   },
                   {
+                    headline: {
+                      contains: input.extraFilters.searchString,
+                      mode: "insensitive",
+                    },
+                  },
+                  {
                     comments: {
                       some: {
                         comment: {

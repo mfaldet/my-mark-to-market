@@ -49,7 +49,6 @@ import {
   EngineQuestion,
   nextQuestion,
 } from "./next_question"
-import { mismatchFlag } from "./outcome_checks"
 import {
   dayIn,
   isValidTimeZone,
@@ -89,8 +88,8 @@ export function defaultCheckBackBy(claimDate: Date) {
 
 type ClaimRow = Question & {
   forecasts: { forecast: Prisma.Decimal; createdAt: Date; userId: string }[]
-  children?: { id: string; title: string }[]
-  parent?: { id: string; title: string } | null
+  children?: { id: string; title: string; headline: string | null }[]
+  parent?: { id: string; title: string; headline: string | null } | null
   user?: { timeZone: string } | null
 }
 
@@ -98,9 +97,9 @@ const CLAIM_INCLUDE = {
   forecasts: { select: { forecast: true, createdAt: true, userId: true } },
   children: {
     where: { withdrawnAt: null },
-    select: { id: true, title: true },
+    select: { id: true, title: true, headline: true },
   },
-  parent: { select: { id: true, title: true } },
+  parent: { select: { id: true, title: true, headline: true } },
   // "today" is worked out in the owner's time zone
   user: { select: { timeZone: true } },
 } satisfies Prisma.QuestionInclude
@@ -138,8 +137,12 @@ export type ClaimView = {
   kind: Kind
   /** true for entries brought in by an importer: not logged here in advance */
   imported: boolean
-  /** my words, never rewritten */
+  /** my raw words, never rewritten: "Originally said" */
   text: string
+  /** the approved clean statement shown everywhere, or null if there is none yet */
+  headline: string | null
+  /** what to show as the item's name: the headline, or my words when there is none */
+  shown: string
   claimDate: string
   loggedAt: string
   /** true when I logged it after the day I made it */
@@ -160,8 +163,6 @@ export type ClaimView = {
   gradeReason: string
   /** true when the outcome holds more than one prediction and should be split */
   compound: boolean
-  /** things to look at, such as an outcome that names a measure my words did not */
-  flags: string[]
   missing: PartName[]
   canPublish: boolean
   publishBlockers: string[]
@@ -199,8 +200,7 @@ export function toClaimView(
   const zone = timeZoneOrDefault(timeZone ?? row.user?.timeZone)
   // today's date where I am, so "due today" turns over at my midnight
   const today = localToday(zone, now)
-  const flag =
-    row.resolved || row.withdrawnAt ? null : mismatchFlag(row.title, parts)
+
   const publish = canPublish(gradeInput)
   const claimDate = row.claimDate ?? row.createdAt
   const mine = row.forecasts
@@ -213,6 +213,8 @@ export function toClaimView(
     kind: kindForGrade(grade.grade),
     imported: isImported(row.id),
     text: row.title,
+    headline: row.headline ?? null,
+    shown: row.headline ?? row.title,
     claimDate: isoDay(claimDate),
     loggedAt: row.createdAt.toISOString(),
     backDated: isoDay(claimDate) < dayIn(zone, row.createdAt),
@@ -234,7 +236,6 @@ export function toClaimView(
     grade: grade.grade,
     gradeReason: grade.reason,
     compound: grade.compound,
-    flags: flag ? [flag] : [],
     missing: grade.missing,
     canPublish: publish.ok,
     publishBlockers: publish.ok ? [] : publish.reasons,
@@ -243,8 +244,13 @@ export function toClaimView(
     sharedPublicly: row.sharedPublicly,
     checkLinkUrl: row.checkLinkUrl,
     checkLinkConfirmed: !!row.checkLinkConfirmedAt,
-    parent: row.parent ? { id: row.parent.id, text: row.parent.title } : null,
-    children: (row.children ?? []).map((c) => ({ id: c.id, text: c.title })),
+    parent: row.parent
+      ? { id: row.parent.id, text: row.parent.headline ?? row.parent.title }
+      : null,
+    children: (row.children ?? []).map((c) => ({
+      id: c.id,
+      text: c.headline ?? c.title,
+    })),
     withdrawn: !!row.withdrawnAt,
     withdrawnAt: isoOrNull(row.withdrawnAt),
     resolved: row.resolved,
@@ -268,6 +274,7 @@ const isoOrNull = (date: Date | null) => (date ? date.toISOString() : null)
 export function claimState(row: Question): ClaimState {
   return {
     text: row.title,
+    headline: row.headline ?? null,
     notes: row.notes,
     claimDate: isoOrNull(row.claimDate),
     deadline: row.resolveBy.toISOString(),
@@ -563,6 +570,17 @@ export type LogClaimInput = {
    * Default "extracted": not mine until I confirm.
    */
   proposalStatus?: "extracted" | "stated"
+  /**
+   * A clean, sharp statement of what I said. Saved only because I approved
+   * it; my raw words are kept in `text` regardless.
+   */
+  headline?: string
+  /**
+   * true for a piece of a split: `text` is then the whole original
+   * sentence, shared with its sibling pieces, so nothing (deadline,
+   * confidence, "about") is read out of it. The headline is read instead.
+   */
+  sharedText?: boolean
   /** how sure I said I am; wins over a confidence read out of the text */
   confidence?: ConfidenceUpdate
   /** IANA name, e.g. "America/Chicago". Defaults to the one saved on my account. */
@@ -663,7 +681,14 @@ async function planClaim(input: LogClaimInput) {
     (input.proposal
       ? extractionFrom(input.proposal)
       : await extractClaim({ text, claimDate }))
-  const analysis = analyzeClaim(text, claimDate, extraction)
+  const headline = input.headline?.trim() || null
+  // what a preview shows: my approved headline, or the one the AI proposes
+  const proposedHeadline = headline ?? extraction.headline?.trim() ?? null
+  const analysis = analyzeClaim(
+    input.sharedText ? proposedHeadline ?? "" : text,
+    claimDate,
+    extraction,
+  )
 
   let parts: OutcomeParts = analysis.parts
   let deadline = analysis.deadline
@@ -730,8 +755,11 @@ async function planClaim(input: LogClaimInput) {
     analysis,
     probability,
     confidenceWord,
+    proposedHeadline,
     fields: {
       title: text,
+      // saved only when it was passed in, which callers do only on approval
+      headline,
       userId: input.userId,
       resolveBy: deadline ?? defaultCheckBackBy(claimDate),
       claimDate,
@@ -792,6 +820,8 @@ export async function previewClaim(
   // an unsaved row, shaped like a stored one, so it is graded by the same code
   const row = {
     ...fields,
+    // a preview shows the proposed headline; logging saves only an approved one
+    headline: plan.proposedHeadline,
     id: "preview",
     createdAt: plan.now,
     notes: null,
@@ -816,7 +846,11 @@ export async function previewClaim(
             },
           ],
     parent: plan.parent
-      ? { id: plan.parent.id, title: plan.parent.title }
+      ? {
+          id: plan.parent.id,
+          title: plan.parent.title,
+          headline: plan.parent.headline,
+        }
       : null,
     children: [],
     user: { timeZone: plan.zone },
@@ -937,8 +971,8 @@ export async function notifyReadyToResolve(
         data: {
           title:
             kindForGrade(claim.grade) === "prediction" || isImported(claim.id)
-              ? `Ready to resolve: ${claim.title}`
-              : `Time to check back: ${claim.title}`,
+              ? `Ready to resolve: ${claim.headline ?? claim.title}`
+              : `Time to check back: ${claim.headline ?? claim.title}`,
           content:
             kindForGrade(claim.grade) === "prediction" || isImported(claim.id)
               ? `This prediction came due on ${isoDay(claim.resolveBy)}. How did it turn out?`
@@ -1320,15 +1354,14 @@ export async function resolveClaim(
 
 // --- A whole proposal at once (for an agent sharpening in conversation) ----
 
-const squashText = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/[\s]+/g, " ")
-    .replace(/^[\s"'“”.,;:]+|[\s"'“”.,;:]+$/g, "")
-
 export type SplitItem = Proposal & {
-  /** which of my words this piece is; must be an excerpt of what I said */
-  text: string
+  /** the clean, sharp statement of this one prediction */
+  headline: string
+  /**
+   * Optional: the part of my words this piece comes from. When left out,
+   * the piece keeps my whole original sentence as its "originally said".
+   */
+  text?: string
   /** how sure I said I am of this piece */
   confidence?: ConfidenceUpdate
 }
@@ -1336,12 +1369,11 @@ export type SplitItem = Proposal & {
 type SplitInput = LogClaimInput & { split: SplitItem[] }
 
 function checkSplit(input: SplitInput) {
-  const mine = squashText(input.text)
   for (const item of input.split) {
-    if (!squashText(item.text) || !mine.includes(squashText(item.text))) {
+    if (!item.headline?.trim()) {
       throw new ClaimError(
         "BAD_REQUEST",
-        `Each piece's text must be an excerpt of the user's own words. "${item.text}" is not. Put your sharpened wording in the outcome parts instead.`,
+        "Each piece needs a headline: one clear sentence saying what is predicted.",
       )
     }
     extractionFrom(item) // check every piece before saving anything
@@ -1371,7 +1403,10 @@ const pieceOf = (
   parentId?: string,
 ): LogClaimInput => ({
   userId: input.userId,
-  text: item.text.trim(),
+  // my raw words stay underneath every piece
+  text: item.text?.trim() || input.text.trim(),
+  headline: item.headline,
+  sharedText: !item.text?.trim(),
   claimDate,
   source: input.source,
   parentId,
@@ -1423,6 +1458,8 @@ export type ClaimEdit = {
   deadline?: string
   /** only when I explicitly correct what I said; otherwise my words stay as they are */
   correctedText?: string
+  /** set or replace the headline I approved; null removes it */
+  headline?: string | null
 }
 
 function applyEdit(row: ClaimRow, edit: ClaimEdit) {
@@ -1458,6 +1495,8 @@ function applyEdit(row: ClaimRow, edit: ClaimEdit) {
           ? day(String(deadline))
           : undefined,
       title: text || undefined,
+      headline:
+        edit.headline === undefined ? undefined : edit.headline?.trim() || null,
     } satisfies Prisma.QuestionUncheckedUpdateInput,
     parts: checked.parts as Record<string, OutcomePart>,
   }

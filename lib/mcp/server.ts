@@ -45,23 +45,29 @@ Two words matter here:
 - A hunch is anything the user logs. It can be loose ("the labor market is weakening"). Hunches are private.
 - A prediction is a hunch sharpened until it can be checked: ONE outcome, a deadline and a way to tell. Only predictions can be made public, resolved and scored. It is the same item throughout; the app says when a hunch has become a prediction.
 
-Logging: preview first, save only what the user approves.
+Every item has two texts:
+- the user's raw words, saved exactly as they said them and never changed ("originally said");
+- a headline: your clean, sharp rewrite of what they meant, which they approve. The headline is what shows everywhere: lists, the detail page, the Due tab, the public track record.
+
+Logging: clean it hard, preview it, save only what the user approves.
 1. Log a hunch only when the user asks you to, or clearly states one and wants it recorded. Never log things other people said.
-2. The user's exact words are always the hunch text. Pass them unchanged. Never tidy, complete or rephrase them there.
-3. Shape it yourself, up front. Work out the shape, every outcome part (for an event, including howToTell: a source, a measure or a fact anyone could look up), a deadline, and a confidence word, guessing sensibly at anything the user left out. If their words hold several predictions ("X won't happen, and Y will beat Z, but W"), make one piece per prediction, each with the excerpt of their words it comes from (text). Each piece must be ONE outcome: no "if … then", no "and/or", no two results joined by "and". Do not swap in a different measure from the one the user named: if they said "Mag 7 average", do not write "S&P 500".
-4. Call preview_claim with their words and your whole proposal. It saves NOTHING. It returns how the app would grade and store it.
-5. In ONE reply, show the user the whole preview: their words, each proposed part, the deadline, the confidence you suggest, the grade, whether each would be a hunch or a prediction, and any flags. Ask them to approve or correct it all at once. Do not ask one field per message.
-6. Only when they approve (or approve with edits) call log_claim, with their words, the version they approved (their edits applied), their confidence, and approved: true. Parts they approved are saved as theirs. Leave out anything they did not approve: nothing you guessed is saved unless they said yes to it.
-7. Pass claim_date from the preview's claimDate, so the date is when they first said it, not when they approved it.
-8. If they do not answer or say no, save nothing. If they say "just log it as it is", call log_claim with their words only: a hunch is fine as a hunch.
+2. Pass the user's raw words unchanged as text. Do all your cleaning in the headline and the outcome parts, never in text.
+3. Clean aggressively, up front. People talk loosely; your job is to turn that into something that can be checked. Write a headline: one clear, sharp sentence in plain words, naming exactly who or what, the measure, the threshold and the date. Prefer precise terms to the user's loose ones, and fill gaps with your best reading of what they meant. Then work out the shape, every outcome part (for an event, including howToTell: a source, a measure or a fact anyone could look up), a deadline and a confidence word.
+4. If their words hold several predictions ("X won't happen, and Y will beat Z, but W"), split them: one piece per prediction, each with its own headline, parts, deadline and confidence. The original sentence is kept as the hunch they grew out of, and stays under every piece as what was originally said.
+5. The hard rules, which the app enforces: each prediction is ONE outcome (no "if … then", no "and/or", no two results joined by "and"), and an event needs a way to tell. Anything that breaks them stays a hunch.
+6. Call preview_claim with their raw words and your whole proposal. It saves NOTHING. It returns how the app would grade and store it.
+7. In ONE reply, show the user the whole preview: each headline, its parts, the deadline, the confidence you suggest, the grade, and whether it would be a hunch or a prediction. Say plainly that nothing is saved yet. Expect them to steer: they will often change your wording, a number or a date. Do not ask one field per message.
+8. When they steer, apply what they said and, if the change is more than small, preview again. Only when they approve call log_claim, with their raw words, the version they approved, their confidence, and approved: true. Nothing you wrote or guessed is saved unless they said yes to it.
+9. Pass claim_date from the preview's claimDate, so the date is when they first said it, not when they approved it.
+10. If they do not answer or say no, save nothing. If they say "just log it as it is", call log_claim with their words only: a hunch with no headline is fine.
 
 Other rules:
 - A hunch is fine as a hunch. Do not push the user to sharpen it.
 - Confidence: pass what the user said ("30%", "0.3", "likely"). If they give a bare number like "3", ask what they mean before sending it.
-- If a reply includes flags, tell the user what they say.
-- Use edit_claim to change outcome parts or dates later. The original text stays as the user said it; pass corrected_text only when the user explicitly says their words were recorded wrongly.
+- Older items may have no headline. To add or change one, propose it, and once the user approves call edit_claim with headline. Use edit_claim for outcome parts and dates too. The raw words never change; pass corrected_text only when the user explicitly says their words were recorded wrongly.
+- When you talk about an item, use its headline. Mention the raw words only if the user asks what they originally said.
 - Use withdraw_claim when the user wants something gone. Nothing is ever deleted; a withdrawn item is hidden but kept with its history.
-- When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each item's text and its "due" line.
+- When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each item's headline and its "due" line.
 - Record how a prediction turned out only when the user tells you. A hunch cannot be resolved.
 - Dates use the time zone saved on the user's account. If the user tells you they are somewhere else, pass time_zone.
 - Say "hunch" and "prediction" to the user. The tool and field names say "claim" for technical reasons; do not repeat that word to them.`
@@ -73,7 +79,10 @@ export function summarize(claim: ClaimView) {
     url: claim.url,
     kind: claim.kind,
     ...(claim.imported ? { imported: true } : {}),
-    text: claim.text,
+    // the headline is what shows everywhere; the raw words sit underneath
+    ...(claim.headline
+      ? { headline: claim.headline, originallySaid: claim.text }
+      : { text: claim.text, headline: null }),
     claimDate: claim.claimDate,
     [claim.deadlineKind === "deadline" ? "deadline" : "checkBackBy"]:
       claim.deadline,
@@ -83,7 +92,6 @@ export function summarize(claim: ClaimView) {
     ...(claim.compound
       ? { split: "needed: this holds more than one prediction" }
       : {}),
-    ...(claim.flags.length ? { flags: claim.flags } : {}),
     shape: claim.shape,
     outcome: Object.fromEntries(
       Object.entries(claim.parts).map(([name, part]) => [
@@ -190,8 +198,14 @@ const confidenceProp = stringOrNumber(
 const confidenceInput = z.union([z.string(), z.number()]).optional()
 
 /** The inputs preview_claim and log_claim share. */
+const headlineProp = str(
+  "Your clean, sharp rewrite: one clear sentence naming who or what, the measure, the threshold and the date. This is what will show everywhere once the user approves it.",
+)
 const hunchProperties = {
-  text: str("The hunch, in the user's own words. Do not rewrite it."),
+  text: str(
+    "The user's raw words, exactly as they said them. Do not rewrite them here; put your rewrite in headline.",
+  ),
+  headline: headlineProp,
   proposal: {
     type: "object",
     description:
@@ -207,13 +221,11 @@ const hunchProperties = {
     items: {
       type: "object",
       properties: {
-        text: str(
-          "The excerpt of the user's words this piece comes from, copied exactly. Your sharpened wording goes in parts, not here.",
-        ),
+        headline: headlineProp,
         ...proposalSchema,
         confidence: confidenceProp,
       },
-      required: ["text", "shape"],
+      required: ["headline", "shape"],
     },
   },
   claim_date: str(
@@ -226,12 +238,15 @@ const hunchProperties = {
 }
 const hunchInput = z.object({
   text: z.string().min(1),
+  headline: z.string().min(1).optional(),
   proposal: proposalInput.optional(),
   confidence: confidenceInput,
   split: z
     .array(
       proposalInput.extend({
-        text: z.string().min(1),
+        headline: z.string().min(1),
+        // older callers sent the excerpt of the user's words here; still accepted
+        text: z.string().min(1).optional(),
         confidence: confidenceInput,
       }),
     )
@@ -247,6 +262,7 @@ function hunchArgs(userId: string, args: any, approved: boolean) {
   return {
     userId,
     text: args.text as string,
+    headline: args.headline as string | undefined,
     claimDate: args.claim_date as string | undefined,
     parentId: args.parent_id as string | undefined,
     source: "AGENT" as const,
@@ -258,6 +274,7 @@ function hunchArgs(userId: string, args: any, approved: boolean) {
         ? undefined
         : confidenceFrom(args.confidence),
     split: (args.split ?? []).map((piece: any) => ({
+      headline: piece.headline,
       text: piece.text,
       shape: piece.shape,
       parts: piece.parts,
@@ -291,7 +308,7 @@ export const TOOLS: Tool[] = [
     name: "preview_claim",
     title: "Preview a hunch (saves nothing)",
     description:
-      "Shows how the app would grade and save a hunch with your proposed sharpening, WITHOUT saving anything. Call this first, every time, then show the user the whole result in one reply and ask them to approve or correct it. Returns the original and any pieces, each with its kind (hunch or prediction), grade, the reason for the grade, what is missing and any flags.",
+      "Shows how the app would grade and save a hunch with your proposed sharpening, WITHOUT saving anything. Call this first, every time, then show the user the whole result in one reply and ask them to approve or correct it. Returns the original and any pieces, each with its headline, kind (hunch or prediction), grade, the reason for the grade and what is missing.",
     inputSchema: {
       type: "object",
       properties: hunchProperties,
@@ -329,18 +346,19 @@ export const TOOLS: Tool[] = [
         approved: {
           type: "boolean",
           description:
-            "true only when the user has seen this exact proposal (from preview_claim) and said yes to it. Required with proposal or split.",
+            "true only when the user has seen this exact version (from preview_claim) and said yes to it. Required with headline, proposal or split.",
         },
       },
       required: ["text"],
     },
     input: hunchInput.extend({ approved: z.boolean().optional() }),
     handler: async (userId, args) => {
-      const sharpened = !!args.proposal || !!args.split?.length
+      const sharpened =
+        !!args.proposal || !!args.split?.length || !!args.headline
       if (sharpened && args.approved !== true) {
         throw new ClaimError(
           "BLOCKED",
-          "Nothing was saved. A proposal is saved only after the user approves it: call preview_claim, show them the result, and call log_claim with approved: true once they say yes. To save their words alone as a hunch, send text without proposal or split.",
+          "Nothing was saved. A headline or a proposal is saved only after the user approves it: call preview_claim, show them the result, and call log_claim with approved: true once they say yes. To save their words alone as a hunch, send text on its own.",
         )
       }
       const input = hunchArgs(userId, args, true)
@@ -415,7 +433,7 @@ export const TOOLS: Tool[] = [
     name: "edit_claim",
     title: "Edit a hunch or prediction",
     description:
-      "Change the shape, outcome parts, deadline or check-back date of an item. Each call is one recorded version; nothing is overwritten silently. The original text stays as the user said it: pass corrected_text only when the user explicitly says their words were recorded wrongly.",
+      "Change the headline, shape, outcome parts, deadline or check-back date of an item. Each call is one recorded version; nothing is overwritten silently. The original text stays as the user said it: pass corrected_text only when the user explicitly says their words were recorded wrongly.",
     inputSchema: {
       type: "object",
       properties: {
@@ -428,6 +446,11 @@ export const TOOLS: Tool[] = [
         deadline: str(
           "YYYY-MM-DD. The deadline, or for a hunch the check-back date.",
         ),
+        headline: {
+          type: ["string", "null"],
+          description:
+            "Set or replace the headline, once the user has approved the wording. null removes it.",
+        },
         corrected_text: str(
           "Only when the user explicitly corrects what they said. Their words, exactly.",
         ),
@@ -439,6 +462,7 @@ export const TOOLS: Tool[] = [
       shape: z.enum(SHAPES).optional(),
       parts: z.record(z.union([z.string(), z.number(), z.null()])).optional(),
       deadline: isoDay.optional(),
+      headline: z.string().min(1).nullable().optional(),
       corrected_text: z.string().min(1).optional(),
     }),
     handler: async (userId, args) => {
@@ -446,6 +470,7 @@ export const TOOLS: Tool[] = [
         args.shape === undefined &&
         args.parts === undefined &&
         args.deadline === undefined &&
+        args.headline === undefined &&
         args.corrected_text === undefined
       ) {
         throw new ClaimError("BAD_REQUEST", "Nothing to change was given.")
@@ -458,6 +483,7 @@ export const TOOLS: Tool[] = [
             shape: args.shape,
             parts: args.parts,
             deadline: args.deadline,
+            headline: args.headline,
             correctedText: args.corrected_text,
           },
           "AGENT",

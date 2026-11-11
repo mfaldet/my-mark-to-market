@@ -7,9 +7,9 @@ export function getQuestionUrl(
   question: Partial<Question>,
   useRelativePath?: boolean,
 ) {
-  return `${getClientBaseUrl(useRelativePath)}/q/${getSlug(question.title)}--${
-    question.id
-  }`
+  return `${getClientBaseUrl(useRelativePath)}/q/${getSlug(
+    question.headline ?? question.title,
+  )}--${question.id}`
 }
 
 export function extractQuestionId(input: string): string {

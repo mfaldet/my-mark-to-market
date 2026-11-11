@@ -91,7 +91,9 @@ export function QuestionOrSignIn({
   // we have a user and a question, let's go!
   return (
     <div className="grid grid-cols-1" key={question.id}>
-      <NextSeo title={truncateString(question?.title, 60)} />
+      <NextSeo
+        title={truncateString(question?.headline ?? question?.title, 60)}
+      />
       <QuestionComp
         embedded={embedded}
         question={question}

@@ -22,6 +22,7 @@ const EMPTY = {
   valueHigh: null,
   unit: null,
   baseline: null,
+  headline: null,
   event: null,
   howToTell: null,
   a: null,
@@ -128,6 +129,7 @@ describe("extractClaim", () => {
         unit: { value: "%", status: "extracted" },
       },
       deadline: "2028-12-31",
+      headline: null,
     })
   })
 
@@ -239,6 +241,19 @@ describe("toExtraction", () => {
     )
     expect(analysis.grade.grade).toBe(4)
     expect(analysis.publish.ok).toBe(false)
+  })
+
+  it("carries a proposed headline through, for me to approve", () => {
+    const result = toExtraction({
+      ...EMPTY,
+      shape: "EVENT_BY_DATE",
+      headline: "  The Fed cuts its policy rate in 2026  ",
+      event: "rates get cut",
+    })
+    expect(result.headline).toBe("The Fed cuts its policy rate in 2026")
+    expect(toExtraction({ ...EMPTY, headline: "   " }).headline).toBeNull()
+    expect(EXTRACTION_SCHEMA.required).toContain("headline")
+    expect(EXTRACTION_SYSTEM_PROMPT).toMatch(/Also write a headline/)
   })
 
   it("the schema and the instructions ask for a way to tell", () => {

@@ -6,9 +6,16 @@ import { ClaimPreview, ClaimView } from "../../lib/claims/service"
 import { api } from "../../lib/web/trpc"
 import { signInToFatebook, useUserId } from "../../lib/web/utils"
 import { ClaimPanel } from "./ClaimPanel"
-import { PreviewCard, proposalOf } from "./PreviewCard"
+import { PreviewCard, Proposal, proposalOf } from "./PreviewCard"
 
 const today = () => new Date().toISOString().slice(0, 10)
+
+/** The outcome half of what the preview card hands back (the headline travels separately). */
+const toProposal = ({ shape, parts, deadline }: Proposal) => ({
+  shape,
+  parts,
+  deadline,
+})
 
 /**
  * The front door: type a claim in your own words and log it. The rigor
@@ -137,7 +144,7 @@ export function LogClaim() {
       {preview && (
         <PreviewCard
           // a new preview (after an edit) starts the card afresh
-          key={JSON.stringify(preview.parts) + preview.shape}
+          key={JSON.stringify(preview.parts) + preview.shape + preview.headline}
           preview={preview}
           busy={busy}
           onApprove={(proposal) =>
@@ -145,12 +152,18 @@ export function LogClaim() {
             log.mutate({
               text: preview.text,
               claimDate: preview.claimDate,
-              proposal,
+              headline: proposal.headline,
+              proposal: toProposal(proposal),
             })
           }
           onRegrade={(proposal) =>
             previewIt.mutate(
-              { text: preview.text, claimDate: preview.claimDate, proposal },
+              {
+                text: preview.text,
+                claimDate: preview.claimDate,
+                headline: proposal.headline,
+                proposal: toProposal(proposal),
+              },
               {
                 onSuccess: (result) =>
                   result.preview && setPreview(result.preview),
@@ -167,7 +180,9 @@ export function LogClaim() {
       {logged && (
         <div className="glass rounded-xl p-4 flex flex-col gap-1">
           <div className="flex justify-between gap-2">
-            <span className="font-semibold">“{logged.text}”</span>
+            <span className="font-semibold">
+              {logged.headline ?? `“${logged.text}”`}
+            </span>
             <button
               className="btn btn-xs btn-ghost normal-case"
               onClick={() => setLogged(null)}
