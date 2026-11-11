@@ -51,7 +51,7 @@ const square = source
 // At 16 and 32 px the full tile turns muddy: too many small blobs, and the
 // white glyph disappears. This is the same tile simplified for small sizes:
 // it fills the whole box, has four large blobs, and the same glyph drawn
-// larger with a firmer shadow.
+// larger, in solid slate grey with a light edge.
 const glyph = (source.match(/<g fill="#fff">([\s\S]*?)<\/g>/) ?? [])[1]
 if (!glyph) throw new Error("could not find the glyph in app-icon.svg")
 const small = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
@@ -72,9 +72,9 @@ const small = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
 <rect x="16" y="16" width="480" height="480" fill="url(#g)"/></g>
 <rect x="17" y="17" width="478" height="478" rx="111" fill="none" stroke="#1B2230" stroke-opacity="0.28" stroke-width="6"/>
 <g transform="translate(256 262) scale(1.62) translate(-256 -262)">
-<g fill="#1B2230" opacity="0.55" filter="url(#s)" transform="translate(0 7)">${glyph}</g>
-<g fill="#1B2230" opacity="0.35">${glyph.replace(/<(rect|path)/g, '<$1 stroke="#1B2230" stroke-width="7"')}</g>
-<g fill="#fff">${glyph}</g>
+<g fill="#1B2230" opacity="0.4" filter="url(#s)" transform="translate(0 7)">${glyph}</g>
+<g fill="#fff" opacity="0.85">${glyph.replace(/<(rect|path)/g, '<$1 stroke="#fff" stroke-width="6"')}</g>
+<g fill="#5A6577">${glyph}</g>
 </g>
 </svg>
 `

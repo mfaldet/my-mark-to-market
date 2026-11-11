@@ -34,3 +34,14 @@ export async function sendSignInEmail(params: {
     throw new Error(`Sign-in email could not be sent to ${failed.join(", ")}`)
   }
 }
+
+/**
+ * Email-link sign-in is offered only when a mail server is set up. With
+ * none (the case in production), Google is the only way in and the email
+ * box is not shown.
+ */
+export function emailSignInConfigured(
+  env: Record<string, string | undefined> = process.env,
+) {
+  return !!env.AUTH_EMAIL_SERVER?.trim()
+}
