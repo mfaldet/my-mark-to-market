@@ -1,3 +1,4 @@
+import { localToday, timeZoneOrDefault } from "../claims/timezone"
 import type { Forecast } from "@prisma/client"
 import { Prisma, QuestionType, Tag, User } from "@prisma/client"
 import { Decimal } from "@prisma/client/runtime/library"
@@ -127,6 +128,12 @@ const zodExtraFilters = z.object({
     .optional(),
   resolvingSoon: z
     .boolean({ description: "Only get items that are resolving soon" })
+    .optional(),
+  withdrawn: z
+    .boolean({
+      description:
+        "Only get your own withdrawn items (hidden everywhere else, kept with their history)",
+    })
     .optional(),
   filterTagIds: z
     .array(z.string({ description: "Only get items with any of these tags" }))
@@ -1534,6 +1541,9 @@ async function getQuestionsUserCreatedOrForecastedOnOrIsSharedWith(
   const searchedPredictionBounds = getSearchedPredictionBounds(
     input.extraFilters?.searchString,
   )
+  // midnight UTC on today's date where the owner is: deadlines are stored
+  // the same way, so the two compare as calendar days
+  const today = localToday(timeZoneOrDefault(user?.timeZone), new Date())
 
   const questions = await prisma.question.findMany({
     skip: skip,
@@ -1550,8 +1560,11 @@ async function getQuestionsUserCreatedOrForecastedOnOrIsSharedWith(
             createdAt: "desc",
           },
     where: {
-      // withdrawn claims are hidden everywhere
-      withdrawnAt: null,
+      // withdrawn claims are hidden everywhere, except from their owner
+      // when they ask for them
+      ...(input.extraFilters?.withdrawn
+        ? { withdrawnAt: { not: null }, userId: ctx.userId ?? "NO MATCH" }
+        : { withdrawnAt: null }),
       AND: [
         input.extraFilters?.showAllPublic
           ? {
@@ -1671,15 +1684,17 @@ async function getQuestionsUserCreatedOrForecastedOnOrIsSharedWith(
         input.extraFilters?.readyToResolve
           ? {
               resolution: null,
+              // a deadline is a calendar day: it is past the day after, in
+              // the owner's time zone, not at midnight UTC
               resolveBy: {
-                lte: new Date(),
+                lt: today,
               },
             }
           : {},
         input.extraFilters?.resolvingSoon
           ? {
               resolveBy: {
-                gte: new Date(),
+                gte: today,
               },
               resolution: null,
             }

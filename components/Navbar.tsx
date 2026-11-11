@@ -427,7 +427,7 @@ function useExportData() {
   return api.question.exportAllQuestions.useMutation({
     onSuccess(data) {
       if (!data || data === "") {
-        alert("Nothing to export yet.")
+        toast("Nothing to export yet.")
         return
       }
       downloadBlob(data, "my-mark-to-market.csv", "text/csv;charset=utf-8;")

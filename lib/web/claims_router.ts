@@ -13,6 +13,7 @@ import {
   confirmPart,
   getClaim,
   previewClaim,
+  restoreClaim,
   getTimeline,
   linkParent,
   listClaims,
@@ -248,6 +249,12 @@ export const claimsRouter = router({
     .input(id)
     .mutation(({ input, ctx }) =>
       withdrawClaim(requireUser(ctx), input.claimId, "WEB").catch(toTrpcError),
+    ),
+
+  restore: publicProcedure
+    .input(id)
+    .mutation(({ input, ctx }) =>
+      restoreClaim(requireUser(ctx), input.claimId, "WEB").catch(toTrpcError),
     ),
 
   timeline: publicProcedure

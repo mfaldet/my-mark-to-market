@@ -1,6 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import clsx from "clsx"
 import { NextSeo } from "next-seo"
+import { useState } from "react"
+import { ConfirmDialog } from "../components/ui/ConfirmDialog"
 import Link from "next/link"
 import { SubmitHandler, useForm } from "react-hook-form"
 import { z } from "zod"
@@ -48,6 +50,7 @@ function PredictionBookImport() {
         await utils.question.getQuestionsUserCreatedOrForecastedOnOrIsSharedWith.invalidate()
       },
     })
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const deleteAllPredictionBookQuestions =
     api.import.deleteAllPredictionBookQuestions.useMutation({
       async onSuccess() {
@@ -123,13 +126,22 @@ function PredictionBookImport() {
             className="btn"
             onClick={(e) => {
               e.preventDefault()
-              confirm("Are you sure? This can't be undone") &&
-                deleteAllPredictionBookQuestions.mutate()
+              setConfirmRemove(true)
             }}
             disabled={!userId || deleteAllPredictionBookQuestions.isLoading}
           >
             Delete everything imported from PredictionBook
           </button>
+          <ConfirmDialog
+            isOpen={confirmRemove}
+            onClose={() => setConfirmRemove(false)}
+            title="Remove everything imported?"
+            confirmLabel="Remove"
+            onConfirm={() => deleteAllPredictionBookQuestions.mutate()}
+          >
+            This removes every entry that was imported from PredictionBook. It
+            cannot be undone.
+          </ConfirmDialog>
         </div>
       </form>
       <div className="mt-20">

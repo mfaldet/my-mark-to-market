@@ -174,6 +174,8 @@ export type ClaimView = {
   parent: { id: string; text: string } | null
   children: { id: string; text: string }[]
   withdrawn: boolean
+  /** when it was withdrawn, or null */
+  withdrawnAt: string | null
   resolved: boolean
   resolution: Resolution | null
   /** the same thing in the app's words: "right", "wrong" or "can't tell" */
@@ -244,6 +246,7 @@ export function toClaimView(
     parent: row.parent ? { id: row.parent.id, text: row.parent.title } : null,
     children: (row.children ?? []).map((c) => ({ id: c.id, text: c.title })),
     withdrawn: !!row.withdrawnAt,
+    withdrawnAt: isoOrNull(row.withdrawnAt),
     resolved: row.resolved,
     resolution: row.resolution,
     result: resultFor(row.resolution),
@@ -1182,6 +1185,32 @@ export async function withdrawClaim(
     withdrawnAt: new Date(),
     sharedPublicly: false,
   }))
+}
+
+/**
+ * Brings a withdrawn item back, as a recorded version. It comes back
+ * private: sharing is switched off when something is withdrawn, and
+ * restoring never makes anything public by itself.
+ */
+export async function restoreClaim(
+  userId: string,
+  claimId: string,
+  source: EntrySource,
+) {
+  const row = await loadOwned(userId, claimId)
+  if (!row.withdrawnAt) {
+    throw new ClaimError("BAD_REQUEST", "This has not been withdrawn.")
+  }
+  const saved = await prisma.$transaction(async (tx) => {
+    const updated = await tx.question.update({
+      where: { id: claimId },
+      data: { withdrawnAt: null },
+      include: CLAIM_INCLUDE,
+    })
+    await writeVersion(tx, updated, userId, source)
+    return updated
+  })
+  return toClaimView(saved)
 }
 
 // --- Resolving ---------------------------------------------------------------

@@ -1,3 +1,5 @@
+import { calendarDay } from "../../lib/claims/calendar"
+import { ConfirmDialog } from "../ui/ConfirmDialog"
 import {
   EllipsisVerticalIcon,
   InformationCircleIcon,
@@ -13,7 +15,6 @@ import {
   forecastsAreHidden,
   formatDecimalNicely,
   getCommunityForecast,
-  getDateYYYYMMDD,
 } from "../../lib/_utils_common"
 import { api } from "../../lib/web/trpc"
 import {
@@ -394,71 +395,102 @@ function EditQuestionOverflow({
   const [isVisible, setIsVisible] = useState(false)
   const [editTitleDialogOpen, setEditTitleDialogOpen] = useState(false)
   const [editDateDialogOpen, setEditDateDialogOpen] = useState(false)
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
   const utils = api.useContext()
   const router = useRouter()
 
-  const deleteQuestion = api.question.deleteQuestion.useMutation({
+  // Withdraw goes through the same service as the connector's
+  // withdraw_claim: hidden, never deleted, recorded as a version.
+  const withdraw = api.claims.withdraw.useMutation({
     async onSuccess() {
-      await utils.question.getQuestionsUserCreatedOrForecastedOnOrIsSharedWith.invalidate()
-      await utils.question.getForecastCountByDate.invalidate()
+      toast.success("Withdrawn. It is kept with its history.")
+      await utils.question.invalidate()
+      await utils.claims.invalidate()
+      if (router.asPath.startsWith("/q/")) {
+        void router.push("/")
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message)
     },
   })
   const editQuestion = api.question.editQuestion.useMutation({
     async onSuccess() {
       await invalidateQuestion(utils, question)
+      await utils.claims.invalidate()
+    },
+    onError: (error) => {
+      toast.error(error.message)
     },
   })
+
+  // a withdrawn item can only be restored (see the panel above this menu)
+  if (question.withdrawnAt) return null
+
+  const pick = (open: () => void) => () => {
+    setIsVisible(false)
+    open()
+  }
 
   return (
     <>
       <div className="dropdown dropdown-end not-prose">
-        <label
-          tabIndex={0}
+        <button
+          type="button"
+          aria-label="More actions"
+          title="More actions"
+          aria-expanded={isVisible}
           className="btn btn-xs btn-ghost"
           onClick={() => setIsVisible(!isVisible)}
         >
           <EllipsisVerticalIcon height={15} />
-        </label>
+        </button>
         {isVisible && (
-          <ul
-            tabIndex={0}
-            className="dropdown-content z-50 menu p-2 shadow bg-base-100 rounded-box w-52"
-          >
+          <ul className="dropdown-content z-50 menu p-2 glass-pop rounded-box w-52">
             <li>
-              <a onClick={() => setEditTitleDialogOpen(true)}>Edit text</a>
+              <button
+                type="button"
+                onClick={pick(() => setEditTitleDialogOpen(true))}
+              >
+                Correct my words
+              </button>
             </li>
             <li>
-              <a onClick={() => setEditDateDialogOpen(true)}>Change the date</a>
+              <button
+                type="button"
+                onClick={pick(() => setEditDateDialogOpen(true))}
+              >
+                Change the date
+              </button>
             </li>
             <li>
-              <a
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Withdraw this? It will be hidden everywhere, including your public track record. Nothing is deleted: its history is kept.",
-                    )
-                  ) {
-                    deleteQuestion.mutate({
-                      questionId: question.id,
-                    })
-                    if (router.asPath.startsWith("/q/")) {
-                      void router.push("/")
-                    }
-                  }
-                }}
+              <button
+                type="button"
+                onClick={pick(() => setWithdrawDialogOpen(true))}
               >
                 Withdraw
-              </a>
+              </button>
             </li>
           </ul>
         )}
       </div>
 
+      <ConfirmDialog
+        isOpen={withdrawDialogOpen}
+        onClose={() => setWithdrawDialogOpen(false)}
+        title="Withdraw this?"
+        confirmLabel="Withdraw"
+        onConfirm={() => withdraw.mutate({ claimId: question.id })}
+      >
+        It will be hidden but kept with its history. You can restore it later
+        from the Withdrawn filter.
+      </ConfirmDialog>
+
       <PromptDialog
         isOpen={editTitleDialogOpen}
         onClose={() => setEditTitleDialogOpen(false)}
-        title="Edit text"
-        description="Change the wording. The change is recorded in its history."
+        title="Correct my words"
+        description="Only for when your words were recorded wrongly. To sharpen a hunch, change its outcome instead. The correction is recorded in its history."
         defaultValue={question.title}
         submitLabel="Save"
         onSubmit={(newTitle) => {
@@ -476,7 +508,7 @@ function EditQuestionOverflow({
         onClose={() => setEditDateDialogOpen(false)}
         title="Change the date"
         description="When does this come due?"
-        defaultValue={getDateYYYYMMDD(question.resolveBy)}
+        defaultValue={calendarDay(question.resolveBy)}
         type="date"
         submitLabel="Save"
         onSubmit={(newDateStr) => {

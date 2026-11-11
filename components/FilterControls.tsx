@@ -116,6 +116,21 @@ export function FilterControls({
       overflowClassName: "@xs:hidden",
     },
     {
+      name: "Withdrawn",
+      effect: () =>
+        setExtraFilters({
+          ...extraFilters,
+          readyToResolve: false,
+          resolvingSoon: false,
+          resolved: false,
+          unresolved: false,
+          withdrawn: !extraFilters.withdrawn,
+        }),
+      filterActive: extraFilters.withdrawn,
+      className: "hidden",
+      overflowClassName: "",
+    },
+    {
       name: "Open",
       effect: () =>
         setExtraFilters({

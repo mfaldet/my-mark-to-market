@@ -1,4 +1,6 @@
+import { ConfirmDialog } from "../components/ui/ConfirmDialog"
 import { NextSeo } from "next-seo"
+import { useState } from "react"
 import { BaseRow, Importer, ImporterField } from "react-csv-importer"
 import "react-csv-importer/dist/index.css"
 import { toast } from "react-hot-toast"
@@ -9,6 +11,8 @@ import { getCsvIdPrefix, signInToFatebook, useUserId } from "../lib/web/utils"
 export default function ImportFromSpreadsheetPage() {
   const userId = useUserId()
   const utils = api.useContext()
+
+  const [confirmRemove, setConfirmRemove] = useState(false)
 
   const deleteAllCsvQuestions = api.import.deleteAllCsvQuestions.useMutation({
     async onSuccess() {
@@ -62,13 +66,22 @@ export default function ImportFromSpreadsheetPage() {
                 className="btn"
                 onClick={(e) => {
                   e.preventDefault()
-                  confirm("Are you sure? This can't be undone") &&
-                    deleteAllCsvQuestions.mutate()
+                  setConfirmRemove(true)
                 }}
                 disabled={!userId || deleteAllCsvQuestions.isLoading}
               >
                 Remove everything imported from spreadsheets
               </button>
+              <ConfirmDialog
+                isOpen={confirmRemove}
+                onClose={() => setConfirmRemove(false)}
+                title="Remove everything imported?"
+                confirmLabel="Remove"
+                onConfirm={() => deleteAllCsvQuestions.mutate()}
+              >
+                This removes every entry that was imported from a spreadsheet.
+                It cannot be undone.
+              </ConfirmDialog>
 
               <Questions
                 title="Imported from spreadsheets"
