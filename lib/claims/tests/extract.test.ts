@@ -6,9 +6,11 @@ import {
   ClaimAiClient,
   DEFAULT_CLAIM_AI_MODEL,
   EXTRACTION_SCHEMA,
+  EXTRACTION_SYSTEM_PROMPT,
   extractClaim,
   toExtraction,
 } from "../extract"
+import { analyzeClaim } from "../analyze"
 
 const claimDate = new Date("2025-07-14T00:00:00.000Z")
 
@@ -21,6 +23,7 @@ const EMPTY = {
   unit: null,
   baseline: null,
   event: null,
+  howToTell: null,
   a: null,
   b: null,
   metric: null,
@@ -211,6 +214,49 @@ describe("toExtraction", () => {
     expect(result.parts).toEqual({
       event: { value: "rates get cut", status: "extracted" },
     })
+  })
+
+  it("keeps a proposed way to tell for an event, marked extracted until I confirm it", () => {
+    const result = toExtraction({
+      ...EMPTY,
+      shape: "EVENT_BY_DATE",
+      event: "rates get cut",
+      howToTell: "the Federal Reserve's rate announcements",
+      deadline: "2026-12-31",
+    })
+    expect(result.parts).toEqual({
+      event: { value: "rates get cut", status: "extracted" },
+      howToTell: {
+        value: "the Federal Reserve's rate announcements",
+        status: "extracted",
+      },
+    })
+    // with a deadline as well, that is enough for grade 4 once confirmed
+    const analysis = analyzeClaim(
+      "Rates get cut",
+      new Date("2026-11-10T00:00:00.000Z"),
+      result,
+    )
+    expect(analysis.grade.grade).toBe(4)
+    expect(analysis.publish.ok).toBe(false)
+  })
+
+  it("the schema and the instructions ask for a way to tell", () => {
+    expect(EXTRACTION_SCHEMA.properties).toHaveProperty("howToTell")
+    expect(EXTRACTION_SCHEMA.required).toContain("howToTell")
+    expect(EXTRACTION_SYSTEM_PROMPT).toMatch(
+      /howToTell is the one part you may propose/,
+    )
+    // a way to tell belongs to events only
+    expect(
+      toExtraction({
+        ...EMPTY,
+        shape: "A_BEATS_B",
+        a: "x",
+        b: "y",
+        howToTell: "z",
+      }).parts,
+    ).not.toHaveProperty("howToTell")
   })
 
   it("keeps the upper number only for 'between'", () => {

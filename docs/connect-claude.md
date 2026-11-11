@@ -6,7 +6,7 @@ My Mark-to-Market includes an MCP server, so Claude can log your hunches, help s
 https://YOUR-APP-ADDRESS/api/mcp
 ```
 
-It offers nine tools: `log_claim`, `confirm_proposal`, `edit_claim`, `withdraw_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a hunch or prediction, and Claude is told to say "hunch" and "prediction" to you. Everything Claude logs is recorded as entered through an **agent**, which shows on the claim and in its history.
+It offers ten tools: `preview_claim`, `log_claim`, `confirm_proposal`, `edit_claim`, `withdraw_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a hunch or prediction, and Claude is told to say "hunch" and "prediction" to you. Everything Claude logs is recorded as entered through an **agent**, which shows on the claim and in its history.
 
 ## Before you start
 
@@ -51,30 +51,34 @@ https://YOUR-APP-ADDRESS/api/mcp?key=YOUR_API_KEY
 
 ## How Claude is told to behave
 
-The server sends Claude these instructions with the tools:
+**Nothing is saved until you approve it.** The server sends Claude these instructions with the tools:
 
 - Log a hunch only when you ask, or clearly state one and want it recorded.
 - Your exact words are always kept as the hunch text.
-- Do the sharpening in conversation. In the same step as logging, Claude proposes the shape, the outcome, a deadline and a way to tell. If your words hold several predictions, it proposes one piece for each, linked back to what you said.
-- Each piece must be one outcome: no "if … then", no "and/or", no two results joined by "and". An event needs a way to tell. Claude must not swap in a different measure from the one you named.
-- Everything Claude proposes is saved as "extracted". It is not yours until you confirm it.
-- Show you the whole proposal in **one reply**, with a suggested confidence, and ask you to confirm or correct it all at once. Not one field per message.
+- Shape the hunch up front: the shape, every outcome part (for an event, including a way to tell), a deadline and a suggested confidence, guessing sensibly at anything you left out. If your words hold several predictions, make one piece for each.
+- Each piece must be one outcome: no "if … then", no "and/or", no two results joined by "and". Claude must not swap in a different measure from the one you named.
+- Call `preview_claim` first. It saves nothing; it returns how the app would grade and store the proposal.
+- Show you the whole preview in **one reply**: your words, each proposed part, the grade, and whether each would be a hunch or a prediction. Ask you to approve or correct it all at once.
+- Only when you approve (or approve with edits) call `log_claim`, with the version you approved. Those parts are saved as yours. Nothing Claude guessed is saved unless you said yes to it.
+- The date is when you first said it, not when you approved it.
+- If you say "just log it as it is", save your words alone as a hunch.
 - Pass your confidence as you said it: "30%", "0.3" or a word such as "likely". For a bare number like "3", ask what you mean.
 - Tell you about any flag the app raises, such as an outcome that names a measure your words did not.
-- Change outcome parts or dates with `edit_claim`. Your text is changed only when you say it was recorded wrongly.
+- Change outcome parts or dates later with `edit_claim`. Your text is changed only when you say it was recorded wrongly.
 - Withdraw, never delete.
 - Record how a prediction turned out only when you say. A hunch can't be resolved.
-- Leave a hunch as a hunch if you want. It stays private.
+
+The app enforces the main rule itself: `log_claim` refuses a proposal that is not marked as approved, and saves nothing.
 
 ## Try it
 
 > Log a hunch: The board won't fire the CEO, and the stock will still beat the Mag 7 average over 2027.
 
-Claude should log your words as one hunch, propose two predictions from it in a single reply (each with an outcome, a deadline, a way to tell and a suggested confidence), and ask you to confirm. Answer in one message:
+Claude should reply once with a preview: your words, two proposed predictions (each with an outcome, a deadline, a way to tell and a suggested confidence), the grade each would get, and a note that nothing is saved yet. Answer in one message:
 
 > Yes to both. 80% on the first, toss-up on the second, and make the second one price return.
 
-Later:
+Only then are they saved. Later:
 
 > Actually I'm less sure about the first one now. Make that unlikely, because the board called a special meeting.
 

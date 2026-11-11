@@ -1,9 +1,12 @@
-/** The glass app-icon tile, shown small beside the app's name. */
+/**
+ * The logo beside the app's name: the outlined bubble with the check-arrow,
+ * on a transparent background. Its blue-to-teal belongs to the logo only.
+ */
 export function BrandMark({ className }: { className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/brand/tile.svg"
+      src="/brand/mark.svg"
       alt=""
       aria-hidden="true"
       className={className}

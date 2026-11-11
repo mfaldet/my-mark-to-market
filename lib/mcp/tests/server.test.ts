@@ -26,6 +26,8 @@ jest.mock("../../claims/service", () => {
     confirmProposal: jest.fn(),
     editClaim: jest.fn(),
     withdrawClaim: jest.fn(),
+    previewClaim: jest.fn(),
+    previewWithSplit: jest.fn(),
   }
 })
 
@@ -46,6 +48,8 @@ const service: Record<string, jest.Mock> = {
   confirmProposal: mocked.confirmProposal,
   editClaim: mocked.editClaim,
   withdrawClaim: mocked.withdrawClaim,
+  previewClaim: mocked.previewClaim,
+  previewWithSplit: mocked.previewWithSplit,
 }
 
 const view = {
@@ -55,6 +59,7 @@ const view = {
   claimDate: "2025-07-14",
   deadline: "2028-12-31",
   deadlineKind: "check back by",
+  kind: "prediction",
   grade: 4,
   gradeReason: "Complete and checkable. No confirmed check link.",
   compound: false,
@@ -86,6 +91,7 @@ beforeEach(() => {
 describe("the MCP tools", () => {
   it("offers exactly these tools", () => {
     expect(TOOLS.map((t) => t.name)).toEqual([
+      "preview_claim",
       "log_claim",
       "confirm_proposal",
       "edit_claim",
@@ -102,14 +108,22 @@ describe("the MCP tools", () => {
     }
   })
 
-  it("tells Claude to keep my words, propose in one reply, and wait for me to confirm", () => {
+  it("tells Claude to preview first, show it all in one reply, and save only what I approve", () => {
     expect(MCP_INSTRUCTIONS).toMatch(/exact words are always the hunch text/)
+    expect(MCP_INSTRUCTIONS).toMatch(/Call preview_claim/)
+    expect(MCP_INSTRUCTIONS).toMatch(/It saves NOTHING/)
     expect(MCP_INSTRUCTIONS).toMatch(/In ONE reply/)
     expect(MCP_INSTRUCTIONS).toMatch(/Do not ask one field per message/)
-    expect(MCP_INSTRUCTIONS).toMatch(/saved as "extracted"/)
+    expect(MCP_INSTRUCTIONS).toMatch(/Only when they approve/)
+    expect(MCP_INSTRUCTIONS).toMatch(
+      /nothing you guessed is saved unless they said yes/,
+    )
+    expect(MCP_INSTRUCTIONS).toMatch(
+      /when they first said it, not when they approved it/,
+    )
     // the three faults in the first real entries
     expect(MCP_INSTRUCTIONS).toMatch(/no "if … then"/)
-    expect(MCP_INSTRUCTIONS).toMatch(/way to tell/)
+    expect(MCP_INSTRUCTIONS).toMatch(/howToTell/)
     expect(MCP_INSTRUCTIONS).toMatch(/do not write "S&P 500"/)
     expect(MCP_INSTRUCTIONS).toMatch(/Nothing is ever deleted/)
   })
@@ -128,6 +142,8 @@ describe("the MCP tools", () => {
       source: "AGENT",
       timeZone: undefined,
       proposal: undefined,
+      proposalStatus: "stated",
+      confidence: undefined,
     })
     expect(parse(result)).toMatchObject({
       id: "c1",
@@ -253,37 +269,136 @@ describe("the MCP tools", () => {
       },
     ]
 
-    it("logs a compound hunch and its pieces in one call, and says what to do next", async () => {
+    const pieces = [
+      { ...view, id: "a" },
+      { ...view, id: "b" },
+    ]
+
+    it("preview_claim returns how it would be saved, with no ids, and saves nothing", async () => {
+      service.previewWithSplit.mockResolvedValue({
+        original: { ...view, text: original },
+        pieces,
+      })
+      const result = parse(
+        await callTool("u1", "preview_claim", {
+          text: original,
+          split: split.map((piece, i) => ({
+            ...piece,
+            confidence: i === 0 ? "very likely" : "toss-up",
+          })),
+        }),
+      )
+      expect(service.previewWithSplit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "u1",
+          text: original,
+          source: "AGENT",
+          proposalStatus: "extracted",
+          split: [
+            {
+              ...split[0],
+              confidence: { word: "VERY_LIKELY", note: undefined },
+            },
+            { ...split[1], confidence: { word: "TOSS_UP", note: undefined } },
+          ],
+        }),
+      )
+      // nothing that saves was called
+      for (const name of ["logClaim", "logWithSplit", "confirmProposal"]) {
+        expect(service[name]).not.toHaveBeenCalled()
+      }
+      expect(result.saved).toBe(false)
+      expect(result.original).not.toHaveProperty("id")
+      expect(result.pieces).toHaveLength(2)
+      for (const piece of result.pieces) {
+        expect(piece).not.toHaveProperty("id")
+        expect(piece).not.toHaveProperty("url")
+        expect(piece.saved).toBe(false)
+        expect(piece).toHaveProperty("kind")
+        expect(piece).toHaveProperty("grade")
+      }
+      expect(result.next).toMatch(/Nothing has been saved/)
+      expect(TOOLS.find((t) => t.name === "preview_claim")?.readOnly).toBe(true)
+    })
+
+    it("preview_claim works for a single prediction too", async () => {
+      service.previewClaim.mockResolvedValue(view)
+      const result = parse(
+        await callTool("u1", "preview_claim", {
+          text: "Rates get cut this year",
+          proposal: split[0],
+          confidence: "70%",
+        }),
+      )
+      expect(service.previewClaim).toHaveBeenCalledWith(
+        expect.objectContaining({
+          proposalStatus: "extracted",
+          confidence: { probability: 0.7, note: undefined },
+        }),
+      )
+      expect(result.saved).toBe(false)
+      expect(result).not.toHaveProperty("id")
+    })
+
+    it("log_claim refuses a proposal the user has not approved, and saves nothing", async () => {
+      for (const args of [
+        { text: original, split },
+        { text: original, split, approved: false },
+        { text: "x", proposal: split[0] },
+      ]) {
+        const result = await callTool("u1", "log_claim", args)
+        expect(result.isError).toBe(true)
+        expect(result.content[0].text).toMatch(/Nothing was saved/)
+        expect(result.content[0].text).toMatch(/preview_claim/)
+      }
+      expect(service.logClaim).not.toHaveBeenCalled()
+      expect(service.logWithSplit).not.toHaveBeenCalled()
+    })
+
+    it("after I approve, log_claim saves the approved version as mine, dated when I said it", async () => {
       service.logWithSplit.mockResolvedValue({
         original: { ...view, id: "p", text: original },
-        pieces: [
-          { ...view, id: "a" },
-          { ...view, id: "b" },
-        ],
+        pieces,
       })
       const result = parse(
         await callTool("u1", "log_claim", {
           text: original,
-          split,
+          split: [{ ...split[0], confidence: "80%" }, split[1]],
+          approved: true,
+          claim_date: "2026-11-10",
           time_zone: "America/Chicago",
         }),
       )
       expect(service.logWithSplit).toHaveBeenCalledWith({
         userId: "u1",
         text: original,
-        claimDate: undefined,
+        claimDate: "2026-11-10",
         parentId: undefined,
         source: "AGENT",
         timeZone: "America/Chicago",
         proposal: undefined,
-        split,
+        proposalStatus: "stated",
+        confidence: undefined,
+        split: [
+          { ...split[0], confidence: { probability: 0.8, note: undefined } },
+          { ...split[1], confidence: undefined },
+        ],
       })
       expect(service.logClaim).not.toHaveBeenCalled()
       expect(result.original.id).toBe("p")
       expect(result.pieces.map((p: any) => p.id)).toEqual(["a", "b"])
-      expect(result.next).toMatch(/one reply/)
-      // parts that are not mine yet are pointed out
-      expect(result.pieces[0].unconfirmed).toMatch(/not the user's/)
+    })
+
+    it("my words alone can still be logged as a plain hunch, with no approval step", async () => {
+      await callTool("u1", "log_claim", {
+        text: "The labor market is weakening",
+      })
+      expect(service.logClaim).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: "The labor market is weakening",
+          proposal: undefined,
+        }),
+      )
     })
 
     it("one confirm_proposal call carries my corrections and my confidence", async () => {

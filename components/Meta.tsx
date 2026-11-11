@@ -18,9 +18,9 @@ export default function Meta() {
         siteName: APP_NAME,
         images: [
           {
-            url: `${getBaseUrl()}/brand/icon-512.png`,
-            width: 512,
-            height: 512,
+            url: `${getBaseUrl()}/brand/link-preview.png`,
+            width: 1200,
+            height: 630,
             alt: "",
           },
         ],

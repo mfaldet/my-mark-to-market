@@ -554,6 +554,14 @@ export type LogClaimInput = {
    * When given, the app's own AI step is skipped.
    */
   proposal?: Proposal
+  /**
+   * "stated" when I have seen the proposal and approved it: every part is
+   * saved as mine, and my deadline wins over one read from the text.
+   * Default "extracted": not mine until I confirm.
+   */
+  proposalStatus?: "extracted" | "stated"
+  /** how sure I said I am; wins over a confidence read out of the text */
+  confidence?: ConfidenceUpdate
   /** IANA name, e.g. "America/Chicago". Defaults to the one saved on my account. */
   timeZone?: string
   /** only tests pass this */
@@ -613,7 +621,12 @@ export async function setTimeZone(userId: string, timeZone: string) {
   return { timeZone }
 }
 
-export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
+/**
+ * Works out everything logClaim would save, without saving it. Both
+ * logging and previewing go through here, so a preview shows exactly what
+ * logging the same input would store.
+ */
+async function planClaim(input: LogClaimInput) {
   const text = input.text.trim()
   if (!text) throw new ClaimError("BAD_REQUEST", "There is nothing to log.")
 
@@ -637,8 +650,11 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
       "The date you said it can't be in the future.",
     )
   }
-  if (input.parentId) await loadOwned(input.userId, input.parentId)
+  const parent = input.parentId
+    ? await loadOwned(input.userId, input.parentId)
+    : null
 
+  const approved = input.proposalStatus === "stated"
   const extraction =
     input.extraction ??
     (input.proposal
@@ -646,26 +662,97 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
       : await extractClaim({ text, claimDate }))
   const analysis = analyzeClaim(text, claimDate, extraction)
 
-  const confidence = analysis.confidence
-  const probability =
-    confidence.kind === "not_given" ? null : confidence.probability
-  const confidenceWord = confidence.kind === "word" ? confidence.word : null
+  let parts: OutcomeParts = analysis.parts
+  let deadline = analysis.deadline
+  let grade = analysis.grade.grade
+  if (approved) {
+    // I have seen and approved this: my deadline wins over one read from
+    // the text, and every part is mine.
+    const proposed = input.proposal?.deadline ?? input.proposal?.parts?.deadline
+    if (proposed !== undefined) {
+      deadline = day(String(proposed))
+      parts = {
+        ...parts,
+        deadline: { value: String(proposed), status: "stated" },
+      }
+    }
+    parts = Object.fromEntries(
+      Object.entries(parts).map(([name, part]) => [
+        name,
+        { ...part!, status: "stated" as const },
+      ]),
+    ) as OutcomeParts
+    grade = gradeClaim({
+      shape: analysis.shape,
+      parts,
+      checkLinkConfirmed: false,
+    }).grade
+  }
+
+  // a confidence I gave on its own wins over one read out of the text
+  let probability: number | null =
+    analysis.confidence.kind === "not_given"
+      ? null
+      : analysis.confidence.probability
+  let confidenceWord: ConfidenceWord | null =
+    analysis.confidence.kind === "word" ? analysis.confidence.word : null
+  if (input.confidence) {
+    const given = input.confidence
+    if ((given.word === undefined) === (given.probability === undefined)) {
+      throw new ClaimError(
+        "BAD_REQUEST",
+        "Give either a confidence word or a probability, not both.",
+      )
+    }
+    confidenceWord = given.word ?? null
+    probability =
+      given.word !== undefined
+        ? probabilityForWord(given.word)
+        : given.probability!
+    if (!(probability >= 0 && probability <= 1)) {
+      throw new ClaimError(
+        "BAD_REQUEST",
+        "Probability must be between 0 and 1.",
+      )
+    }
+  }
+
+  return {
+    text,
+    now,
+    zone,
+    claimDate,
+    parent,
+    extraction,
+    analysis,
+    probability,
+    confidenceWord,
+    fields: {
+      title: text,
+      userId: input.userId,
+      resolveBy: deadline ?? defaultCheckBackBy(claimDate),
+      claimDate,
+      // null when the AI was not used, so the UI offers the shape picker
+      claimShape: extraction.source === "ai" ? analysis.shape : null,
+      entrySource: input.source,
+      outcomeParts: parts,
+      approximate: analysis.approximate,
+      confidenceWord,
+      grade,
+      parentId: input.parentId ?? null,
+    },
+  }
+}
+
+export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
+  const plan = await planClaim(input)
+  const { fields, probability, confidenceWord } = plan
 
   const row = await prisma.$transaction(async (tx) => {
     const created = await tx.question.create({
       data: {
-        title: text,
-        userId: input.userId,
-        resolveBy: analysis.deadline ?? defaultCheckBackBy(claimDate),
-        claimDate,
-        // null when the AI was not used, so the UI offers the shape picker
-        claimShape: extraction.source === "ai" ? analysis.shape : null,
-        entrySource: input.source,
-        outcomeParts: analysis.parts as Prisma.InputJsonValue,
-        approximate: analysis.approximate,
-        confidenceWord,
-        grade: analysis.grade.grade,
-        parentId: input.parentId,
+        ...fields,
+        outcomeParts: fields.outcomeParts as Prisma.InputJsonValue,
         // no confidence given -> no forecast row: scored right or wrong only
         forecasts:
           probability === null
@@ -684,7 +771,56 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
     await writeVersion(tx, created, input.userId, input.source)
     return created
   })
-  return toClaimView(row, now, zone)
+  return toClaimView(row, plan.now, plan.zone)
+}
+
+/** What a preview returns: the same view logging would, minus an id. Nothing is saved. */
+export type ClaimPreview = Omit<ClaimView, "id" | "url"> & { saved: false }
+
+/**
+ * Shows how the app would grade and save this, without saving anything.
+ * No row, no history, no id.
+ */
+export async function previewClaim(
+  input: LogClaimInput,
+): Promise<ClaimPreview> {
+  const plan = await planClaim(input)
+  const { fields } = plan
+  // an unsaved row, shaped like a stored one, so it is graded by the same code
+  const row = {
+    ...fields,
+    id: "preview",
+    createdAt: plan.now,
+    notes: null,
+    resolved: false,
+    resolution: null,
+    resolvedAt: null,
+    withdrawnAt: null,
+    sharedPublicly: false,
+    checkLinkUrl: null,
+    checkLinkConfirmedAt: null,
+    closeCall: false,
+    actualResult: null,
+    engineQuestionsAsked: 0,
+    forecasts:
+      plan.probability === null
+        ? []
+        : [
+            {
+              forecast: new Prisma.Decimal(plan.probability),
+              createdAt: plan.now,
+              userId: input.userId,
+            },
+          ],
+    parent: plan.parent
+      ? { id: plan.parent.id, title: plan.parent.title }
+      : null,
+    children: [],
+    user: { timeZone: plan.zone },
+  } as unknown as ClaimRow
+  // eslint-disable-next-line no-unused-vars
+  const { id, url, ...view } = toClaimView(row, plan.now, plan.zone)
+  return { ...view, saved: false }
 }
 
 // --- Reading ---------------------------------------------------------------
@@ -1164,17 +1300,13 @@ const squashText = (text: string) =>
 export type SplitItem = Proposal & {
   /** which of my words this piece is; must be an excerpt of what I said */
   text: string
+  /** how sure I said I am of this piece */
+  confidence?: ConfidenceUpdate
 }
 
-/**
- * Logs a hunch in my exact words and, when it is really several
- * predictions, one child for each piece, linked back to it. Each child's
- * text must be an excerpt of my own words: the sharpened wording goes in
- * the outcome parts, where it is marked "extracted" until I confirm it.
- */
-export async function logWithSplit(
-  input: LogClaimInput & { split: SplitItem[] },
-): Promise<{ original: ClaimView; pieces: ClaimView[] }> {
+type SplitInput = LogClaimInput & { split: SplitItem[] }
+
+function checkSplit(input: SplitInput) {
   const mine = squashText(input.text)
   for (const item of input.split) {
     if (!squashText(item.text) || !mine.includes(squashText(item.text))) {
@@ -1185,37 +1317,73 @@ export async function logWithSplit(
     }
     extractionFrom(item) // check every piece before saving anything
   }
+}
+
+/** The original stays as the hunch I said; its pieces carry the predictions. */
+function originalOf(input: SplitInput): LogClaimInput {
+  // eslint-disable-next-line no-unused-vars
   const { split, ...rest } = input
-  // The original stays as the hunch I said. Its pieces carry the
-  // predictions, so the app's own AI step is not run on it.
-  const original = await logClaim({
+  return {
     ...rest,
+    // no confidence on the original: each piece has its own
+    confidence: undefined,
     extraction:
       rest.extraction ??
       (rest.proposal
         ? undefined
         : { source: "manual", shape: null, parts: {}, deadline: null }),
-  })
+  }
+}
+
+const pieceOf = (
+  input: SplitInput,
+  item: SplitItem,
+  claimDate: string,
+  parentId?: string,
+): LogClaimInput => ({
+  userId: input.userId,
+  text: item.text.trim(),
+  claimDate,
+  source: input.source,
+  parentId,
+  proposal: { shape: item.shape, parts: item.parts, deadline: item.deadline },
+  proposalStatus: input.proposalStatus,
+  confidence: item.confidence,
+  timeZone: input.timeZone,
+  now: input.now,
+})
+
+/**
+ * Logs a hunch in my exact words and, when it is really several
+ * predictions, one child for each piece, linked back to it. Each child's
+ * text must be an excerpt of my own words: the sharpened wording goes in
+ * the outcome parts.
+ */
+export async function logWithSplit(
+  input: SplitInput,
+): Promise<{ original: ClaimView; pieces: ClaimView[] }> {
+  checkSplit(input)
+  const original = await logClaim(originalOf(input))
   const pieces: ClaimView[] = []
-  for (const item of split) {
+  for (const item of input.split) {
     pieces.push(
-      await logClaim({
-        userId: input.userId,
-        text: item.text.trim(),
-        claimDate: original.claimDate,
-        source: input.source,
-        parentId: original.id,
-        proposal: {
-          shape: item.shape,
-          parts: item.parts,
-          deadline: item.deadline,
-        },
-        timeZone: input.timeZone,
-        now: input.now,
-      }),
+      await logClaim(pieceOf(input, item, original.claimDate, original.id)),
     )
   }
   return { original: await getClaim(input.userId, original.id), pieces }
+}
+
+/** The same, saving nothing: how the original and each piece would be graded and stored. */
+export async function previewWithSplit(
+  input: SplitInput,
+): Promise<{ original: ClaimPreview; pieces: ClaimPreview[] }> {
+  checkSplit(input)
+  const original = await previewClaim(originalOf(input))
+  const pieces: ClaimPreview[] = []
+  for (const item of input.split) {
+    pieces.push(await previewClaim(pieceOf(input, item, original.claimDate)))
+  }
+  return { original, pieces }
 }
 
 export type ClaimEdit = {

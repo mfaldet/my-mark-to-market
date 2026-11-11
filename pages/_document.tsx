@@ -13,7 +13,7 @@ export default function Document(props: DocumentProps) {
       lang="en"
     >
       <Head>
-        <link rel="icon" href="/brand/tile-small.svg" type="image/svg+xml" />
+        <link rel="icon" href="/brand/tab-icon.svg" type="image/svg+xml" />
         <link
           rel="icon"
           href="/brand/favicon-32.png"
@@ -28,6 +28,7 @@ export default function Document(props: DocumentProps) {
         />
         <link rel="alternate icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#FBFBFD" />
         {/* <meta name="viewport" content="viewport-fit=cover" /> */}
       </Head>
