@@ -32,7 +32,7 @@ export default function SignInPage({ google, email }: Props) {
   return (
     <div className="px-4 pt-10 lg:pt-20 mx-auto max-w-md text-center">
       <div className="brand-surface rounded-3xl border border-ink/10 px-4 py-10 sm:px-10 sm:py-12">
-        <BrandMark className="w-20 h-20 mx-auto mb-2" />
+        <BrandMark className="w-16 h-16 mx-auto mb-3" />
         <NextSeo title="Sign in" />
         <h1 className="wordmark text-[1.7rem] sm:text-4xl whitespace-nowrap">
           {APP_NAME}

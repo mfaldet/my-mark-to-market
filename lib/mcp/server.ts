@@ -26,6 +26,8 @@ import {
   ClaimView,
   confirmProposal,
   ConfidenceUpdate,
+  previewClaim,
+  previewWithSplit,
   editClaim,
   linkParent,
   listClaims,
@@ -43,13 +45,15 @@ Two words matter here:
 - A hunch is anything the user logs. It can be loose ("the labor market is weakening"). Hunches are private.
 - A prediction is a hunch sharpened until it can be checked: ONE outcome, a deadline and a way to tell. Only predictions can be made public, resolved and scored. It is the same item throughout; the app says when a hunch has become a prediction.
 
-Logging, in as few replies as possible:
+Logging: preview first, save only what the user approves.
 1. Log a hunch only when the user asks you to, or clearly states one and wants it recorded. Never log things other people said.
-2. The user's exact words are always the hunch text. Pass them to log_claim unchanged. Never tidy, complete or rephrase them there.
-3. In the same log_claim call, propose the sharpening yourself. For one prediction, send proposal: a shape, the outcome parts, and a deadline. If the user's words hold several predictions ("X won't happen, and Y will beat Z, but W"), send split instead: one piece per prediction, each with the excerpt of the user's words it comes from (text) and its own shape, parts and deadline. The pieces are saved linked to the original as their parent; the original stays as the hunch they said.
-4. Each piece must be ONE outcome: no "if … then", no "and/or", no two results joined by "and". An event needs a way to tell (howToTell): a source, a measure or a fact anyone could look up. Do not swap in a different measure from the one the user named: if they said "Mag 7 average", do not write "S&P 500". If you cannot tell what they meant, leave that part out and ask.
-5. Everything you propose is saved as "extracted": it is not the user's until they confirm it. In ONE reply, show the whole proposal plainly (each piece: outcome, deadline, way to tell) with a suggested confidence word for each, and ask them to confirm or correct it all at once. Do not ask one field per message.
-6. When they answer, call confirm_proposal once per piece, with any corrections in edit and the confidence they agreed to. Until then, nothing you proposed counts as theirs. If they don't answer, leave it: an unconfirmed proposal is fine.
+2. The user's exact words are always the hunch text. Pass them unchanged. Never tidy, complete or rephrase them there.
+3. Shape it yourself, up front. Work out the shape, every outcome part (for an event, including howToTell: a source, a measure or a fact anyone could look up), a deadline, and a confidence word, guessing sensibly at anything the user left out. If their words hold several predictions ("X won't happen, and Y will beat Z, but W"), make one piece per prediction, each with the excerpt of their words it comes from (text). Each piece must be ONE outcome: no "if … then", no "and/or", no two results joined by "and". Do not swap in a different measure from the one the user named: if they said "Mag 7 average", do not write "S&P 500".
+4. Call preview_claim with their words and your whole proposal. It saves NOTHING. It returns how the app would grade and store it.
+5. In ONE reply, show the user the whole preview: their words, each proposed part, the deadline, the confidence you suggest, the grade, whether each would be a hunch or a prediction, and any flags. Ask them to approve or correct it all at once. Do not ask one field per message.
+6. Only when they approve (or approve with edits) call log_claim, with their words, the version they approved (their edits applied), their confidence, and approved: true. Parts they approved are saved as theirs. Leave out anything they did not approve: nothing you guessed is saved unless they said yes to it.
+7. Pass claim_date from the preview's claimDate, so the date is when they first said it, not when they approved it.
+8. If they do not answer or say no, save nothing. If they say "just log it as it is", call log_claim with their words only: a hunch is fine as a hunch.
 
 Other rules:
 - A hunch is fine as a hunch. Do not push the user to sharpen it.
@@ -180,6 +184,98 @@ const proposalInput = z.object({
 const timeZoneProp = str(
   'IANA time zone, e.g. "America/Chicago". Only if the user says they are somewhere other than usual; otherwise the one saved on their account is used.',
 )
+const confidenceProp = stringOrNumber(
+  'How sure: "30%", "0.3", or a confidence word. In preview_claim this is your suggestion; in log_claim it must be what the user agreed to.',
+)
+const confidenceInput = z.union([z.string(), z.number()]).optional()
+
+/** The inputs preview_claim and log_claim share. */
+const hunchProperties = {
+  text: str("The hunch, in the user's own words. Do not rewrite it."),
+  proposal: {
+    type: "object",
+    description:
+      "The sharpening, when the hunch is ONE prediction. Leave out if you are sending split.",
+    properties: proposalSchema,
+    required: ["shape"],
+  },
+  confidence: confidenceProp,
+  split: {
+    type: "array",
+    description:
+      "When the user's words hold more than one prediction: one piece per prediction. Each piece becomes its own item with the original as its parent.",
+    items: {
+      type: "object",
+      properties: {
+        text: str(
+          "The excerpt of the user's words this piece comes from, copied exactly. Your sharpened wording goes in parts, not here.",
+        ),
+        ...proposalSchema,
+        confidence: confidenceProp,
+      },
+      required: ["text", "shape"],
+    },
+  },
+  claim_date: str(
+    "YYYY-MM-DD. The day the user first said it. In log_claim, pass the claimDate the preview returned.",
+  ),
+  parent_id: str(
+    "Id of an earlier, vaguer hunch this one grew out of, if the user says so.",
+  ),
+  time_zone: timeZoneProp,
+}
+const hunchInput = z.object({
+  text: z.string().min(1),
+  proposal: proposalInput.optional(),
+  confidence: confidenceInput,
+  split: z
+    .array(
+      proposalInput.extend({
+        text: z.string().min(1),
+        confidence: confidenceInput,
+      }),
+    )
+    .max(8)
+    .optional(),
+  claim_date: isoDay.optional(),
+  parent_id: z.string().optional(),
+  time_zone: z.string().optional(),
+})
+
+/** Turns tool arguments into what the service takes. */
+function hunchArgs(userId: string, args: any, approved: boolean) {
+  return {
+    userId,
+    text: args.text as string,
+    claimDate: args.claim_date as string | undefined,
+    parentId: args.parent_id as string | undefined,
+    source: "AGENT" as const,
+    timeZone: args.time_zone as string | undefined,
+    proposal: args.proposal,
+    proposalStatus: approved ? ("stated" as const) : ("extracted" as const),
+    confidence:
+      args.confidence === undefined || args.split?.length
+        ? undefined
+        : confidenceFrom(args.confidence),
+    split: (args.split ?? []).map((piece: any) => ({
+      text: piece.text,
+      shape: piece.shape,
+      parts: piece.parts,
+      deadline: piece.deadline,
+      confidence:
+        piece.confidence === undefined
+          ? undefined
+          : confidenceFrom(piece.confidence),
+    })),
+  }
+}
+
+/** A preview, summarised like a saved item but with no id. */
+function summarizePreview(preview: any) {
+  // eslint-disable-next-line no-unused-vars
+  const { id, url, ...rest } = summarize({ ...preview, id: "", url: "" })
+  return { ...rest, saved: false }
+}
 
 /** Reads "30%", "0.3" or a word; a bare "3" comes back as a question to ask. */
 function confidenceFrom(raw: string | number, note?: string): ConfidenceUpdate {
@@ -192,93 +288,80 @@ function confidenceFrom(raw: string | number, note?: string): ConfidenceUpdate {
 
 export const TOOLS: Tool[] = [
   {
-    name: "log_claim",
-    title: "Log a hunch",
+    name: "preview_claim",
+    title: "Preview a hunch (saves nothing)",
     description:
-      'Log one of the user\'s own hunches, in their exact words, and propose how to sharpen it in the same call. Send proposal for a single prediction, or split when their words hold several predictions (one piece each, linked to the original). Everything you propose is saved as "extracted" until the user confirms it with confirm_proposal. Returns the original and any pieces, each with its grade, any flags, and what is still missing.',
+      "Shows how the app would grade and save a hunch with your proposed sharpening, WITHOUT saving anything. Call this first, every time, then show the user the whole result in one reply and ask them to approve or correct it. Returns the original and any pieces, each with its kind (hunch or prediction), grade, the reason for the grade, what is missing and any flags.",
+    inputSchema: {
+      type: "object",
+      properties: hunchProperties,
+      required: ["text"],
+    },
+    readOnly: true,
+    input: hunchInput,
+    handler: async (userId, args) => {
+      const input = hunchArgs(userId, args, false)
+      const next =
+        "Nothing has been saved. Show the user all of this in one reply and ask them to approve or correct it. Only then call log_claim with approved: true, the version they approved, and claim_date set to the claimDate above."
+      if (input.split.length) {
+        const { original, pieces } = await previewWithSplit(input)
+        return {
+          saved: false,
+          original: { ...summarizePreview(original), nextQuestion: null },
+          pieces: pieces.map(summarizePreview),
+          next,
+        }
+      }
+      // eslint-disable-next-line no-unused-vars
+      const { split, ...single } = input
+      return { ...summarizePreview(await previewClaim(single)), next }
+    },
+  },
+  {
+    name: "log_claim",
+    title: "Log a hunch (after the user approves)",
+    description:
+      "Saves a hunch in the user's exact words. With a proposal or a split, call it only after the user has seen the preview and approved it, and pass approved: true with exactly the version they approved: those parts are saved as theirs. Without a proposal it saves their words alone, as a hunch. Returns the saved item(s) with ids.",
     inputSchema: {
       type: "object",
       properties: {
-        text: str("The hunch, in the user's own words. Do not rewrite it."),
-        proposal: {
-          type: "object",
+        ...hunchProperties,
+        approved: {
+          type: "boolean",
           description:
-            "Your proposed sharpening when the hunch is ONE prediction. Leave out if it is too loose to sharpen, or if you are sending split.",
-          properties: proposalSchema,
-          required: ["shape"],
+            "true only when the user has seen this exact proposal (from preview_claim) and said yes to it. Required with proposal or split.",
         },
-        split: {
-          type: "array",
-          description:
-            "When the user's words hold more than one prediction: one piece per prediction. Each piece is saved as its own item with the original as its parent.",
-          items: {
-            type: "object",
-            properties: {
-              text: str(
-                "The excerpt of the user's words this piece comes from, copied exactly. Your sharpened wording goes in parts, not here.",
-              ),
-              ...proposalSchema,
-            },
-            required: ["text", "shape"],
-          },
-        },
-        claim_date: str(
-          "YYYY-MM-DD. Only if the user says they said it on an earlier day. Leave out for today.",
-        ),
-        parent_id: str(
-          "Id of an earlier, vaguer hunch this one grew out of, if the user says so.",
-        ),
-        time_zone: timeZoneProp,
       },
       required: ["text"],
     },
-    input: z.object({
-      text: z.string().min(1),
-      proposal: proposalInput.optional(),
-      split: z
-        .array(proposalInput.extend({ text: z.string().min(1) }))
-        .max(8)
-        .optional(),
-      claim_date: isoDay.optional(),
-      parent_id: z.string().optional(),
-      time_zone: z.string().optional(),
-    }),
+    input: hunchInput.extend({ approved: z.boolean().optional() }),
     handler: async (userId, args) => {
-      const base = {
-        userId,
-        text: args.text,
-        claimDate: args.claim_date,
-        parentId: args.parent_id,
-        source: "AGENT" as const,
-        timeZone: args.time_zone,
-        proposal: args.proposal,
+      const sharpened = !!args.proposal || !!args.split?.length
+      if (sharpened && args.approved !== true) {
+        throw new ClaimError(
+          "BLOCKED",
+          "Nothing was saved. A proposal is saved only after the user approves it: call preview_claim, show them the result, and call log_claim with approved: true once they say yes. To save their words alone as a hunch, send text without proposal or split.",
+        )
       }
-      if (args.split?.length) {
-        const { original, pieces } = await logWithSplit({
-          ...base,
-          split: args.split,
-        })
+      const input = hunchArgs(userId, args, true)
+      if (input.split.length) {
+        const { original, pieces } = await logWithSplit(input)
         return {
           // the original stays as the hunch; the questions belong to its pieces
           original: { ...summarize(original), nextQuestion: null },
           pieces: pieces.map(summarize),
-          next: "Show the user every piece in one reply and ask them to confirm or correct it all at once. Then call confirm_proposal once per piece.",
         }
       }
-      const logged = summarize(await logClaim(base))
-      return args.proposal
-        ? {
-            ...logged,
-            next: "Show the user this proposal in one reply and ask them to confirm or correct it. Then call confirm_proposal.",
-          }
-        : logged
+      // eslint-disable-next-line no-unused-vars
+      const { split, ...single } = input
+      return summarize(await logClaim(single))
     },
   },
   {
     name: "confirm_proposal",
     title: "Confirm a proposal",
     description:
-      "The user has confirmed (or corrected) what you proposed for one item. Applies their corrections, marks every part as stated by them, and records their confidence, as one recorded version. Call it only after the user has answered; once per item.",
+      "For an item that is already saved with unconfirmed (extracted or working) parts: the user has confirmed or corrected them. Applies their corrections, marks every part as stated by them, and records their confidence, as one recorded version. Call it only after the user has answered; once per item.",
     inputSchema: {
       type: "object",
       properties: {

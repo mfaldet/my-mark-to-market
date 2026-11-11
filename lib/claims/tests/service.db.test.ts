@@ -22,6 +22,8 @@ import {
   editClaim,
   getClaim,
   logWithSplit,
+  previewClaim,
+  previewWithSplit,
   setTimeZone,
   SplitItem,
   writeVersion,
@@ -871,6 +873,174 @@ db("claim service, against the database", () => {
         ),
       ).toBe(true)
       expect(await verifyHistory(userId, claim.id)).toMatchObject({ ok: true })
+    })
+  })
+
+  describe("preview first: nothing is saved until I approve", () => {
+    const original =
+      "The board won't fire Jensen Huang at NVIDIA, and NVIDIA stock price will still out perform Mag 7 average over 2027, but this Jensen scandal will be a huge WMD (weapon of mass distraction) for the new capitol hill."
+    const split: SplitItem[] = [
+      {
+        text: "The board won't fire Jensen Huang at NVIDIA",
+        shape: "EVENT_BY_DATE",
+        parts: {
+          event: "Jensen Huang is still NVIDIA's CEO on Dec 31, 2027",
+          howToTell: "NVIDIA's leadership page",
+        },
+        deadline: "2027-12-31",
+        confidence: { word: "VERY_LIKELY" },
+      },
+      {
+        text: "NVIDIA stock price will still out perform Mag 7 average over 2027",
+        shape: "A_BEATS_B",
+        parts: {
+          a: "NVIDIA stock",
+          b: "the Mag 7 average",
+          metric: "price return over calendar 2027",
+        },
+        deadline: "2027-12-31",
+        confidence: { probability: 0.5 },
+      },
+    ]
+    let previewer: string
+    const counts = async () => ({
+      items: await prisma.question.count({ where: { userId: previewer } }),
+      versions: await prisma.claimVersion.count({
+        where: { userId: previewer },
+      }),
+      confidence: await prisma.forecast.count({ where: { userId: previewer } }),
+    })
+    // 8:30pm Central on Nov 10
+    const said = new Date("2026-11-11T02:30:00.000Z")
+
+    beforeAll(async () => {
+      previewer = (
+        await prisma.user.create({
+          data: { email: `preview-${Date.now()}@test.local` },
+        })
+      ).id
+    })
+
+    it("a preview grades it exactly as logging would, and saves nothing at all", async () => {
+      const before = await counts()
+      const preview = await previewWithSplit({
+        userId: previewer,
+        text: original,
+        source: "AGENT",
+        split,
+        now: said,
+      })
+      expect(await counts()).toEqual(before)
+
+      expect(preview.original).toMatchObject({
+        saved: false,
+        text: original,
+        kind: "hunch",
+        claimDate: "2026-11-10",
+      })
+      expect(preview.original).not.toHaveProperty("id")
+      expect(preview.pieces.map((p) => p.text)).toEqual(
+        split.map((s) => s.text),
+      )
+      for (const piece of preview.pieces) {
+        expect(piece).not.toHaveProperty("id")
+        expect(piece.saved).toBe(false)
+        expect(piece.kind).toBe("prediction")
+        expect(piece.grade).toBe(4)
+        expect(piece.claimDate).toBe("2026-11-10")
+        // a proposal: nothing here is mine yet
+        expect(Object.values(piece.parts).map((p) => p.status)).toEqual(
+          Object.values(piece.parts).map(() => "extracted"),
+        )
+      }
+      expect(preview.pieces[0].probability).toBeCloseTo(0.85)
+      expect(preview.pieces[0].confidenceWord).toBe("VERY_LIKELY")
+      expect(preview.pieces[1].probability).toBe(0.5)
+    })
+
+    it("a preview shows a flaw before anything is stored", async () => {
+      const before = await counts()
+      const preview = await previewClaim({
+        userId: previewer,
+        text: "NVIDIA stock price will still out perform Mag 7 average over 2027",
+        source: "AGENT",
+        proposal: {
+          shape: "EVENT_BY_DATE",
+          parts: {
+            event:
+              "If the board doesn't fire Jensen Huang, then NVIDIA will beat the S&P 500 over 2027",
+          },
+          deadline: "2027-12-31",
+        },
+        now: said,
+      })
+      expect(preview.kind).toBe("hunch")
+      expect(preview.compound).toBe(true)
+      expect(preview.flags[0]).toMatch(/S&P 500/)
+      expect(await counts()).toEqual(before)
+    })
+
+    it("a bad piece is refused in the preview, as it would be when logging", async () => {
+      await expect(
+        previewWithSplit({
+          userId: previewer,
+          text: original,
+          source: "AGENT",
+          split: [{ ...split[0], text: "Jensen keeps his job" }],
+        }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+    })
+
+    it("approving saves what the preview showed: parts are mine, the date is when I said it", async () => {
+      const preview = await previewWithSplit({
+        userId: previewer,
+        text: original,
+        source: "AGENT",
+        split,
+        now: said,
+      })
+      // I approve two days later, changing one deadline
+      const approvedSplit = [split[0], { ...split[1], deadline: "2028-01-31" }]
+      const { original: parent, pieces } = await logWithSplit({
+        userId: previewer,
+        text: original,
+        source: "AGENT",
+        split: approvedSplit,
+        proposalStatus: "stated",
+        claimDate: preview.original.claimDate,
+        now: new Date("2026-11-13T15:00:00.000Z"),
+      })
+      expect(parent.claimDate).toBe("2026-11-10")
+      expect(parent.text).toBe(original)
+      expect(parent.kind).toBe("hunch")
+      expect(pieces).toHaveLength(2)
+      for (const piece of pieces) {
+        expect(piece.claimDate).toBe("2026-11-10")
+        expect(piece.parent?.id).toBe(parent.id)
+        expect(
+          Object.values(piece.parts).every((p) => p.status === "stated"),
+        ).toBe(true)
+        expect(piece.kind).toBe("prediction")
+        // every part confirmed: only the check link stands between it and public
+        expect(piece.grade).toBe(4)
+      }
+      // my edited deadline is used, though the words say "over 2027"
+      expect(pieces[1].deadline).toBe("2028-01-31")
+      expect(pieces[0].confidenceWord).toBe("VERY_LIKELY")
+      expect(pieces[1].probability).toBe(0.5)
+      expect(await counts()).toEqual({ items: 3, versions: 3, confidence: 2 })
+    })
+
+    it("without approval a proposal is saved as extracted, as before", async () => {
+      const claim = await logClaim({
+        userId: previewer,
+        text: "Jensen stays",
+        source: "PHONE",
+        proposal: split[0],
+      })
+      expect(
+        Object.values(claim.parts).every((p) => p.status === "extracted"),
+      ).toBe(true)
     })
   })
 })

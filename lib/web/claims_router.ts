@@ -12,6 +12,7 @@ import {
   confirmCheckLink,
   confirmPart,
   getClaim,
+  previewClaim,
   getTimeline,
   linkParent,
   listClaims,
@@ -55,20 +56,70 @@ function requireUser(ctx: Context): string {
 
 const id = z.object({ claimId: z.string() })
 const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const proposalInput = z.object({
+  shape: z.nativeEnum(ClaimShape),
+  parts: z.record(z.union([z.string(), z.number()])).optional(),
+  deadline: isoDay.optional(),
+})
 
 export const claimsRouter = router({
+  /**
+   * The web app's "preview before logging" step, used when the AI step is
+   * on. Saves nothing. With `proposal` it re-grades my edited version;
+   * without, it runs the AI step on my words.
+   */
+  preview: publicProcedure
+    .input(
+      z.object({
+        text: z.string().min(1),
+        claimDate: isoDay.optional(),
+        proposal: proposalInput.optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = requireUser(ctx)
+      // no key: nothing is guessed, so there is nothing to preview
+      if (!input.proposal && !process.env.ANTHROPIC_API_KEY) {
+        return { ai: false as const, preview: null }
+      }
+      const preview = await previewClaim({
+        ...input,
+        userId,
+        source: "WEB",
+      }).catch(toTrpcError)
+      return { ai: true as const, preview }
+    }),
+
   log: publicProcedure
     .input(
       z.object({
         text: z.string().min(1),
         claimDate: isoDay.optional(),
         parentId: z.string().optional(),
+        /** the version I approved in the preview; saved as mine */
+        proposal: proposalInput.optional(),
       }),
     )
     .mutation(({ input, ctx }) =>
-      logClaim({ ...input, userId: requireUser(ctx), source: "WEB" }).catch(
-        toTrpcError,
-      ),
+      logClaim({
+        ...input,
+        userId: requireUser(ctx),
+        source: "WEB",
+        ...(input.proposal
+          ? { proposalStatus: "stated" as const }
+          : process.env.ANTHROPIC_API_KEY
+            ? // On the web, nothing the AI guessed is saved unless I approved
+              // it in the preview. Without a proposal, save my words alone.
+              {
+                extraction: {
+                  source: "manual" as const,
+                  shape: null,
+                  parts: {},
+                  deadline: null,
+                },
+              }
+            : {}),
+      }).catch(toTrpcError),
     ),
 
   get: publicProcedure

@@ -2,10 +2,11 @@ import { useSession } from "next-auth/react"
 import { useState } from "react"
 import { toast } from "react-hot-toast"
 import TextareaAutosize from "react-textarea-autosize"
-import { ClaimView } from "../../lib/claims/service"
+import { ClaimPreview, ClaimView } from "../../lib/claims/service"
 import { api } from "../../lib/web/trpc"
 import { signInToFatebook, useUserId } from "../../lib/web/utils"
 import { ClaimPanel } from "./ClaimPanel"
+import { PreviewCard, proposalOf } from "./PreviewCard"
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -21,10 +22,13 @@ export function LogClaim() {
   const [backDate, setBackDate] = useState(false)
   const [claimDate, setClaimDate] = useState(today())
   const [logged, setLogged] = useState<ClaimView | null>(null)
+  // when the AI step is on: the proposed version, shown before anything is saved
+  const [preview, setPreview] = useState<ClaimPreview | null>(null)
 
   const log = api.claims.log.useMutation({
     onSuccess: async (claim) => {
       setLogged(claim)
+      setPreview(null)
       setText("")
       setBackDate(false)
       setClaimDate(today())
@@ -34,6 +38,34 @@ export function LogClaim() {
       toast.error(error.message)
     },
   })
+
+  const previewIt = api.claims.preview.useMutation({
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+  const busy = log.isLoading || previewIt.isLoading
+
+  /** Submit: with the AI step on, show a preview first; otherwise log as before. */
+  const submit = () => {
+    const words = text.trim()
+    if (!words || busy) return
+    const date = backDate ? claimDate : undefined
+    previewIt.mutate(
+      { text: words, claimDate: date },
+      {
+        onSuccess: (result) => {
+          // no AI step, or nothing it could sharpen: save my words as a hunch
+          if (!result.preview || !proposalOf(result.preview)) {
+            log.mutate({ text: words, claimDate: date })
+          } else {
+            setLogged(null)
+            setPreview(result.preview)
+          }
+        },
+      },
+    )
+  }
 
   if (status !== "loading" && !userId) {
     return (
@@ -54,11 +86,7 @@ export function LogClaim() {
         className="flex flex-col gap-2"
         onSubmit={(e) => {
           e.preventDefault()
-          if (!text.trim() || log.isLoading) return
-          log.mutate({
-            text: text.trim(),
-            claimDate: backDate ? claimDate : undefined,
-          })
+          submit()
         }}
       >
         <TextareaAutosize
@@ -95,12 +123,46 @@ export function LogClaim() {
           <button
             type="submit"
             className="button primary ml-auto"
-            disabled={!text.trim() || log.isLoading}
+            disabled={!text.trim() || busy}
           >
-            {log.isLoading ? "Logging..." : "Log hunch"}
+            {previewIt.isLoading
+              ? "Working..."
+              : log.isLoading
+                ? "Logging..."
+                : "Log hunch"}
           </button>
         </div>
       </form>
+
+      {preview && (
+        <PreviewCard
+          // a new preview (after an edit) starts the card afresh
+          key={JSON.stringify(preview.parts) + preview.shape}
+          preview={preview}
+          busy={busy}
+          onApprove={(proposal) =>
+            // the date is when I said it, not when I approved it
+            log.mutate({
+              text: preview.text,
+              claimDate: preview.claimDate,
+              proposal,
+            })
+          }
+          onRegrade={(proposal) =>
+            previewIt.mutate(
+              { text: preview.text, claimDate: preview.claimDate, proposal },
+              {
+                onSuccess: (result) =>
+                  result.preview && setPreview(result.preview),
+              },
+            )
+          }
+          onPlain={() =>
+            log.mutate({ text: preview.text, claimDate: preview.claimDate })
+          }
+          onDiscard={() => setPreview(null)}
+        />
+      )}
 
       {logged && (
         <div className="glass rounded-xl p-4 flex flex-col gap-1">

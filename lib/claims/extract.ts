@@ -79,6 +79,7 @@ export const EXTRACTION_SCHEMA = {
     unit: nullableString,
     baseline: nullableString,
     event: nullableString,
+    howToTell: nullableString,
     a: nullableString,
     b: nullableString,
     metric: nullableString,
@@ -95,6 +96,7 @@ export const EXTRACTION_SCHEMA = {
     "unit",
     "baseline",
     "event",
+    "howToTell",
     "a",
     "b",
     "metric",
@@ -110,7 +112,7 @@ export const EXTRACTION_SYSTEM_PROMPT = `You read one claim or prediction that a
 Pick the one shape that fits:
 
 - NUMBER_BY_DATE: a measurable quantity compared with a number by some date. Parts: measure (the thing measured), comparison, value, unit, and optionally valueHigh (the upper number, only for "between") and baseline (what a change is measured from, such as "today's close").
-- EVENT_BY_DATE: something happens or does not happen by some date. Part: event.
+- EVENT_BY_DATE: something happens or does not happen by some date. Parts: event, and howToTell (where anyone could look to see whether it happened).
 - A_BEATS_B: one thing outdoes another. Parts: a, b, and metric (how "beats" is measured).
 - RANK_OR_AWARD: someone or something reaches a rank or wins an award. Parts: subject, rankOrAward.
 - FREE_TEXT: a general view with nothing specific to observe, such as "the labor market is weakening". No parts.
@@ -122,6 +124,8 @@ How to fill the parts:
 - value is the bare number. unit is what it is counted in ("%", "USD", "index points", "% decline"). Ignore hedges like "about" or "roughly"; they are handled elsewhere.
 - A percentage that states how sure the person is ("70% chance", "likely") is their confidence, not part of the outcome. Leave it out entirely.
 - deadline is a date in YYYY-MM-DD form, only if the text says when. Work out relative phrases from the claim date you are given, never from today: "this year" is December 31 of the claim date's year, "next month" is the last day of the month after the claim date. If the text gives no time, deadline is null.
+- event is one thing that happens. If the text holds several ("X, and Y, but Z"), do not join them with "and" or write "if ... then": keep the person's wording for the first or main one and leave the rest out. The person will be asked to split it.
+- howToTell is the one part you may propose rather than report, because an event cannot be checked without it. If the text names a source, a measure or an observable fact, use that. Otherwise propose the most obvious public place to look, named plainly: "the Federal Reserve's rate announcements", "the BLS monthly jobs report", "the company's investor-relations leadership page". Do not use it to swap in a different thing from the one the person named. If nothing sensible comes to mind, leave it null. The person confirms or changes it before it counts.
 - Set every part that does not belong to the shape you picked, and every part the text does not state, to null.`
 
 function buildUserMessage(input: ExtractInput) {
