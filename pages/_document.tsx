@@ -13,7 +13,19 @@ export default function Document(props: DocumentProps) {
       lang="en"
     >
       <Head>
-        <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
+        <link rel="icon" href="/brand/tile-small.svg" type="image/svg+xml" />
+        <link
+          rel="icon"
+          href="/brand/favicon-32.png"
+          sizes="32x32"
+          type="image/png"
+        />
+        <link
+          rel="icon"
+          href="/brand/favicon-16.png"
+          sizes="16x16"
+          type="image/png"
+        />
         <link rel="alternate icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
         <meta name="theme-color" content="#FBFBFD" />

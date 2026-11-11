@@ -129,7 +129,7 @@ function NavbarContent({
             href="/"
             className="btn btn-ghost hover:bg-white/40 normal-case flex gap-2 max-sm:px-2"
           >
-            <BrandMark className="w-7 h-7" />
+            <BrandMark className="w-9 h-9 -my-1" />
             <span className="wordmark text-xl sm:text-[1.4rem] whitespace-nowrap">
               {APP_NAME}
             </span>

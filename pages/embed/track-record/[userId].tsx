@@ -68,7 +68,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
             rel="noreferrer"
             className="flex items-center gap-2 no-underline"
           >
-            <BrandMark className="w-7 h-7" />
+            <BrandMark className="w-9 h-9" />
             <span className="wordmark text-2xl">{APP_NAME}</span>
           </a>
           <p className="tagline mt-1">
