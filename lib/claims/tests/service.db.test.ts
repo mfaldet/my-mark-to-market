@@ -1164,7 +1164,7 @@ db("claim service, against the database", () => {
           { field: "headline", from: null, to: headline },
         ]),
       )
-      // the public record shows the headline, not my raw words
+      // it is private, so nothing of it is on the public record
       const piece = (await loadPublicRecord(userId))!
       expect(JSON.stringify(piece)).not.toContain("i reckon")
     })
