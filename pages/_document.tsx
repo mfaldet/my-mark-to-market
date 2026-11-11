@@ -13,7 +13,7 @@ export default function Document(props: DocumentProps) {
       lang="en"
     >
       <Head>
-        <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
+        <link rel="icon" href="/brand/tab-icon.svg" type="image/svg+xml" />
         <link
           rel="icon"
           href="/brand/favicon-32.png"
