@@ -1,3 +1,4 @@
+import { isPastDay } from "../../lib/claims/calendar"
 import { Menu, Transition } from "@headlessui/react"
 import { ChevronDownIcon } from "@heroicons/react/20/solid"
 import { Resolution } from "@prisma/client"
@@ -89,7 +90,7 @@ export function ResolveButton({
                     ? "bg-neutral-100 text-neutral-700 ring-1 ring-inset ring-neutral-300"
                     : resolution // Has resolved to an MCQ option
                       ? "tone-positive ring-1 ring-inset ring-positive/40"
-                      : question.resolveBy < new Date()
+                      : isPastDay(question.resolveBy)
                         ? // red ring = urgent: past its deadline
                           "bg-neutral-100 text-ink ring-2 ring-inset ring-negative/60 hover:bg-neutral-200"
                         : "bg-neutral-100 text-ink hover:bg-neutral-200",

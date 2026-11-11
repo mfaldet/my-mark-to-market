@@ -24,6 +24,7 @@ import {
   logWithSplit,
   previewClaim,
   previewWithSplit,
+  restoreClaim,
   setTimeZone,
   SplitItem,
   writeVersion,
@@ -1041,6 +1042,68 @@ db("claim service, against the database", () => {
       expect(
         Object.values(claim.parts).every((p) => p.status === "extracted"),
       ).toBe(true)
+    })
+  })
+
+  describe("withdraw and restore", () => {
+    it("withdrawing is a recorded version, and the item says when it was withdrawn", async () => {
+      const claim = await log("Withdraw me, then bring me back")
+      const versions = () =>
+        prisma.claimVersion.count({ where: { questionId: claim.id } })
+      const before = await versions()
+
+      const withdrawn = await withdrawClaim(userId, claim.id, "WEB")
+      expect(withdrawn.withdrawn).toBe(true)
+      expect(withdrawn.withdrawnAt).toEqual(expect.any(String))
+      expect(await versions()).toBe(before + 1)
+      // hidden from the normal list, still there when I ask for withdrawn ones
+      const ids = async (includeWithdrawn: boolean) =>
+        (await listClaims(userId, { includeWithdrawn, limit: 200 })).map(
+          (c) => c.id,
+        )
+      expect(await ids(false)).not.toContain(claim.id)
+      expect(await ids(true)).toContain(claim.id)
+      // and it can still be opened by its owner
+      expect((await getClaim(userId, claim.id)).withdrawn).toBe(true)
+    })
+
+    it("restoring is a recorded version too, and it comes back private", async () => {
+      const claim = await log("Restore me")
+      await withdrawClaim(userId, claim.id, "WEB")
+      const before = await prisma.claimVersion.count({
+        where: { questionId: claim.id },
+      })
+
+      const restored = await restoreClaim(userId, claim.id, "WEB")
+      expect(restored.withdrawn).toBe(false)
+      expect(restored.withdrawnAt).toBeNull()
+      expect(restored.sharedPublicly).toBe(false)
+      expect(restored.text).toBe("Restore me")
+
+      const versions = await prisma.claimVersion.findMany({
+        where: { questionId: claim.id },
+        orderBy: { version: "asc" },
+      })
+      expect(versions).toHaveLength(before + 1)
+      expect(versions[versions.length - 1].changedFields).toEqual([
+        "withdrawnAt",
+      ])
+      expect(await verifyHistory(userId, claim.id)).toMatchObject({ ok: true })
+      // it can be edited again
+      await expect(
+        setPart(userId, claim.id, "value", 7, "WEB"),
+      ).resolves.toBeTruthy()
+    })
+
+    it("only a withdrawn item can be restored, and only by its owner", async () => {
+      const claim = await log("Not withdrawn")
+      await expect(restoreClaim(userId, claim.id, "WEB")).rejects.toMatchObject(
+        { code: "BAD_REQUEST" },
+      )
+      await withdrawClaim(userId, claim.id, "WEB")
+      await expect(
+        restoreClaim(otherUserId, claim.id, "WEB"),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" })
     })
   })
 })

@@ -1,3 +1,4 @@
+import { ConfirmDialog } from "../components/ui/ConfirmDialog"
 import { NextSeo } from "next-seo"
 import { useState } from "react"
 import dynamic from "next/dynamic"
@@ -19,6 +20,7 @@ export default function ApiPage() {
   // straight after it is generated.
   const existingKey = api.getApiKey.useQuery()
   const [newKey, setNewKey] = useState<string | null>(null)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const regenerateApiKey = api.regenerateApiKey.useMutation({
     async onSuccess(key) {
       setNewKey(key)
@@ -87,13 +89,7 @@ export default function ApiPage() {
                   onClick={() => {
                     if (regenerateApiKey.isLoading) return
                     if (hasKey) {
-                      if (
-                        confirm(
-                          "Are you sure you want to regenerate your API key? This will invalidate your old API key.",
-                        )
-                      ) {
-                        regenerateApiKey.mutate()
-                      }
+                      setConfirmRegenerate(true)
                     } else {
                       void regenerateApiKey.mutate()
                     }
@@ -101,6 +97,16 @@ export default function ApiPage() {
                 >
                   {hasKey ? "Regenerate" : "Generate"}
                 </button>
+                <ConfirmDialog
+                  isOpen={confirmRegenerate}
+                  onClose={() => setConfirmRegenerate(false)}
+                  title="Make a new key?"
+                  confirmLabel="Make a new key"
+                  onConfirm={() => regenerateApiKey.mutate()}
+                >
+                  Your old key will stop working at once. Anything using it,
+                  such as Claude or your Shortcut, will need the new one.
+                </ConfirmDialog>
               </div>
             </div>
             {newKey ? (

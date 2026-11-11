@@ -1,3 +1,5 @@
+import { calendarDay, isPastDay } from "../../lib/claims/calendar"
+import { CalendarDate } from "../ui/CalendarDate"
 import { Transition } from "@headlessui/react"
 import {
   ChatBubbleOvalLeftIcon,
@@ -22,7 +24,6 @@ import { UpdateableLatestForecast } from "./UpdateableLatestForecast"
 
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/solid"
 import toast from "react-hot-toast"
-import { getDateYYYYMMDD } from "../../lib/_utils_common"
 import { getQuestionUrl } from "../../lib/web/question_url"
 import { api } from "../../lib/web/trpc"
 import { invalidateQuestion, useUserId } from "../../lib/web/utils"
@@ -56,7 +57,8 @@ export function Question({
     },
   })
   const userId = useUserId()
-  const editable = question.userId === userId
+  // a withdrawn item is read-only until it is restored
+  const editable = question.userId === userId && !question.withdrawnAt
 
   let cumulativeForecast = undefined
   if (question.type === "MULTIPLE_CHOICE") {
@@ -168,7 +170,15 @@ export function Question({
               <span className="text-sm my-auto" key={`${question.id}author`}>
                 <Username user={question.user} unknownUserText="Anonymous" />
               </span>
-              <SharePopover question={question} />
+              {question.withdrawnAt ? (
+                <span className="my-auto text-center">
+                  <span className="tone-plain border border-neutral-300 rounded-full px-2 py-0.5 text-xs font-semibold">
+                    Withdrawn
+                  </span>
+                </span>
+              ) : (
+                <SharePopover question={question} />
+              )}
               {question.resolvedAt ? (
                 <span
                   className="text-sm text-neutral-400 my-auto text-center max-sm:text-left [text-wrap:balanced]"
@@ -189,7 +199,7 @@ export function Question({
                     "rounded-md font-normal text-sm my-auto relative px-0.5 max-sm:text-left [text-wrap:balanced]",
                     editable &&
                       "hover:bg-neutral-100 transition-colors group/resolveBy",
-                    question.resolveBy < new Date()
+                    isPastDay(question.resolveBy)
                       ? isHunch
                         ? "text-neutral-600"
                         : "text-negative-text" // red = urgent: past its deadline
@@ -202,30 +212,22 @@ export function Question({
                   }}
                   key={`${question.id}resolve`}
                 >
-                  {question.resolveBy < new Date() ? (
-                    <FormattedDate
-                      className="[text-wrap:balanced]"
-                      prefix={
-                        <span className="font-semibold">
-                          {isHunch ? "Time to check back" : "Past due"}
-                          <br />
-                        </span>
-                      }
-                      date={question.resolveBy}
-                      postfix=""
-                      currentDateShowToday={true}
-                      includeTime={false}
-                      capitalise={true}
-                    />
+                  {isPastDay(question.resolveBy) ? (
+                    <span className="[text-wrap:balanced]">
+                      <span className="font-semibold">
+                        {isHunch ? "Time to check back" : "Past due"}
+                        <br />
+                      </span>
+                      <CalendarDate date={question.resolveBy} capitalise />
+                    </span>
                   ) : (
                     <span>
                       <span>
                         {isHunch ? "Check back by" : "Due"} <br />
                       </span>
-                      <FormattedDate
+                      <CalendarDate
                         className="[text-wrap:balanced]"
                         date={question.resolveBy}
-                        includeTime={false}
                       />
                     </span>
                   )}
@@ -233,6 +235,7 @@ export function Question({
                 </button>
               )}
               {question.exclusiveAnswers &&
+                !question.withdrawnAt &&
                 (kindForGrade(question.grade) === "prediction" ||
                 isImported(question.id) ||
                 question.resolved ? (
@@ -288,7 +291,7 @@ export function Question({
         onClose={() => setEditDateDialogOpen(false)}
         title="Change the date"
         description="When does this come due?"
-        defaultValue={getDateYYYYMMDD(question.resolveBy)}
+        defaultValue={calendarDay(question.resolveBy)}
         type="date"
         submitLabel="Save"
         onSubmit={(newDateStr) => {

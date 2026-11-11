@@ -23,6 +23,14 @@ import {
  * question, the outcome parts with their status, the check link and the
  * public/private switch. Shown to the claim's owner.
  */
+/** When something happened (a moment), on the viewer's own clock. */
+const formatMoment = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
+
 export function ClaimPanel({
   claimId,
   initial,
@@ -53,6 +61,13 @@ export function ClaimPanel({
   const setCheckLink = api.claims.setCheckLink.useMutation(after)
   const confirmCheckLink = api.claims.confirmCheckLink.useMutation(after)
   const setPublic = api.claims.setPublic.useMutation(after)
+  const restore = api.claims.restore.useMutation({
+    ...after,
+    onSuccess: async () => {
+      toast.success("Restored.")
+      await after.onSuccess()
+    },
+  })
 
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
@@ -79,6 +94,30 @@ export function ClaimPanel({
 
   return (
     <div className="flex flex-col gap-3 text-sm not-prose border-t border-neutral-200 pt-3">
+      {claim.withdrawn && (
+        <div
+          role="status"
+          className="tone-plain rounded-md px-3 py-2 flex flex-wrap items-center gap-3 border border-neutral-300"
+        >
+          <span>
+            <span className="font-semibold text-ink">
+              Withdrawn
+              {claim.withdrawnAt
+                ? ` on ${formatMoment(claim.withdrawnAt)}`
+                : ""}
+              .
+            </span>{" "}
+            It is hidden everywhere and kept with its history.
+          </span>
+          <button
+            className="btn btn-sm normal-case ml-auto"
+            disabled={restore.isLoading}
+            onClick={() => restore.mutate({ claimId })}
+          >
+            Restore
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <GradeBadge grade={claim.grade} reason={claim.gradeReason} />
         {claim.imported && (
@@ -127,10 +166,10 @@ export function ClaimPanel({
 
       {!locked && <EngineQuestionCard claim={claim} />}
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <label className="text-neutral-500 w-24 sm:w-36 shrink-0">Shape</label>
         <select
-          className="select select-sm select-bordered min-w-0 shrink"
+          className="select select-sm select-bordered"
           value={shape}
           disabled={locked || setShape.isLoading}
           onChange={(e) =>
