@@ -4,7 +4,10 @@ import NextAuth, { NextAuthOptions, Session, User } from "next-auth"
 import { JWT } from "next-auth/jwt"
 import EmailProvider from "next-auth/providers/email"
 import GoogleProvider from "next-auth/providers/google"
-import { sendSignInEmail } from "../../../lib/signin_email"
+import {
+  emailSignInConfigured,
+  sendSignInEmail,
+} from "../../../lib/signin_email"
 import {
   capitalizeFirstLetter,
   subscribeToMailingList,
@@ -147,7 +150,7 @@ export const authOptions: NextAuthOptions = {
     }),
     // The email-link option needs a mail server. With none set up (the
     // case in production) it is left out, so Google is the only option shown.
-    ...(process.env.AUTH_EMAIL_SERVER
+    ...(emailSignInConfigured()
       ? [
           EmailProvider({
             server: process.env.AUTH_EMAIL_SERVER,

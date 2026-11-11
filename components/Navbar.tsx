@@ -562,11 +562,13 @@ function AccountMenu(showCreateAccountButton: boolean) {
       />
     </>
   ) : (
-    showCreateAccountButton && (
-      <button className="btn" onClick={() => void signInToFatebook()}>
-        Sign in
-      </button>
-    )
+    showCreateAccountButton &&
+      // no "Sign in" button on the sign-in page itself
+      router.pathname !== "/signin" && (
+        <button className="btn" onClick={() => void signInToFatebook()}>
+          Sign in
+        </button>
+      )
   )
 }
 
