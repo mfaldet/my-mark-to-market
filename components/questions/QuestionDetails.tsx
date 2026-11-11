@@ -396,6 +396,7 @@ function EditQuestionOverflow({
   const [editTitleDialogOpen, setEditTitleDialogOpen] = useState(false)
   const [editDateDialogOpen, setEditDateDialogOpen] = useState(false)
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
+  const [headlineDialogOpen, setHeadlineDialogOpen] = useState(false)
   const utils = api.useContext()
   const router = useRouter()
 
@@ -409,6 +410,15 @@ function EditQuestionOverflow({
       if (router.asPath.startsWith("/q/")) {
         void router.push("/")
       }
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+  const setHeadline = api.claims.setHeadline.useMutation({
+    async onSuccess() {
+      await utils.question.invalidate()
+      await utils.claims.invalidate()
     },
     onError: (error) => {
       toast.error(error.message)
@@ -450,6 +460,14 @@ function EditQuestionOverflow({
             <li>
               <button
                 type="button"
+                onClick={pick(() => setHeadlineDialogOpen(true))}
+              >
+                {question.headline ? "Edit headline" : "Add a headline"}
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
                 onClick={pick(() => setEditTitleDialogOpen(true))}
               >
                 Correct my words
@@ -475,6 +493,24 @@ function EditQuestionOverflow({
         )}
       </div>
 
+      <PromptDialog
+        isOpen={headlineDialogOpen}
+        onClose={() => setHeadlineDialogOpen(false)}
+        title={question.headline ? "Edit headline" : "Add a headline"}
+        description="A clear, sharp statement of what you meant. It is what shows everywhere. Your original words are kept underneath, unchanged. Leave it empty to remove the headline."
+        defaultValue={question.headline ?? ""}
+        submitLabel="Save"
+        onSubmit={(value) => {
+          const headline = value.trim()
+          if (headline !== (question.headline ?? "")) {
+            setHeadline.mutate({
+              claimId: question.id,
+              headline: headline || null,
+            })
+          }
+        }}
+      />
+
       <ConfirmDialog
         isOpen={withdrawDialogOpen}
         onClose={() => setWithdrawDialogOpen(false)}
@@ -490,7 +526,7 @@ function EditQuestionOverflow({
         isOpen={editTitleDialogOpen}
         onClose={() => setEditTitleDialogOpen(false)}
         title="Correct my words"
-        description="Only for when your words were recorded wrongly. To sharpen a hunch, change its outcome instead. The correction is recorded in its history."
+        description="Only for when your words were recorded wrongly. To say it more clearly, edit the headline instead. The correction is recorded in its history."
         defaultValue={question.title}
         submitLabel="Save"
         onSubmit={(newTitle) => {

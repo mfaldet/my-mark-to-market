@@ -50,7 +50,7 @@ function DueRow({ item }: { item: ClaimView }) {
         href={`/q/${item.id}`}
         className="block glass rounded-xl p-3 hover:shadow-md transition-shadow no-underline"
       >
-        <div className="font-semibold text-neutral-900">{item.text}</div>
+        <div className="font-semibold text-neutral-900">{item.shown}</div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <span className={isHunch ? "kind-hunch" : "kind-prediction"}>
             {isHunch ? "Hunch" : item.imported ? "Imported" : "Prediction"}

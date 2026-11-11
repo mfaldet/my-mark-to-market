@@ -174,8 +174,8 @@ export async function sendEmailReadyToResolveNotification(
   question: Question & { user: User },
 ) {
   await createNotification({
-    title: `Ready to resolve: ${question.title}`,
-    content: `Are you ready to resolve your question: ${question.title}`,
+    title: `Ready to resolve: ${question.headline ?? question.title}`,
+    content: `Are you ready to resolve your question: ${question.headline ?? question.title}`,
     url: getQuestionUrl(question),
     tags: ["ready_to_resolve"],
     userId: question.userId,
@@ -217,7 +217,7 @@ async function sendSlackReadyToResolveNotification(
       slackTeamId,
       slackId,
       resolveQuestionBlock,
-      `Ready to resolve your question? "${question.title.substring(0, 250)}"`,
+      `Ready to resolve your question? "${(question.headline ?? question.title).substring(0, 250)}"`,
       { unfurl_links: false, unfurl_media: false },
     )
 

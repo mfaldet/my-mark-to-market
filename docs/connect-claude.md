@@ -54,17 +54,16 @@ https://YOUR-APP-ADDRESS/api/mcp?key=YOUR_API_KEY
 **Nothing is saved until you approve it.** The server sends Claude these instructions with the tools:
 
 - Log a hunch only when you ask, or clearly state one and want it recorded.
-- Your exact words are always kept as the hunch text.
-- Shape the hunch up front: the shape, every outcome part (for an event, including a way to tell), a deadline and a suggested confidence, guessing sensibly at anything you left out. If your words hold several predictions, make one piece for each.
-- Each piece must be one outcome: no "if … then", no "and/or", no two results joined by "and". Claude must not swap in a different measure from the one you named.
+- Every item has two texts. Your raw words are saved unchanged underneath. On top goes a **headline**: your words rewritten by Claude into one clear, sharp sentence. The approved headline is what shows everywhere; your raw words show on the detail page and in the history as "Originally said".
+- Clean aggressively, up front: write the headline, the shape, every outcome part (for an event, including a way to tell), a deadline and a suggested confidence, using precise terms even where yours were loose, and guessing sensibly at anything you left out. If your words hold several predictions, make one piece for each, each with its own headline.
+- The hard rules that stay: each piece is one outcome, with no "if … then", and an event needs a way to tell.
 - Call `preview_claim` first. It saves nothing; it returns how the app would grade and store the proposal.
-- Show you the whole preview in **one reply**: your words, each proposed part, the grade, and whether each would be a hunch or a prediction. Ask you to approve or correct it all at once.
+- Show you the headline and every part in **one reply**, with the grade and whether each would be a hunch or a prediction. Ask you to approve or steer it all at once, and expect you to steer.
 - Only when you approve (or approve with edits) call `log_claim`, with the version you approved. Those parts are saved as yours. Nothing Claude guessed is saved unless you said yes to it.
 - The date is when you first said it, not when you approved it.
 - If you say "just log it as it is", save your words alone as a hunch.
 - Pass your confidence as you said it: "30%", "0.3" or a word such as "likely". For a bare number like "3", ask what you mean.
-- Tell you about any flag the app raises, such as an outcome that names a measure your words did not.
-- Change outcome parts or dates later with `edit_claim`. Your text is changed only when you say it was recorded wrongly.
+- Change the headline, outcome parts or dates later with `edit_claim` (this is also how to add a headline to an older item). Your raw words are changed only when you say they were recorded wrongly.
 - Withdraw, never delete.
 - Record how a prediction turned out only when you say. A hunch can't be resolved.
 
@@ -74,7 +73,7 @@ The app enforces the main rule itself: `log_claim` refuses a proposal that is no
 
 > Log a hunch: The board won't fire the CEO, and the stock will still beat the Mag 7 average over 2027.
 
-Claude should reply once with a preview: your words, two proposed predictions (each with an outcome, a deadline, a way to tell and a suggested confidence), the grade each would get, and a note that nothing is saved yet. Answer in one message:
+Claude should reply once with a preview: two proposed predictions (each with a headline, an outcome, a deadline, a way to tell and a suggested confidence), the grade each would get, and a note that nothing is saved yet. Answer in one message:
 
 > Yes to both. 80% on the first, toss-up on the second, and make the second one price return.
 

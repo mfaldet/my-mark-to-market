@@ -18,6 +18,7 @@ jest.mock("trpc-transformer", () => ({ __esModule: true, default: {} }))
 import {
   answerQuestion,
   applyRuleUpdates,
+  claimState,
   confirmProposal,
   editClaim,
   getClaim,
@@ -44,6 +45,7 @@ import {
   withdrawClaim,
 } from "../service"
 import { Extraction } from "../extract"
+import { nextVersion } from "../history"
 import { loadPublicRecord } from "../public_record"
 import prisma from "../../prisma"
 
@@ -713,12 +715,11 @@ db("claim service, against the database", () => {
       expect(await verifyHistory(owner, claimId)).toMatchObject({ ok: true })
     })
 
-    it("says why it is no longer a prediction, and flags the measure my words never named", async () => {
+    it("says why it is no longer a prediction", async () => {
       const claim = await getClaim(owner, claimId)
       expect(claim.kind).toBe("hunch")
       expect(claim.compound).toBe(true)
       expect(claim.gradeReason).toMatch(/if … then/)
-      expect(claim.flags).toEqual([expect.stringContaining("mentions S&P 500")])
       expect(claim.nextQuestion?.question).toMatch(/more than one prediction/)
     })
 
@@ -734,7 +735,7 @@ db("claim service, against the database", () => {
       "The board won't fire Jensen Huang at NVIDIA, and NVIDIA stock price will still out perform Mag 7 average over 2027, but this Jensen scandal will be a huge WMD (weapon of mass distraction) for the new capitol hill."
     const split: SplitItem[] = [
       {
-        text: "The board won't fire Jensen Huang at NVIDIA",
+        headline: "Jensen Huang is still NVIDIA's CEO at the end of 2027",
         shape: "EVENT_BY_DATE" as const,
         parts: {
           event: "Jensen Huang is still NVIDIA's CEO on Dec 31, 2027",
@@ -743,7 +744,8 @@ db("claim service, against the database", () => {
         deadline: "2027-12-31",
       },
       {
-        text: "NVIDIA stock price will still out perform Mag 7 average over 2027",
+        headline:
+          "NVIDIA stock beats the Magnificent 7 average over calendar 2027",
         shape: "A_BEATS_B" as const,
         parts: {
           a: "NVIDIA stock",
@@ -766,7 +768,17 @@ db("claim service, against the database", () => {
       expect(parent.children.map((c) => c.id).sort()).toEqual(
         pieces.map((p) => p.id).sort(),
       )
-      expect(pieces.map((p) => p.text)).toEqual(split.map((s) => s.text))
+      // each piece shows its own headline, with my whole sentence underneath
+      expect(pieces.map((p) => p.headline)).toEqual(
+        split.map((s) => s.headline),
+      )
+      expect(pieces.map((p) => p.shown)).toEqual(split.map((s) => s.headline))
+      expect(pieces.map((p) => p.text)).toEqual([original, original])
+      expect(parent.headline).toBeNull()
+      expect(parent.shown).toBe(original)
+      expect(parent.children.map((c) => c.text).sort()).toEqual(
+        split.map((s) => s.headline).sort(),
+      )
       for (const piece of pieces) {
         expect(piece.parent?.id).toBe(parent.id)
         expect(piece.entrySource).toBe("AGENT")
@@ -776,11 +788,10 @@ db("claim service, against the database", () => {
           Object.values(piece.parts).map(() => "extracted"),
         )
         expect(piece.canPublish).toBe(false)
-        expect(piece.flags).toEqual([])
       }
     })
 
-    it("refuses a piece whose text is not my own words, and saves nothing", async () => {
+    it("a piece's wording no longer has to be an excerpt of my words, but it does need a headline", async () => {
       const count = () => prisma.question.count({ where: { userId } })
       const before = await count()
       await expect(
@@ -788,16 +799,11 @@ db("claim service, against the database", () => {
           userId,
           text: original,
           source: "AGENT",
-          split: [
-            {
-              ...split[0],
-              text: "Jensen Huang is still NVIDIA's CEO on Dec 31, 2027.",
-            },
-          ],
+          split: [{ ...split[0], headline: "  " }],
         }),
       ).rejects.toMatchObject({
         code: "BAD_REQUEST",
-        message: expect.stringContaining("excerpt of the user's own words"),
+        message: expect.stringContaining("needs a headline"),
       })
       expect(await count()).toBe(before)
     })
@@ -827,7 +833,8 @@ db("claim service, against the database", () => {
       ).toBe(true)
       expect(confirmed.confidenceWord).toBe("LIKELY")
       expect(confirmed.kind).toBe("prediction")
-      expect(confirmed.text).toBe(split[1].text)
+      expect(confirmed.headline).toBe(split[1].headline)
+      expect(confirmed.text).toBe(original)
     })
 
     it("an edit is a recorded version; my text changes only when I correct it", async () => {
@@ -882,7 +889,7 @@ db("claim service, against the database", () => {
       "The board won't fire Jensen Huang at NVIDIA, and NVIDIA stock price will still out perform Mag 7 average over 2027, but this Jensen scandal will be a huge WMD (weapon of mass distraction) for the new capitol hill."
     const split: SplitItem[] = [
       {
-        text: "The board won't fire Jensen Huang at NVIDIA",
+        headline: "Jensen Huang is still NVIDIA's CEO at the end of 2027",
         shape: "EVENT_BY_DATE",
         parts: {
           event: "Jensen Huang is still NVIDIA's CEO on Dec 31, 2027",
@@ -892,7 +899,8 @@ db("claim service, against the database", () => {
         confidence: { word: "VERY_LIKELY" },
       },
       {
-        text: "NVIDIA stock price will still out perform Mag 7 average over 2027",
+        headline:
+          "NVIDIA stock beats the Magnificent 7 average over calendar 2027",
         shape: "A_BEATS_B",
         parts: {
           a: "NVIDIA stock",
@@ -940,9 +948,10 @@ db("claim service, against the database", () => {
         claimDate: "2026-11-10",
       })
       expect(preview.original).not.toHaveProperty("id")
-      expect(preview.pieces.map((p) => p.text)).toEqual(
-        split.map((s) => s.text),
+      expect(preview.pieces.map((p) => p.headline)).toEqual(
+        split.map((s) => s.headline),
       )
+      expect(preview.pieces.map((p) => p.text)).toEqual([original, original])
       for (const piece of preview.pieces) {
         expect(piece).not.toHaveProperty("id")
         expect(piece.saved).toBe(false)
@@ -977,7 +986,6 @@ db("claim service, against the database", () => {
       })
       expect(preview.kind).toBe("hunch")
       expect(preview.compound).toBe(true)
-      expect(preview.flags[0]).toMatch(/S&P 500/)
       expect(await counts()).toEqual(before)
     })
 
@@ -987,7 +995,7 @@ db("claim service, against the database", () => {
           userId: previewer,
           text: original,
           source: "AGENT",
-          split: [{ ...split[0], text: "Jensen keeps his job" }],
+          split: [{ ...split[0], headline: "" }],
         }),
       ).rejects.toMatchObject({ code: "BAD_REQUEST" })
     })
@@ -1104,6 +1112,232 @@ db("claim service, against the database", () => {
       await expect(
         restoreClaim(otherUserId, claim.id, "WEB"),
       ).rejects.toMatchObject({ code: "FORBIDDEN" })
+    })
+  })
+
+  describe("headlines: a clean statement on top, my raw words underneath", () => {
+    const raw =
+      "i reckon unemployment's gonna get up to about 6 percent by 2028, probably"
+    const headline = "US unemployment reaches about 6% by the end of 2028"
+    const proposal = {
+      shape: "NUMBER_BY_DATE" as const,
+      parts: {
+        measure: "US unemployment rate (U-3)",
+        comparison: "at_least",
+        value: 6,
+        unit: "%",
+      },
+      deadline: "2028-12-31",
+    }
+
+    it("the approved headline is what shows; my words are saved unchanged", async () => {
+      const claim = await logClaim({
+        userId,
+        text: raw,
+        headline,
+        proposal,
+        proposalStatus: "stated",
+        source: "AGENT",
+      })
+      expect(claim.text).toBe(raw)
+      expect(claim.headline).toBe(headline)
+      expect(claim.shown).toBe(headline)
+      // sharper terms than mine in the outcome are fine: it is a prediction
+      expect(claim.kind).toBe("prediction")
+      expect(claim).not.toHaveProperty("flags")
+      // my own "probably" and "about" are still read from my words
+      expect(claim.confidenceWord).toBe("LIKELY")
+      expect(claim.approximate).toBe(true)
+
+      const row = await prisma.question.findUniqueOrThrow({
+        where: { id: claim.id },
+      })
+      expect(row.title).toBe(raw)
+      expect(row.headline).toBe(headline)
+
+      // history: version 1 holds both
+      const timeline = await getTimeline(userId, claim.id)
+      const first = timeline.find((e) => e.kind === "version")
+      expect(first && first.kind === "version" && first.changes).toEqual(
+        expect.arrayContaining([
+          { field: "text", from: null, to: raw },
+          { field: "headline", from: null, to: headline },
+        ]),
+      )
+      // the public record shows the headline, not my raw words
+      const piece = (await loadPublicRecord(userId))!
+      expect(JSON.stringify(piece)).not.toContain("i reckon")
+    })
+
+    it("no headline: my words show, as before", async () => {
+      const claim = await logClaim({
+        userId,
+        text: "The labor market is weakening",
+        source: "WEB",
+        extraction: {
+          source: "manual",
+          shape: null,
+          parts: {},
+          deadline: null,
+        },
+      })
+      expect(claim.headline).toBeNull()
+      expect(claim.shown).toBe("The labor market is weakening")
+    })
+
+    it("a headline can be added, changed and removed later, each as a recorded version; my words never move", async () => {
+      const claim = await logClaim({
+        userId,
+        text: "Jensen stays",
+        source: "AGENT",
+        extraction: {
+          source: "manual",
+          shape: null,
+          parts: {},
+          deadline: null,
+        },
+      })
+      const versions = () =>
+        prisma.claimVersion.count({ where: { questionId: claim.id } })
+      const before = await versions()
+
+      const added = await editClaim(
+        userId,
+        claim.id,
+        { headline: "Jensen Huang is still NVIDIA's CEO at the end of 2027" },
+        "AGENT",
+      )
+      expect(added.shown).toBe(
+        "Jensen Huang is still NVIDIA's CEO at the end of 2027",
+      )
+      expect(added.text).toBe("Jensen stays")
+      expect(await versions()).toBe(before + 1)
+
+      const changed = await editClaim(
+        userId,
+        claim.id,
+        { headline: "Jensen Huang is NVIDIA's CEO on Dec 31, 2027" },
+        "WEB",
+      )
+      expect(changed.headline).toBe(
+        "Jensen Huang is NVIDIA's CEO on Dec 31, 2027",
+      )
+      expect(await versions()).toBe(before + 2)
+
+      const removed = await editClaim(
+        userId,
+        claim.id,
+        { headline: null },
+        "WEB",
+      )
+      expect(removed.headline).toBeNull()
+      expect(removed.shown).toBe("Jensen stays")
+      expect(await versions()).toBe(before + 3)
+
+      const last = await prisma.claimVersion.findFirstOrThrow({
+        where: { questionId: claim.id },
+        orderBy: { version: "desc" },
+      })
+      expect(last.changedFields).toEqual(["headline"])
+      expect(await verifyHistory(userId, claim.id)).toMatchObject({ ok: true })
+    })
+
+    it("an entry from before headlines existed keeps a valid history, and adding one is the only change recorded", async () => {
+      // an older row: its stored state has no headline field at all
+      const row = await prisma.question.create({
+        data: {
+          title: "Rates get cut",
+          userId,
+          resolveBy: new Date("2027-12-31T00:00:00.000Z"),
+          claimDate: new Date("2026-11-10T00:00:00.000Z"),
+          entrySource: "AGENT",
+          grade: 1,
+        },
+      })
+      const state: any = claimState(row)
+      delete state.headline
+      const first = nextVersion(null, {
+        questionId: row.id,
+        userId,
+        source: "AGENT",
+        createdAt: new Date(),
+        state,
+      })!
+      await prisma.claimVersion.create({
+        data: {
+          questionId: row.id,
+          version: first.version,
+          createdAt: new Date(first.createdAt),
+          userId,
+          source: "AGENT",
+          changedFields: first.changedFields,
+          state: first.state as any,
+          prevHash: first.prevHash,
+          hash: first.hash,
+        },
+      })
+      expect(await verifyHistory(userId, row.id)).toMatchObject({ ok: true })
+
+      // touching something else does not report the headline as changed
+      await setPart(userId, row.id, "deadline", "2028-06-30", "WEB")
+      const second = await prisma.claimVersion.findFirstOrThrow({
+        where: { questionId: row.id },
+        orderBy: { version: "desc" },
+      })
+      expect(second.changedFields).not.toContain("headline")
+
+      await editClaim(
+        userId,
+        row.id,
+        { headline: "The Fed cuts rates" },
+        "AGENT",
+      )
+      const third = await prisma.claimVersion.findFirstOrThrow({
+        where: { questionId: row.id },
+        orderBy: { version: "desc" },
+      })
+      expect(third.changedFields).toEqual(["headline"])
+      expect(await verifyHistory(userId, row.id)).toMatchObject({ ok: true })
+    })
+
+    it("a preview shows the proposed headline and saves nothing", async () => {
+      const before = await prisma.question.count({ where: { userId } })
+      const preview = await previewClaim({
+        userId,
+        text: raw,
+        headline,
+        proposal,
+        source: "AGENT",
+      })
+      expect(preview.headline).toBe(headline)
+      expect(preview.shown).toBe(headline)
+      expect(preview.text).toBe(raw)
+      expect(await prisma.question.count({ where: { userId } })).toBe(before)
+    })
+
+    it("pieces of a split read nothing out of the shared original sentence", async () => {
+      const { pieces } = await previewWithSplit({
+        userId,
+        text: "Rates get cut this year, probably, and unemployment hits about 6% by 2028",
+        source: "AGENT",
+        split: [
+          {
+            headline: "The Fed cuts its policy rate in 2026",
+            shape: "EVENT_BY_DATE",
+            parts: {
+              event: "The Fed lowers the federal funds target range",
+              howToTell: "FOMC statements",
+            },
+            deadline: "2026-12-31",
+          },
+        ],
+        now: new Date("2026-11-11T02:30:00.000Z"),
+      })
+      // "probably" and "about" belong to the whole sentence, not to this piece
+      expect(pieces[0].confidenceWord).toBeNull()
+      expect(pieces[0].probability).toBeNull()
+      expect(pieces[0].approximate).toBe(false)
+      expect(pieces[0].deadline).toBe("2026-12-31")
     })
   })
 })

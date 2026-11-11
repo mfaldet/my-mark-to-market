@@ -22,6 +22,8 @@ export type PublicClaimInput = {
   id: string
   url: string
   text: string
+  /** true when text is an approved headline, not the raw words */
+  isHeadline?: boolean
   claimDate: Date
   loggedAt: Date
   entrySource: string | null
@@ -131,6 +133,8 @@ export function buildPublicRecord(
         // brought in by an importer, so not logged here in advance
         imported: isImported(c.id),
         text: c.text,
+        // a headline is a cleaned statement, so it is not shown in quote marks
+        isHeadline: !!c.isHeadline,
         claimDate: day(c.claimDate),
         loggedAt: c.loggedAt.toISOString(),
         backDated: day(c.claimDate) < day(c.loggedAt),
@@ -201,7 +205,9 @@ export async function loadPublicRecord(
     rows.map((r) => ({
       id: r.id,
       url: `${getBaseUrl()}/q/${r.id}`,
-      text: r.title,
+      // the approved headline is what the public sees; raw words stay private
+      text: r.headline ?? r.title,
+      isHeadline: r.headline != null,
       claimDate: r.claimDate ?? r.createdAt,
       loggedAt: r.createdAt,
       entrySource: r.entrySource,

@@ -254,6 +254,7 @@ export const appRouter = router({
           question: {
             select: {
               title: true,
+              headline: true,
             },
           },
         },

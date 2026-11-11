@@ -78,7 +78,16 @@ const claim = z.object({
   url: z.string(),
   kind: z.enum(["hunch", "prediction"]),
   imported: z.boolean(),
-  text: z.string(),
+  text: z.string({ description: "Your raw words, never changed" }),
+  headline: z
+    .string({
+      description:
+        "The approved clean statement shown everywhere, or null when there is none yet",
+    })
+    .nullable(),
+  shown: z.string({
+    description: "The headline, or your words when there is none",
+  }),
   claimDate: z.string(),
   loggedAt: z.string(),
   backDated: z.boolean(),
@@ -93,7 +102,6 @@ const claim = z.object({
   grade: z.number(),
   gradeReason: z.string(),
   compound: z.boolean(),
-  flags: z.array(z.string()),
   missing: z.array(z.string()),
   canPublish: z.boolean(),
   publishBlockers: z.array(z.string()),

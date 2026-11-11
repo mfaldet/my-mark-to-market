@@ -190,11 +190,11 @@ export function getChartJsParams(
 }
 
 export function getHtmlLinkQuestionTitle(question: Question) {
-  return `<a href="${getQuestionUrl(question, false)}">${question.title}</a>`
+  return `<a href="${getQuestionUrl(question, false)}">${question.headline ?? question.title}</a>`
 }
 
 export function getMarkdownLinkQuestionTitle(question: Question) {
-  return `[${question.title}](${getQuestionUrl(question, false)})`
+  return `[${question.headline ?? question.title}](${getQuestionUrl(question, false)})`
 }
 
 export function getPredictionBookIdPrefix() {

@@ -4,12 +4,8 @@
  * old rules. None should have been.
  */
 import { gradeClaim } from "../grade"
-import {
-  findCompoundIn,
-  findMismatch,
-  mismatchFlag,
-  namesIn,
-} from "../outcome_checks"
+import * as outcomeChecks from "../outcome_checks"
+import { findCompoundIn } from "../outcome_checks"
 import { OutcomeParts } from "../types"
 
 const event = (text: string, deadline: string): OutcomeParts => ({
@@ -78,31 +74,33 @@ describe("the grading loophole, on the four real entries", () => {
     expect(plain.reason).toMatch(/way to tell/)
   })
 
-  it("an outcome that names a different measure than my words is flagged", () => {
-    const { text, outcome, deadline } = REAL.original
-    const parts = event(outcome, deadline)
-    expect(findMismatch(text, parts)).toEqual(["S&P 500"])
-    expect(mismatchFlag(text, parts)).toMatch(/mentions S&P 500/)
-    // and it is no longer a prediction: nothing says how to tell
-    expect(grade(parts).grade).toBe(3)
+  it("an outcome may use sharper terms than my words: that is the point, and nothing flags it", () => {
+    // my words said "Mag 7 average"; the outcome says "S&P 500"
+    const { outcome, deadline } = REAL.original
+    const withSource: OutcomeParts = {
+      ...event(outcome, deadline),
+      howToTell: {
+        value: "total return, from a price chart",
+        status: "stated",
+      },
+    }
+    // different words do not hold it back: only the hard rules do
+    expect(grade(withSource).grade).toBe(4)
+    expect(grade(event(outcome, deadline))).toMatchObject({
+      grade: 3,
+      missing: ["howToTell"],
+    })
+    // the check that used to compare the outcome with my words is gone
+    expect(Object.keys(outcomeChecks).sort()).toEqual([
+      "findCompound",
+      "findCompoundIn",
+    ])
   })
 
-  it("the board entry's outcome also names something its words don't", () => {
-    const { text, outcome, deadline } = REAL.boardWontFire
-    expect(findMismatch(text, event(outcome, deadline))).toEqual(["S&P 500"])
-  })
-
-  it("a plain, single event is not called compound or mismatched", () => {
-    const { text, outcome, deadline } = REAL.stillCeo
+  it("a plain, single event is not called compound", () => {
+    const { outcome, deadline } = REAL.stillCeo
     const parts = event(outcome, deadline)
     expect(findCompoundIn(outcome)).toEqual({ compound: false })
-    expect(findMismatch(text, parts)).toEqual([])
-    expect(
-      findMismatch(
-        REAL.distraction.text,
-        event(REAL.distraction.outcome, "2026-12-31"),
-      ),
-    ).toEqual([])
     // but it still needs a way to tell before it is a prediction
     expect(grade(parts)).toMatchObject({ grade: 3, missing: ["howToTell"] })
   })
@@ -115,28 +113,6 @@ describe("the grading loophole, on the four real entries", () => {
     }
     expect(grade(withSource).grade).toBe(4)
     expect(grade(event(outcome, deadline), true).grade).toBe(4)
-  })
-})
-
-describe("a fuller form of a name I used is not a mismatch", () => {
-  it('"Jensen Huang" when my words say "this Jensen scandal"', () => {
-    expect(
-      findMismatch(REAL.distraction.text, {
-        event: {
-          value:
-            "A congressional committee holds a hearing about the Jensen Huang scandal",
-          status: "extracted",
-        },
-      }),
-    ).toEqual([])
-  })
-  it("but a different index is", () => {
-    expect(
-      findMismatch("NVIDIA will out perform Mag 7 average over 2027", {
-        a: { value: "NVIDIA", status: "extracted" },
-        b: { value: "Nasdaq 100", status: "extracted" },
-      }),
-    ).toEqual(["Nasdaq 100"])
   })
 })
 
@@ -162,17 +138,5 @@ describe("what counts as more than one prediction", () => {
     "Research and development spending rises",
   ])("one prediction: %s", (text) => {
     expect(findCompoundIn(text)).toEqual({ compound: false })
-  })
-})
-
-describe("names", () => {
-  it("finds names with numbers, and ignores dates and sentence starts", () => {
-    expect(namesIn(REAL.boardWontFire.outcome)).toEqual([
-      "Jensen Huang",
-      "NVIDIA",
-      "S&P 500",
-    ])
-    expect(namesIn("out perform Mag 7 average over 2027")).toEqual(["Mag 7"])
-    expect(namesIn(REAL.stillCeo.outcome)).toEqual(["Jensen Huang", "NVIDIA"])
   })
 })
