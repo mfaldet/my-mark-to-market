@@ -188,4 +188,29 @@ describe("buildPublicRecord", () => {
     )
     expect(JSON.stringify(record)).not.toMatch(/"note"|comment/)
   })
+
+  it("a headline shows on top, with my raw words and the date I said them underneath", () => {
+    const [withHeadline, without] = buildPublicRecord(
+      { name: "Mac" },
+      [
+        claim({
+          id: "h1",
+          text: "US unemployment (U-3) reaches 6% by the end of 2028",
+          isHeadline: true,
+          originallySaid: "unemployment's gonna hit 6 by 2028",
+        }),
+        // no headline: my words are the text, and there is nothing underneath
+        claim({ id: "h2", originallySaid: "should never show" }),
+      ],
+      now,
+    ).predictions
+    expect(withHeadline).toMatchObject({
+      text: "US unemployment (U-3) reaches 6% by the end of 2028",
+      isHeadline: true,
+      originallySaid: "unemployment's gonna hit 6 by 2028",
+      claimDate: "2025-07-14",
+    })
+    expect(without.isHeadline).toBe(false)
+    expect(without.originallySaid).toBeNull()
+  })
 })

@@ -24,6 +24,8 @@ export type PublicClaimInput = {
   text: string
   /** true when text is an approved headline, not the raw words */
   isHeadline?: boolean
+  /** my raw words, when a headline is shown in their place */
+  originallySaid?: string | null
   claimDate: Date
   loggedAt: Date
   entrySource: string | null
@@ -135,6 +137,8 @@ export function buildPublicRecord(
         text: c.text,
         // a headline is a cleaned statement, so it is not shown in quote marks
         isHeadline: !!c.isHeadline,
+        // my raw words sit under the headline, so anyone can compare the two
+        originallySaid: c.isHeadline ? c.originallySaid ?? null : null,
         claimDate: day(c.claimDate),
         loggedAt: c.loggedAt.toISOString(),
         backDated: day(c.claimDate) < day(c.loggedAt),
@@ -205,9 +209,10 @@ export async function loadPublicRecord(
     rows.map((r) => ({
       id: r.id,
       url: `${getBaseUrl()}/q/${r.id}`,
-      // the approved headline is what the public sees; raw words stay private
+      // the approved headline is what shows; my raw words go underneath
       text: r.headline ?? r.title,
       isHeadline: r.headline != null,
+      originallySaid: r.headline != null ? r.title : null,
       claimDate: r.claimDate ?? r.createdAt,
       loggedAt: r.createdAt,
       entrySource: r.entrySource,

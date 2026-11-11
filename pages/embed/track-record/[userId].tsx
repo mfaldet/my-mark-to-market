@@ -168,6 +168,19 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
                     </span>
                   </span>
                 </div>
+                {claim.originallySaid && (
+                  <details className="text-sm text-neutral-500">
+                    <summary className="cursor-pointer select-none text-xs">
+                      Originally said
+                    </summary>
+                    <p className="mt-1">
+                      <span className="italic">“{claim.originallySaid}”</span>{" "}
+                      <span className="text-xs whitespace-nowrap">
+                        Said {formatDay(claim.claimDate)}
+                      </span>
+                    </p>
+                  </details>
+                )}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
                   {claim.grade && <GradeBadge grade={claim.grade} />}
                   {claim.imported && (
