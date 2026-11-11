@@ -180,11 +180,13 @@ export function UpdateableLatestForecast({
     <>
       <span
         className={clsx(
-          "mr-0.5 font-bold h-min hover:ring-neutral-400 focus-within:ring-indigo-800 hover:focus-within:ring-indigo-800 ring-neutral-300 px-1 py-0.5 rounded-md shrink-0 relative flex transition-all",
+          "num mr-0.5 font-semibold h-min hover:ring-neutral-400 focus-within:ring-ink hover:focus-within:ring-ink ring-neutral-300 px-1 py-0.5 rounded-md shrink-0 relative flex transition-all",
           addForecast.isLoading && "opacity-50",
-          hasResolution ? "text-neutral-600 ring-0" : "text-indigo-800 ring-2",
+          hasResolution
+            ? "text-neutral-600 ring-0"
+            : "text-ink ring-1 bg-white/70",
           errorMessage &&
-            "ring-red-500 focus-within:ring-red-500 hover:ring-red-500 hover:focus-within:ring-red-500",
+            "ring-negative focus-within:ring-negative hover:ring-negative hover:focus-within:ring-negative",
           small ? "text-xl" : "text-2xl",
         )}
         onClick={(e) => {
@@ -198,9 +200,8 @@ export function UpdateableLatestForecast({
           <>
             <div
               className={clsx(
-                "h-full bg-indigo-700 absolute rounded-l pointer-events-none opacity-20 bg-gradient-to-br transition-all -mx-1 -my-0.5",
+                "h-full bg-neutral-400 absolute rounded-l pointer-events-none opacity-25 transition-all -mx-1 -my-0.5",
                 localForecastFloat >= 100 && "rounded-r",
-                !hasResolution && "from-indigo-400 to-indigo-600",
                 hasResolution && "hidden",
               )}
               style={{

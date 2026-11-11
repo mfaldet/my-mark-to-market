@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "@heroicons/react/20/solid"
-import { Bars3Icon, ScaleIcon } from "@heroicons/react/24/outline"
+import { Bars3Icon } from "@heroicons/react/24/outline"
 import { SparklesIcon } from "@heroicons/react/24/solid"
 import clsx from "clsx"
 import { signOut, useSession } from "next-auth/react"
@@ -18,6 +18,7 @@ import {
 import NotificationsPopover from "./NotificationsPopover"
 import { PromptDialog } from "./ui/PromptDialog"
 import { FEATURES } from "../lib/features"
+import { BrandMark } from "./BrandMark"
 import { APP_NAME } from "../lib/app_name"
 
 export function Navbar({
@@ -111,34 +112,41 @@ function NavbarContent({
     Date.now() + 1000 * 60 * 60 * 24 * 60,
   ).getFullYear() // 60 days from now
   return (
-    <div className="navbar max-w-5xl mx-auto">
-      <div className="flex-none lg:hidden">
-        <label
-          htmlFor="my-drawer"
-          className="btn btn-square btn-ghost"
-          aria-label="Open menu"
-          title="Open menu"
-        >
-          <Bars3Icon height={24} width={24} />
-        </label>
+    <header className="glass-brand sticky top-0 z-[600]">
+      <div className="navbar max-w-5xl mx-auto min-h-14">
+        <div className="flex-none lg:hidden">
+          <label
+            htmlFor="my-drawer"
+            className="btn btn-square btn-ghost"
+            aria-label="Open menu"
+            title="Open menu"
+          >
+            <Bars3Icon height={24} width={24} />
+          </label>
+        </div>
+        <div className="flex-1 -ml-4 flex gap-0">
+          <Link
+            href="/"
+            className="btn btn-ghost hover:bg-white/40 normal-case flex gap-2 max-sm:px-2"
+          >
+            <BrandMark className="w-9 h-9 -my-1" />
+            <span className="wordmark text-xl sm:text-[1.4rem] whitespace-nowrap">
+              {APP_NAME}
+            </span>
+          </Link>
+          {userId && FEATURES.tournaments && (
+            <SpecialButton
+              url="/predict-your-year"
+              label={<span className="">{`Predict your ${upcomingYear}`}</span>}
+            />
+          )}
+        </div>
+        <div className="flex-none hidden lg:block">
+          <ul className="menu menu-horizontal">{menuItems}</ul>
+        </div>
+        <div className="">{AccountMenu(showCreateAccountButton)}</div>
       </div>
-      <div className="flex-1 -ml-4 flex gap-0">
-        <Link href="/" className="btn btn-ghost normal-case text-xl flex gap-2">
-          <ScaleIcon className="w-6 h-6 text-indigo-600" />
-          {APP_NAME}
-        </Link>
-        {userId && FEATURES.tournaments && (
-          <SpecialButton
-            url="/predict-your-year"
-            label={<span className="">{`Predict your ${upcomingYear}`}</span>}
-          />
-        )}
-      </div>
-      <div className="flex-none hidden lg:block">
-        <ul className="menu menu-horizontal">{menuItems}</ul>
-      </div>
-      <div className="">{AccountMenu(showCreateAccountButton)}</div>
-    </div>
+    </header>
   )
 }
 
@@ -237,7 +245,7 @@ function IntegrationsDropdown() {
       </label>
       <ul
         tabIndex={0}
-        className="dropdown-content z-[9999] menu p-2 shadow-lg bg-base-100 rounded-box w-64"
+        className="dropdown-content z-[9999] menu p-2 glass-pop rounded-box w-64"
       >
         <IntegrationsItems fatebookForChrome={fatebookForChrome} />
       </ul>
@@ -338,7 +346,7 @@ function LearnDropdown() {
       </label>
       <ul
         tabIndex={0}
-        className="dropdown-content z-[9999] menu p-2 shadow-lg bg-base-100 rounded-box w-64"
+        className="dropdown-content z-[9999] menu p-2 glass-pop rounded-box w-64"
       >
         <LearnItems />
       </ul>
@@ -402,7 +410,7 @@ function Drawer() {
         className="drawer-overlay"
         aria-label="Close menu"
       ></label>
-      <ul className="menu flex flex-col flex-nowrap p-4 w-80 overflow-auto bg-neutral-100 h-full text-md text-neutral-600 font-semibold">
+      <ul className="menu flex flex-col flex-nowrap p-4 w-80 overflow-auto glass-pop h-full text-md text-neutral-700 font-semibold">
         <div className="overflow-y-auto flex-shrink pb-8">
           <MenuItems
             userId={null}
@@ -457,7 +465,7 @@ function AccountMenu(showCreateAccountButton: boolean) {
         </summary>
         <ul
           tabIndex={0}
-          className="menu menu-sm dropdown-content mt-1 p-2 shadow bg-base-100 rounded-box w-52"
+          className="menu menu-sm dropdown-content mt-1 p-2 glass-pop rounded-box w-52"
         >
           <li className="px-3 py-2 text-neutral-500 select-none">Loading...</li>
         </ul>
@@ -480,7 +488,7 @@ function AccountMenu(showCreateAccountButton: boolean) {
         </summary>
         <ul
           tabIndex={0}
-          className="menu menu-sm dropdown-content mt-1 p-2 shadow bg-base-100 rounded-box w-64"
+          className="menu menu-sm dropdown-content mt-1 p-2 glass-pop rounded-box w-64"
         >
           <li className="px-3 py-2 text-neutral-500 select-none break-all">
             Signed in as {user.email}
@@ -564,5 +572,5 @@ function AccountMenu(showCreateAccountButton: boolean) {
 
 // eslint-disable-next-line no-unused-vars
 function NewDot() {
-  return <div className="w-2 h-2 ml-0.5 my-auto bg-indigo-400 rounded-full" />
+  return <div className="w-2 h-2 ml-0.5 my-auto bg-info rounded-full" />
 }

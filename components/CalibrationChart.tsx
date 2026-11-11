@@ -109,10 +109,7 @@ export function CalibrationChart({
       >
         <QuestionMarkCircleIcon
           height={20}
-          className={clsx(
-            "text-neutral-400",
-            axisTitlesShown && "fill-indigo-700",
-          )}
+          className={clsx("text-neutral-400", axisTitlesShown && "fill-ink")}
         />
       </button>
     </div>

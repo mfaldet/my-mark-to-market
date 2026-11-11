@@ -47,7 +47,7 @@ export function FormCheckbox({
           void registered.onChange?.(e)
           onChange?.(e)
         }}
-        className="checkbox accent-indigo-500 checked:bg-indigo-500"
+        className="checkbox"
       />
       <label
         htmlFor={name}

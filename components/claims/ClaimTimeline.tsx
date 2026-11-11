@@ -1,3 +1,4 @@
+import clsx from "clsx"
 import { useState } from "react"
 import { TimelineEvent } from "../../lib/claims/service"
 import { resultLabel } from "../../lib/claims/words"
@@ -98,6 +99,20 @@ const when = (iso: string) =>
     minute: "2-digit",
   })
 
+/** A confidence change of 20 points or more from the one before it. */
+const BIG_SWING = 0.2
+function isBigSwing(events: TimelineEvent[], i: number) {
+  const event = events[i]
+  if (event.kind !== "confidence") return false
+  for (let k = i - 1; k >= 0; k--) {
+    const earlier = events[k]
+    if (earlier.kind === "confidence") {
+      return Math.abs(event.probability - earlier.probability) >= BIG_SWING
+    }
+  }
+  return false
+}
+
 /**
  * Every version of the claim and every confidence change, oldest first,
  * with a button that recomputes the hash chain.
@@ -126,14 +141,14 @@ export function ClaimTimeline({ claimId }: { claimId: string }) {
         {verify.data &&
           (verify.data.ok ? (
             <span
-              className="text-green-700"
+              className="text-positive-text"
               title={`Latest hash: ${verify.data.latestHash ?? "none"}`}
             >
               ✓ {verify.data.versions} version
               {verify.data.versions === 1 ? "" : "s"}, chain intact
             </span>
           ) : (
-            <span className="text-red-700">
+            <span className="text-negative-text">
               ✗ Broken at version {verify.data.brokenAtVersion}.{" "}
               {verify.data.problem}
             </span>
@@ -149,20 +164,35 @@ export function ClaimTimeline({ claimId }: { claimId: string }) {
           )}
           {timeline.data.map((event: TimelineEvent, i: number) => (
             <li key={i} className="pl-4 relative">
-              <span className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-neutral-400" />
+              <span
+                className={clsx(
+                  "absolute -left-[5px] top-1.5 h-2 w-2 rounded-full",
+                  // yellow = a change worth noticing
+                  event.kind === "became" || isBigSwing(timeline.data, i)
+                    ? "bg-change ring-2 ring-change/30"
+                    : "bg-neutral-400",
+                )}
+              />
               <div className="text-xs text-neutral-500">{when(event.at)}</div>
               {event.kind === "became" ? (
-                <div className="font-semibold">
-                  {event.became === "prediction"
-                    ? "Became a prediction"
-                    : "Became a hunch again"}
+                <div>
+                  <span className="tone-change rounded px-1.5 py-0.5 font-semibold">
+                    {event.became === "prediction"
+                      ? "Became a prediction"
+                      : "Became a hunch again"}
+                  </span>
                 </div>
               ) : event.kind === "confidence" ? (
                 <div>
                   Confidence:{" "}
-                  <span className="font-semibold">
+                  <span className="num font-semibold">
                     {Math.round(event.probability * 1000) / 10}%
                   </span>
+                  {isBigSwing(timeline.data, i) && (
+                    <span className="tone-change rounded px-1.5 py-0.5 ml-2 text-xs font-semibold">
+                      big swing
+                    </span>
+                  )}
                   {event.word && ` · ${CONFIDENCE_LABELS[event.word]}`}
                   {event.note && (
                     <div className="text-neutral-600 italic">
@@ -183,7 +213,7 @@ export function ClaimTimeline({ claimId }: { claimId: string }) {
                     ))}
                   </ul>
                   <code
-                    className="text-[10px] text-neutral-400"
+                    className="text-[11px] text-neutral-500"
                     title={event.hash}
                   >
                     {event.hash.slice(0, 16)}…

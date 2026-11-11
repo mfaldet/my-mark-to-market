@@ -48,24 +48,18 @@ function DueRow({ item }: { item: ClaimView }) {
     <li>
       <Link
         href={`/q/${item.id}`}
-        className="block rounded-md border border-neutral-200 bg-white p-3 hover:shadow-md transition-shadow no-underline"
+        className="block glass rounded-xl p-3 hover:shadow-md transition-shadow no-underline"
       >
         <div className="font-semibold text-neutral-900">{item.text}</div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span
-            className={clsx(
-              "rounded px-1.5 py-0.5 text-xs",
-              isHunch
-                ? "border border-neutral-300 text-neutral-600"
-                : "bg-neutral-800 text-white",
-            )}
-          >
+          <span className={isHunch ? "kind-hunch" : "kind-prediction"}>
             {isHunch ? "Hunch" : item.imported ? "Imported" : "Prediction"}
           </span>
           <span
             className={clsx(
               "font-medium",
-              overdue ? "text-red-700" : "text-neutral-600",
+              // red = urgent: past its date
+              overdue ? "text-negative-text" : "text-neutral-600",
             )}
           >
             {isHunch

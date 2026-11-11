@@ -1,11 +1,15 @@
 import clsx from "clsx"
 
+// No colour for a grade. Grades 1 to 3 are hunches (outlined);
+// grades 4 and 5 are predictions (solid).
+const HUNCH = "border border-dashed border-neutral-400 text-neutral-600"
+const PREDICTION = "border border-ink bg-ink text-white"
 const COLORS: Record<number, string> = {
-  1: "bg-neutral-200 text-neutral-700",
-  2: "bg-orange-100 text-orange-800",
-  3: "bg-amber-100 text-amber-800",
-  4: "bg-lime-100 text-lime-800",
-  5: "bg-green-200 text-green-900",
+  1: HUNCH,
+  2: HUNCH,
+  3: HUNCH,
+  4: PREDICTION,
+  5: PREDICTION,
 }
 
 /** The claim's grade, 1 to 5. Hover to see why. */
@@ -30,9 +34,10 @@ export function GradeBadge({
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  stated: "bg-green-100 text-green-800",
-  extracted: "bg-sky-100 text-sky-800",
-  working: "bg-amber-100 text-amber-800",
+  stated: "tone-plain",
+  // yellow: not yet confirmed
+  extracted: "tone-change",
+  working: "tone-change",
 }
 
 /** stated / extracted / working */
@@ -48,7 +53,7 @@ export function StatusChip({
       title={title}
       className={clsx(
         "inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium",
-        STATUS_COLORS[status] ?? "bg-neutral-100 text-neutral-600",
+        STATUS_COLORS[status] ?? "tone-plain",
       )}
     >
       {status}

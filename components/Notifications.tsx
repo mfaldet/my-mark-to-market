@@ -63,7 +63,8 @@ export function Notifications() {
                   "py-2 px-4 rounded-lg hover:cursor-pointer hover:shadow-md transition-all",
                   notification.read || justRead?.includes(notification.id)
                     ? "bg-neutral-50 hover:bg-neutral-100"
-                    : "bg-indigo-50 hover:bg-indigo-100",
+                    : // blue = information: not read yet
+                      "bg-info-soft hover:bg-info-soft/60",
                 )}
                 onMouseEnter={read}
                 onClick={read}

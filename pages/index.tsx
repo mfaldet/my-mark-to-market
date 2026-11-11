@@ -10,6 +10,7 @@ import { Predict } from "../components/predict-form/Predict"
 import { QuickFeedback } from "../components/ui/QuickFeedback"
 import { useUserId } from "../lib/web/utils"
 import { PredictProvider } from "../components/predict-form/PredictProvider"
+import { APP_NAME } from "../lib/app_name"
 import { FEATURES } from "../lib/features"
 
 export default function HomePage() {
@@ -21,11 +22,12 @@ export default function HomePage() {
       <PredictProvider>
         <div className="prose mx-auto pt-12 w-full min-w-0 lg:w-[650px]">
           {!userId && sessionStatus !== "loading" && (
-            <>
-              <h3 className="text-neutral-600">
+            <div className="not-prose brand-surface rounded-3xl border border-ink/10 px-6 py-8 sm:px-10 sm:py-10">
+              <h1 className="wordmark text-3xl sm:text-4xl">{APP_NAME}</h1>
+              <p className="tagline mt-1 text-lg">
                 Log a hunch. Sharpen it into a prediction. See how it turns out.
-              </h3>
-            </>
+              </p>
+            </div>
           )}
 
           <LogClaim />

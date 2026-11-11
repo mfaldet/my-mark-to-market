@@ -6,13 +6,18 @@ if (typeof window !== "undefined") {
 import { NextPage } from "next"
 import { SessionProvider } from "next-auth/react"
 import { AppProps } from "next/app"
-import Head from "next/head"
 import { GoogleAnalytics } from "nextjs-google-analytics"
 import { ReactElement, ReactNode } from "react"
 import { Toaster } from "react-hot-toast"
 import { Layout } from "../components/Layout"
 import Meta from "../components/Meta"
 import { api } from "../lib/web/trpc"
+// The three fonts are bundled with the app: no requests to Google Fonts.
+import "@fontsource/tinos/latin-400-italic.css"
+import "@fontsource/tinos/latin-700.css"
+import "@fontsource-variable/source-sans-3/wght.css"
+import "@fontsource-variable/source-sans-3/wght-italic.css"
+import "@fontsource-variable/source-code-pro/wght.css"
 import "../styles/globals.css"
 import { FEATURES } from "../lib/features"
 
@@ -37,9 +42,6 @@ function App({
   return (
     <>
       <Meta />
-      <Head>
-        <link rel="shortcut icon" href="/favicon.ico" />
-      </Head>
       {FEATURES.analytics && <GoogleAnalytics trackPageViews />}
       <SessionProvider
         session={session}

@@ -62,7 +62,7 @@ export function LogClaim() {
         }}
       >
         <TextareaAutosize
-          className="w-full rounded-md border border-neutral-300 p-3 text-xl font-semibold focus:outline-indigo-500 resize-none"
+          className="w-full rounded-xl glass p-3 text-xl font-semibold placeholder:text-neutral-400 placeholder:font-normal resize-none"
           placeholder="What's your hunch? Say it in your own words."
           minRows={2}
           value={text}
@@ -103,7 +103,7 @@ export function LogClaim() {
       </form>
 
       {logged && (
-        <div className="rounded-md bg-white border border-neutral-200 p-4 flex flex-col gap-1">
+        <div className="glass rounded-xl p-4 flex flex-col gap-1">
           <div className="flex justify-between gap-2">
             <span className="font-semibold">“{logged.text}”</span>
             <button

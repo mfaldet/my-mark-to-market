@@ -67,11 +67,8 @@ export function SignedOutIntro() {
     <div className="not-prose my-8">
       <ul className="grid gap-4 sm:grid-cols-2">
         {points.map((point) => (
-          <li
-            key={point.title}
-            className="rounded-md border border-neutral-200 bg-white p-4"
-          >
-            <div className="font-semibold text-neutral-900">{point.title}</div>
+          <li key={point.title} className="glass rounded-xl p-4">
+            <div className="font-semibold text-ink">{point.title}</div>
             <div className="mt-1 text-sm text-neutral-600">{point.body}</div>
           </li>
         ))}

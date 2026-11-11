@@ -18,7 +18,7 @@ body,
     @apply inline-flex gap-1 items-center px-4 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed bg-neutral-200 hover:bg-neutral-300 text-neutral-700;
   }
   button.primary {
-    @apply text-white bg-indigo-600 hover:bg-indigo-700;
+    @apply text-white bg-ink hover:bg-neutral-950;
   }
   button.white {
     @apply text-black bg-white hover:bg-neutral-50;
@@ -64,5 +64,352 @@ body,
 }
 
 .checkbox {
-  --chkbg: #6366f1;
+  --chkbg: #1b2230;
+  --chkfg: #ffffff;
+}
+
+/* ---------------------------------------------------------------------
+ * The look. Colours come from lib/theme.js through tailwind.config.js.
+ * --------------------------------------------------------------------- */
+
+:root {
+  --ink: 27 34 48;
+  /* The brand: all six pastels together, as soft blobs. Never one alone. */
+  --brand-blobs: radial-gradient(
+      38% 140% at 6% 30%,
+      rgb(169 223 255 / 0.6),
+      transparent 70%
+    ),
+    radial-gradient(
+      30% 120% at 24% 110%,
+      rgb(255 179 209 / 0.5),
+      transparent 70%
+    ),
+    radial-gradient(
+      34% 130% at 44% -20%,
+      rgb(179 240 216 / 0.55),
+      transparent 70%
+    ),
+    radial-gradient(
+      36% 140% at 62% 120%,
+      rgb(255 201 168 / 0.6),
+      transparent 70%
+    ),
+    radial-gradient(
+      30% 120% at 78% -10%,
+      rgb(255 233 138 / 0.5),
+      transparent 70%
+    ),
+    radial-gradient(
+      34% 140% at 98% 70%,
+      rgb(201 182 255 / 0.55),
+      transparent 70%
+    );
+  --brand-blobs-faint: radial-gradient(
+      60% 90% at 0% 0%,
+      rgb(169 223 255 / 0.1),
+      transparent 70%
+    ),
+    radial-gradient(
+      50% 80% at 35% 100%,
+      rgb(255 179 209 / 0.07),
+      transparent 70%
+    ),
+    radial-gradient(50% 80% at 60% 0%, rgb(179 240 216 / 0.08), transparent 70%),
+    radial-gradient(
+      50% 90% at 80% 100%,
+      rgb(255 201 168 / 0.09),
+      transparent 70%
+    ),
+    radial-gradient(40% 80% at 100% 0%, rgb(201 182 255 / 0.1), transparent 70%),
+    radial-gradient(
+      40% 70% at 50% 50%,
+      rgb(255 233 138 / 0.06),
+      transparent 70%
+    );
+}
+
+body {
+  color: rgb(var(--ink));
+  font-feature-settings: "tnum" 0;
+}
+
+/* Brand surfaces: the header, the app-name area, the sign-in page and the
+   top of the public track record. Pastel blobs behind translucent white. */
+.brand-surface {
+  background-color: #fbfbfd;
+  background-image: linear-gradient(
+      rgb(255 255 255 / 0.5),
+      rgb(255 255 255 / 0.5)
+    ),
+    var(--brand-blobs);
+}
+
+/* Glass: cards, chips, pills, popovers, menus and the bottom bar.
+   Translucent white, blurred backdrop, and a very faint trace of the blobs. */
+.glass {
+  background-color: rgb(255 255 255 / 0.78);
+  background-image: var(--brand-blobs-faint);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgb(var(--ink) / 0.09);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 1px 2px rgb(var(--ink) / 0.04),
+    0 6px 20px -8px rgb(var(--ink) / 0.1);
+}
+/* the header's own glass: the full blend, see-through enough to blur what scrolls under it */
+.glass-brand {
+  background-color: rgb(255 255 255 / 0.72);
+  background-image: linear-gradient(
+      rgb(255 255 255 / 0.55),
+      rgb(255 255 255 / 0.55)
+    ),
+    var(--brand-blobs);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  border-bottom: 1px solid rgb(var(--ink) / 0.08);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+/* without blur support, or when the reader asks for less transparency, go solid */
+@supports not (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
+  .glass,
+  .glass-brand {
+    background-color: rgb(255 255 255 / 0.97);
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .glass,
+  .glass-brand {
+    background-color: #ffffff;
+    background-image: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: rgb(var(--ink) / 0.35);
+  }
+}
+
+/* The app's name, and the tagline under it: the only serif in the app. */
+.wordmark {
+  font-family: Tinos, "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  color: rgb(var(--ink));
+}
+.tagline {
+  font-family: Tinos, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  color: #465064;
+}
+
+/* Numbers and code. */
+.num,
+code,
+kbd,
+pre,
+samp {
+  font-family: "Source Code Pro Variable", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* One focus ring everywhere: near-black. */
+:where(
+    a,
+    button,
+    input,
+    select,
+    textarea,
+    summary,
+    [role="button"],
+    [tabindex],
+    label.btn
+  ):focus-visible {
+  outline: 2px solid rgb(var(--ink));
+  outline-offset: 2px;
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: 2px solid rgb(var(--ink));
+  outline-offset: 1px;
+  border-color: rgb(var(--ink) / 0.4);
+}
+.checkbox:focus-visible,
+.toggle:focus-visible {
+  outline: 2px solid rgb(var(--ink));
+  outline-offset: 2px;
+}
+
+/* A hunch is outlined; a prediction is solid. No colour either way. */
+.kind-hunch {
+  @apply inline-flex items-center rounded-full border border-dashed border-neutral-400 bg-transparent px-2 py-0.5 text-xs font-semibold text-neutral-600;
+}
+.kind-prediction {
+  @apply inline-flex items-center rounded-full border border-ink bg-ink px-2 py-0.5 text-xs font-semibold text-white;
+}
+
+/* Small labels that carry one of the four meanings. */
+.tone-info {
+  @apply bg-info-soft text-info-text;
+}
+.tone-change {
+  @apply bg-change-soft text-change-text;
+}
+.tone-positive {
+  @apply bg-positive-soft text-positive-text;
+}
+.tone-negative {
+  @apply bg-negative-soft text-negative-text;
+}
+.tone-plain {
+  @apply bg-neutral-100 text-neutral-600;
+}
+
+/* menus and popovers sit on top of other glass, so they are less see-through */
+.glass-pop {
+  background-color: rgb(255 255 255 / 0.93);
+  background-image: var(--brand-blobs-faint);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid rgb(var(--ink) / 0.1);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 10px 30px -10px rgb(var(--ink) / 0.25);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .glass-pop {
+    background-color: #ffffff;
+    background-image: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: rgb(var(--ink) / 0.35);
+  }
+}
+
+/* The API reference (Swagger UI) comes with its own colours for each kind
+   of request. They mean nothing here, so they are greys. */
+.swagger-ui,
+.swagger-ui .info .title,
+.swagger-ui .opblock-tag,
+.swagger-ui .opblock .opblock-summary-description,
+.swagger-ui .opblock .opblock-summary-path,
+.swagger-ui table thead tr td,
+.swagger-ui table thead tr th,
+.swagger-ui .parameter__name,
+.swagger-ui .response-col_status,
+.swagger-ui .btn,
+.swagger-ui label,
+.swagger-ui .tab li,
+.swagger-ui section.models h4,
+.swagger-ui .opblock .opblock-section-header h4 {
+  color: rgb(var(--ink));
+  font-family: "Source Sans 3 Variable", ui-sans-serif, system-ui, sans-serif;
+}
+.swagger-ui .opblock .opblock-summary-path,
+.swagger-ui .opblock .opblock-summary-method,
+.swagger-ui code,
+.swagger-ui pre,
+.swagger-ui .parameter__type,
+.swagger-ui .prop-type {
+  font-family: "Source Code Pro Variable", ui-monospace, monospace;
+}
+.swagger-ui .opblock,
+.swagger-ui .opblock.opblock-get,
+.swagger-ui .opblock.opblock-post,
+.swagger-ui .opblock.opblock-put,
+.swagger-ui .opblock.opblock-patch,
+.swagger-ui .opblock.opblock-delete {
+  background: #fbfbfd;
+  border-color: #e6e9f0;
+  box-shadow: none;
+}
+.swagger-ui .opblock .opblock-summary,
+.swagger-ui .opblock .opblock-section-header {
+  border-color: #e6e9f0;
+  background: transparent;
+  box-shadow: none;
+}
+.swagger-ui .opblock .opblock-summary-method {
+  background: rgb(var(--ink)) !important;
+  color: #fff;
+}
+.swagger-ui .opblock.opblock-get .opblock-summary-method,
+.swagger-ui .opblock.opblock-delete .opblock-summary-method {
+  background: #5a6577 !important;
+}
+.swagger-ui .opblock .tab-header .tab-item.active h4 span::after,
+.swagger-ui .opblock.opblock-get .tab-header .tab-item.active h4 span::after,
+.swagger-ui .opblock.opblock-post .tab-header .tab-item.active h4 span::after {
+  background: rgb(var(--ink));
+}
+.swagger-ui .btn.authorize,
+.swagger-ui .btn.execute,
+.swagger-ui .btn.try-out__btn,
+.swagger-ui .btn.cancel {
+  color: rgb(var(--ink));
+  border-color: rgb(var(--ink));
+  background: #fff;
+}
+.swagger-ui .btn.execute {
+  background: rgb(var(--ink));
+  color: #fff;
+}
+.swagger-ui .btn.authorize svg,
+.swagger-ui .authorization__btn svg,
+.swagger-ui .opblock-summary-control svg {
+  fill: rgb(var(--ink));
+}
+.swagger-ui .info .title small,
+.swagger-ui .info .title small.version-stamp {
+  background: #5a6577;
+}
+.swagger-ui .info a,
+.swagger-ui a.nostyle,
+.swagger-ui .info .base-url {
+  color: #465064;
+}
+.swagger-ui .parameter__name.required::after,
+.swagger-ui .parameter__name.required span {
+  color: #b91c1c; /* red = required, an error if left out */
+}
+.swagger-ui .response-control-media-type--accept-controller select,
+.swagger-ui select {
+  border-color: #cbd1db;
+  box-shadow: none;
+}
+.swagger-ui .response-control-media-type__accept-message {
+  color: #465064;
+}
+
+.swagger-ui .opblock,
+.swagger-ui .opblock.opblock-get,
+.swagger-ui .opblock.opblock-post,
+.swagger-ui .opblock.opblock-put,
+.swagger-ui .opblock.opblock-patch,
+.swagger-ui .opblock.opblock-delete {
+  background: #fbfbfd !important;
+  border-color: #e6e9f0 !important;
+}
+.swagger-ui .opblock .opblock-summary {
+  border-color: #e6e9f0 !important;
+}
+.swagger-ui .btn.authorize {
+  color: rgb(var(--ink)) !important;
+  border-color: rgb(var(--ink)) !important;
+}
+.swagger-ui .btn.authorize svg {
+  fill: rgb(var(--ink)) !important;
+}
+.swagger-ui .info .title small,
+.swagger-ui .info .title small.version-stamp {
+  background-color: #5a6577 !important;
+}
+.swagger-ui .info .title small pre {
+  color: #fff;
 }

@@ -358,7 +358,7 @@ export function Predict({
 
   // used to calculate width of TagsSelect menu
   const containerRef = useRef<HTMLDivElement>(null)
-  const purpleOutline = "solid 2px #4338ca"
+  const purpleOutline = "solid 2px #1B2230"
 
   return (
     <div className="w-full">

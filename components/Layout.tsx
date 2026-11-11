@@ -22,9 +22,7 @@ export function Layout({
   showNavbar?: boolean
   showCreateAccountButton?: boolean
 }) {
-  const main = (
-    <main className="bg-neutral-50 grow pb-8 lg:pb-12">{children}</main>
-  )
+  const main = <main className="bg-white grow pb-8 lg:pb-12">{children}</main>
   return (
     <>
       <div className="flex flex-col min-h-screen ">
@@ -60,7 +58,7 @@ function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="btm-nav ring-1 ring-neutral-100 z-[500] lg:hidden"
+      className="btm-nav glass !border-x-0 !border-b-0 z-[500] lg:hidden"
     >
       {[
         { path: "/", title: "Home", icon: <HomeIcon width={24} /> },
@@ -81,7 +79,12 @@ function BottomNav() {
           aria-label={title}
           title={title}
           aria-current={router.pathname === path ? "page" : undefined}
-          className={clsx("text-primary", router.pathname === path && "active")}
+          className={clsx(
+            "bg-transparent",
+            router.pathname === path
+              ? "active text-ink !border-ink"
+              : "text-neutral-400",
+          )}
           onClick={() => void router.push(path)}
         >
           {icon}

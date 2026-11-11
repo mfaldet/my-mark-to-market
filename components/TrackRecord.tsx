@@ -139,7 +139,10 @@ export function TrackRecord({
                 },
                 { details: scoreDetails?.overallDetails, title: "All time" },
               ].map(({ details, title }) => (
-                <div key={title} className="stats shadow overflow-x-clip">
+                <div
+                  key={title}
+                  className="stats glass rounded-xl overflow-x-clip"
+                >
                   <div className="stat">
                     <div className="stat-title flex flex-row gap-0.5 md:gap-1">
                       Brier score
@@ -150,7 +153,7 @@ export function TrackRecord({
                     </div>
                     <div
                       className={clsx(
-                        "stat-value",
+                        "stat-value num",
                         !details?.brierScore && "text-neutral-500",
                       )}
                     >
@@ -237,14 +240,14 @@ function AbsoluteScoreOverTimeChart({
           <Line
             type="monotone"
             dataKey="absoluteScore"
-            fill="#8884d8"
+            fill="#6E7A8E"
             strokeWidth={0}
             isAnimationActive={false}
           />
           <Line
             type="monotone"
             dataKey="rollingAverage"
-            stroke="#82ca9d"
+            stroke="#1B2230"
             strokeWidth={1.5}
             dot={false}
             isAnimationActive={false}
@@ -274,10 +277,11 @@ export function ForecastsCalendarHeatmap({
         <GitHubCalendar
           values={forecasts.data?.dateCounts || {}}
           panelColors={[
-            "#f0f0f0", // background
-            "#86efac", // count=1
-            "#4ade80", // count=2
-            "#22c55e", // count=3+
+            // greys: this chart counts activity, it does not say right or wrong
+            "#F2F4F8", // background
+            "#CBD1DB", // count=1
+            "#6E7A8E", // count=2
+            "#1B2230", // count=3+
           ]}
           until={getDateYYYYMMDD(new Date())}
           monthLabelAttributes={{}}

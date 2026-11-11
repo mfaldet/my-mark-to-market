@@ -161,7 +161,7 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: "/signin", error: "/signin" },
   theme: {
     colorScheme: "light",
-    brandColor: "#4338ca",
+    brandColor: "#1B2230",
     logo: `${getBaseUrl()}/logo.png`,
   },
   secret: process.env.SECRET,
