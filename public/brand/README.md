@@ -10,9 +10,13 @@ Two versions of the artwork are used:
   square: `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png` and
   `icon-512-maskable.png` (artwork shrunk into the safe zone)
 - **transparent**, just the bubble and arrow, everywhere else: `mark.svg`
-  (the header and the browser tab), `favicon-16.png`, `favicon-32.png`,
-  `/favicon.ico`, `icon-1024.png` (the master) and `link-preview.png`
+  (the header), `icon-1024.png` (the master) and `link-preview.png`
   (1200x630, on white)
+- **the browser tab** has its own version, because it is tiny and may sit
+  on a dark tab: `tab-icon.svg`, `favicon-16.png`, `favicon-32.png` and
+  `/favicon.ico` (16/32/48). Heavier lines (bubble 64, arrow 76, instead of
+  42 and 54), and the inside of the bubble filled with the pale colour.
+  Outside the bubble stays transparent
 
 The blue-to-teal of the arrow belongs to the logo only. Nothing else in the
 app uses it.

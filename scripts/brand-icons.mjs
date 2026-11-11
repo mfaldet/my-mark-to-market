@@ -12,9 +12,11 @@
  *   transparent  just the bubble and arrow, for everywhere else
  *
  * Writes, in public/brand/:
- *   mark.svg                 transparent, cropped close: the header and the browser tab
+ *   mark.svg                 transparent, cropped close: the header
  *   icon-1024.png            transparent master
- *   favicon-32.png, favicon-16.png   transparent
+ *   tab-icon.svg, favicon-32.png, favicon-16.png
+ *                            the browser tab: heavier lines, and the inside
+ *                            of the bubble filled so it shows on dark tabs
  *   apple-touch-icon.png     180, filled: a full square, no transparency or
  *                            rounded corners, because iOS rounds it itself
  *   icon-192.png, icon-512.png       filled
@@ -61,11 +63,23 @@ const maskable = filled
   )
   .replace("</svg>", "</g>\n</svg>")
 
-/** Optional heavier lines, for sizes where the outline would thin out. */
-export const heavier = (svg, bubble = 64, arrow = 76) =>
-  svg
-    .replace('stroke-width="42"', `stroke-width="${bubble}"`)
-    .replace('stroke-width="54"', `stroke-width="${arrow}"`)
+// The browser tab (16 and 32 px, and the .ico) gets its own version:
+//   - heavier lines, because the outline thins to grey at 16 px as drawn
+//   - the inside of the bubble filled with the pale colour, so the icon
+//     still shows on a dark tab. Outside the bubble stays transparent.
+if (
+  !mark.includes('fill="none" stroke="#121417" stroke-width="42"') ||
+  !mark.includes('stroke-width="54"')
+) {
+  throw new Error("app-icon.svg: the bubble or arrow is not drawn as expected")
+}
+const tab = mark
+  .replace(
+    'fill="none" stroke="#121417" stroke-width="42"',
+    'fill="#F1F6F6" stroke="#121417" stroke-width="64"',
+  )
+  .replace('stroke-width="54"', 'stroke-width="76"')
+fs.writeFileSync(dir + "tab-icon.svg", tab)
 
 const font = (file) =>
   fs
@@ -96,9 +110,9 @@ const png = (svg, out, size, background) =>
   )
 
 await png(transparent, "icon-1024.png", 1024)
-await png(mark, "favicon-32.png", 32)
-await png(mark, "favicon-16.png", 16)
-await png(mark, "favicon-48.png", 48)
+await png(tab, "favicon-32.png", 32)
+await png(tab, "favicon-16.png", 16)
+await png(tab, "favicon-48.png", 48)
 await png(filled, "apple-touch-icon.png", 180, "#F1F6F6")
 await png(filled, "icon-192.png", 192, "#F1F6F6")
 await png(filled, "icon-512.png", 512, "#F1F6F6")
