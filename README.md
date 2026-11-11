@@ -46,6 +46,7 @@ It is also a portfolio piece: I took a working open-source app, read it, and ext
 | Append-only history          | Every change writes a full snapshot, chained to the one before by a hash, with a button that re-checks the chain                                                                                                                                                                                                                                     | `lib/claims/history.ts`                                                        |
 | Where it came from           | A link from a prediction back to the hunch it grew out of                                                                                                                                                                                                                                                                                            | `lib/claims/service.ts`                                                        |
 | Preview before saving        | With Claude, and on the web when the AI step is on, the proposed sharpening is shown first with the grade it would get. Nothing is saved until I approve it; what I approve is saved as mine, dated when I first said it                                                                                                                             | `previewClaim` in `lib/claims/service.ts`, `components/claims/PreviewCard.tsx` |
+| Daily backups                | A read-only export of everything (withdrawn items, every version with its hash chain, confidence history, account settings; never keys or tokens), behind its own token. A private repo fetches it daily, runs the hash-chain check and keeps it as one readable file per item, with a tested restore script                                         | `lib/backup/export.ts`, `pages/api/backup/export.ts`                           |
 | Logging from anywhere        | API endpoints, a hosted MCP server for Claude, and an iPhone Shortcut. Each item records how it came in: web, API, phone or agent                                                                                                                                                                                                                    | `lib/web/claims_api_router.ts`, `lib/mcp/server.ts`                            |
 | A public track record        | A JSON feed and an embeddable page showing only the predictions I have shared                                                                                                                                                                                                                                                                        | `lib/claims/public_record.ts`                                                  |
 
@@ -153,16 +154,17 @@ RUN_LIVE_AI=1 npx dotenv -- npx jest extract.live   # the AI step against the re
 
 It is built for Vercel plus a hosted Postgres. Set at least:
 
-| Variable                               | What it is                                                                               |
-| -------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `DATABASE_URL`, `DATABASE_DIRECT_URL`  | Your Postgres                                                                            |
-| `SECRET`                               | Any long random string                                                                   |
-| `NEXT_PUBLIC_BASE_URL`                 | Your public address, e.g. `https://claims.example.com`                                   |
-| `NEXTAUTH_URL`                         | The same address followed by `/api/auth`                                                 |
-| `AUTH_EMAIL_SERVER`, `AUTH_EMAIL_FROM` | An SMTP account for sign-in emails, or use `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` |
-| `CRON_SECRET`                          | Any long random string. Lets Vercel run the daily "ready to resolve" job                 |
-| `ALLOWED_SIGNIN_EMAILS`                | Your own email address. Stops anyone else signing in or creating an account              |
-| `ANTHROPIC_API_KEY`                    | Optional. Switches the AI step on                                                        |
+| Variable                               | What it is                                                                                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`, `DATABASE_DIRECT_URL`  | Your Postgres                                                                                                                                                             |
+| `SECRET`                               | Any long random string                                                                                                                                                    |
+| `NEXT_PUBLIC_BASE_URL`                 | Your public address, e.g. `https://claims.example.com`                                                                                                                    |
+| `NEXTAUTH_URL`                         | The same address followed by `/api/auth`                                                                                                                                  |
+| `AUTH_EMAIL_SERVER`, `AUTH_EMAIL_FROM` | An SMTP account for sign-in emails, or use `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`                                                                                  |
+| `CRON_SECRET`                          | Any long random string. Lets Vercel run the daily "ready to resolve" job                                                                                                  |
+| `ALLOWED_SIGNIN_EMAILS`                | Your own email address. Stops anyone else signing in or creating an account                                                                                               |
+| `ANTHROPIC_API_KEY`                    | Optional. Switches the AI step on                                                                                                                                         |
+| `BACKUP_TOKEN`                         | Optional. Any long random string, different from the others. Lets the daily backup read everything from `/api/backup/export`; without it the export refuses every request |
 
 `.env.example` lists every variable, including the feature switches.
 
