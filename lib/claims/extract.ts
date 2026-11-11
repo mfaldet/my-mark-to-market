@@ -217,7 +217,9 @@ export async function extractClaim(
   try {
     const response = await client.messages.create({
       model,
-      max_tokens: 2000,
+      // The answer is short, but the model thinks first and that counts
+      // against this limit too: leave room so the answer is not cut off.
+      max_tokens: 8000,
       // a short extraction: keep the model's reasoning brief and cheap
       output_config: {
         effort: "low",
@@ -252,7 +254,13 @@ export async function extractClaim(
       return manual("Could not reach the AI.")
     }
     if (error instanceof Anthropic.APIError) {
-      return manual(`The AI returned an error (${error.status ?? "unknown"}).`)
+      // the server's own words say what was wrong with the request
+      console.error("extractClaim: API error", error.status, error.message)
+      return manual(
+        `The AI returned an error (${error.status ?? "unknown"}): ${String(
+          error.message,
+        ).slice(0, 200)}`,
+      )
     }
     if (error instanceof SyntaxError) {
       return manual("The AI's answer could not be read.")

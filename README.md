@@ -1,10 +1,22 @@
 # My Mark-to-Market
 
+[![Checks](https://github.com/mfaldet/my-mark-to-market/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/mfaldet/my-mark-to-market/actions/workflows/test.yml)
+
 A personal tracker for my hunches and predictions: what I said, when I said it, how sure I was, and how it turned out.
+
+**[Open the live app](https://my-mark-to-market.vercel.app)** (sign-in is limited to me) · **[My public track record](https://my-mark-to-market.vercel.app/embed/track-record/cmwb5p4w90000126d06tk8ex2)**
 
 Built on [Fatebook](https://fatebook.io) by [Sage](https://sage-future.org), under the [MIT license](LICENSE).
 
-![Logging a hunch: the grade, the one question the app asks, and each outcome part with its status](docs/images/log-claim.png)
+## At a glance
+
+- **What it is.** A place to write down a hunch in my own words the moment I say it, sharpen it into a prediction that can be checked, and later mark it right or wrong.
+- **What I added to Fatebook.** A standard for what counts as a checkable prediction, a 1 to 5 grade worked out by plain code, a clean headline over my raw words, and a public track record. [The full list is below.](#what-fatebook-already-did-and-what-i-added)
+- **How hunches come in.** The web app, Claude (through a built-in MCP server) and an iPhone Shortcut. All three go through one service, so the rules are the same everywhere.
+- **A locked history.** Every change is a new version, chained to the one before by a hash. The database refuses edits and deletes, and a daily backup re-checks every chain. [What that does and does not prove.](#what-the-history-does-and-does-not-prove)
+- **Tests.** About 480 automated tests, including ones that run against a real Postgres. GitHub runs the type check, lint and all of them on every change.
+
+![Logging a hunch: the preview with a proposed headline, my original words underneath, the grade and each outcome part](docs/images/log-claim.png)
 
 ## What it is and why I built it
 
@@ -31,29 +43,32 @@ It is also a portfolio piece: I took a working open-source app, read it, and ext
 
 **I added**
 
-|                              | What                                                                                                                                                                                                                                                                                                                                                 | Where                                                                          |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| A standard for what I said   | The text kept in my own words, the date I said it separate from the logged date, and an outcome stored as one of five shapes with the parts that shape needs                                                                                                                                                                                         | `lib/claims/types.ts`                                                          |
-| A headline over my words     | Claude (or the AI step) rewrites what I said into one clear, sharp sentence. I approve or steer it, and the approved headline is what shows everywhere. My raw words are saved underneath, unchanged, and shown as "Originally said" (on the public track record too, behind a toggle under each headline). An entry with no headline shows my words | `lib/claims/service.ts`, `components/claims/PreviewCard.tsx`                   |
-| Honest provenance            | Every outcome part is marked _stated_ (I said it), _extracted_ (the AI read it from my text) or _working_ (a default I accepted), and I can confirm each one                                                                                                                                                                                         | `components/claims/ClaimPanel.tsx`                                             |
-| A grade from 1 to 5          | Plain code, no AI: the same words always get the same grade. An outcome that is really two predictions ("if … then", "and/or") or an event with no stated way to tell stays below grade 4. Sharper terms than mine in the outcome are fine: that is the point                                                                                        | `lib/claims/grade.ts`                                                          |
-| One question at a time       | The most important gap, with a one-tap default where one makes sense, and never more than three                                                                                                                                                                                                                                                      | `lib/claims/next_question.ts`                                                  |
-| Confidence words             | "likely", "toss-up", "almost no chance" and so on, each mapped to a range; and a rule for when a percentage is confidence and when it is just a number in the text                                                                                                                                                                                   | `lib/claims/confidence.ts`                                                     |
-| Deadlines from the date said | "This year" in a hunch voiced in July 2025 means December 31, 2025, whenever I log it                                                                                                                                                                                                                                                                | `lib/claims/dates.ts`                                                          |
-| My time zone                 | "Today", the date I said something, due lines and the daily job all use the time zone saved on my account (default America/Chicago), so an entry logged at 8:30pm is dated that day, not the next. API and connector calls can pass their own                                                                                                        | `lib/claims/timezone.ts`                                                       |
-| Close calls                  | "About 6%" that lands at 5.8% is scored wrong, and marked as a near miss                                                                                                                                                                                                                                                                             | `lib/claims/tolerance.ts`                                                      |
-| A publish gate               | Private by default. Public only at grade 4 or 5 with every part confirmed. An edit that would break that is blocked, never silently fixed                                                                                                                                                                                                            | `lib/claims/service.ts`                                                        |
-| Append-only history          | Every change writes a full snapshot, chained to the one before by a hash, with a button that re-checks the chain                                                                                                                                                                                                                                     | `lib/claims/history.ts`                                                        |
-| Where it came from           | A link from a prediction back to the hunch it grew out of                                                                                                                                                                                                                                                                                            | `lib/claims/service.ts`                                                        |
-| Preview before saving        | With Claude, and on the web when the AI step is on, the proposed sharpening is shown first with the grade it would get. Nothing is saved until I approve it; what I approve is saved as mine, dated when I first said it                                                                                                                             | `previewClaim` in `lib/claims/service.ts`, `components/claims/PreviewCard.tsx` |
-| Daily backups                | A read-only export of everything (withdrawn items, every version with its hash chain, confidence history, account settings; never keys or tokens), behind its own token. A private repo fetches it daily, runs the hash-chain check and keeps it as one readable file per item, with a tested restore script                                         | `lib/backup/export.ts`, `pages/api/backup/export.ts`                           |
-| Logging from anywhere        | API endpoints, a hosted MCP server for Claude, and an iPhone Shortcut. Each item records how it came in: web, API, phone or agent                                                                                                                                                                                                                    | `lib/web/claims_api_router.ts`, `lib/mcp/server.ts`                            |
-| A public track record        | A JSON feed and an embeddable page showing only the predictions I have shared                                                                                                                                                                                                                                                                        | `lib/claims/public_record.ts`                                                  |
+One line each. [More detail on each row](docs/what-i-added.md).
+
+|                              | What                                                                       | Where                               |
+| ---------------------------- | -------------------------------------------------------------------------- | ----------------------------------- |
+| A standard for what I said   | My words, the date I said them, and an outcome in one of five shapes       | `lib/claims/types.ts`               |
+| A headline over my words     | A clean sentence I approve, shown everywhere; my raw words kept underneath | `lib/claims/service.ts`             |
+| Honest provenance            | Every outcome part is marked as stated by me, read by the AI, or a default | `components/claims/ClaimPanel.tsx`  |
+| A grade from 1 to 5          | Plain code, no AI: the same words always get the same grade                | `lib/claims/grade.ts`               |
+| One question at a time       | The most important gap, never more than three questions                    | `lib/claims/next_question.ts`       |
+| Confidence words             | "likely", "toss-up" and so on, each mapped to a range                      | `lib/claims/confidence.ts`          |
+| Deadlines from the date said | "This year" means the year I said it, whenever I log it                    | `lib/claims/dates.ts`               |
+| My time zone                 | Dates follow the time zone saved on my account                             | `lib/claims/timezone.ts`            |
+| Close calls                  | "About 6%" landing at 5.8% is wrong, and marked a near miss                | `lib/claims/tolerance.ts`           |
+| A publish gate               | Private by default; public only at grade 4 or 5, fully confirmed           | `lib/claims/service.ts`             |
+| Append-only history          | Every change is a full snapshot in a hash chain that can be re-checked     | `lib/claims/history.ts`             |
+| Where it came from           | A link from a prediction back to the hunch it grew out of                  | `lib/claims/service.ts`             |
+| Preview before saving        | The sharpening is shown first; nothing is saved until I approve            | `components/claims/PreviewCard.tsx` |
+| Daily backups                | A read-only export behind its own token, kept in a private repo            | `lib/backup/export.ts`              |
+| Logging from anywhere        | An API, an MCP server for Claude and an iPhone Shortcut                    | `lib/mcp/server.ts`                 |
+| A public track record        | A JSON feed and a page showing only predictions I made public              | `lib/claims/public_record.ts`       |
 
 **I changed in Fatebook itself**
 
 - The site address comes from an environment variable instead of being fixed to `fatebook.io`.
 - API keys are generated securely, stored only as a hash, and can be sent in a header.
+- **A security fix.** Fatebook shipped the key for its scheduled jobs inside `vercel.json`, in a public repo, and a request with no key at all was let through whenever the key was not set on the server. Both are fixed here: the secret (`CRON_SECRET`) lives only in the server's settings and is sent in a header, and with no secret set every request is refused (`lib/cron_auth.ts`). I reported it to Sage privately.
 - Delete became "withdraw": hidden everywhere, but kept with its history.
 - Slack, Discord, the browser extension, teams, tournaments, the public feed and Sage's own pages are switched off behind flags in `lib/features.ts`. No code was deleted; setting a flag to `true` brings a feature back.
 - GitHub now runs the type check, lint and database tests, not only the unit tests.
@@ -90,7 +105,7 @@ flowchart TD
 
 The important line is the one in the middle. The web app, the API and the MCP server all call the same service (`lib/claims/service.ts`), so they cannot disagree about a grade, the publish gate or what goes into the history.
 
-The AI step is deliberately small. It picks the shape of the outcome and reads the parts out of my text, and everything it returns is marked "extracted" until I confirm it. It does not grade, does not decide the deadline and does not read my confidence; plain code does those, so the answers are repeatable. Without an API key the app works the same and I fill the fields in by hand.
+The AI step is deliberately small. It picks the shape of the outcome, reads the parts out of my text and proposes a headline, and everything it returns is marked "extracted" and shown as a preview until I approve it. It does not grade, does not decide the deadline and does not read my confidence; plain code does those, so the answers are repeatable. Without an API key the app works the same and I fill the fields in by hand.
 
 ## What it looks like
 
@@ -98,15 +113,15 @@ The AI step is deliberately small. It picks the shape of the outcome and reads t
 
 ![A hunch after answering the app's first question](docs/images/hunch-question.png)
 
-**The timeline and history check.** Every version, what changed, how it came in, and the result of recomputing the hash chain.
+**A prediction with a headline.** The approved headline on top, my original words underneath, and the timeline: every version, what changed, how it came in, and the result of recomputing the hash chain.
 
-![A timeline showing a hunch becoming a prediction](docs/images/timeline.png)
+![A prediction's detail page with its headline, original words and timeline](docs/images/timeline.png)
 
 **The public track record.** Only predictions I have made public. This is the page my own site embeds.
 
 ![The public track record page](docs/images/public-record.png)
 
-_These screenshots were taken from the app running locally, with a stand-in for the Claude API returning the shape and parts._
+_These screenshots were taken from the app running locally with test entries, and a stand-in for the Claude API proposing the headline and parts._
 
 ## What the history does and does not prove
 
@@ -140,7 +155,7 @@ AUTH_EMAIL_SERVER=smtp://localhost:1025 AUTH_EMAIL_FROM=app@localhost \
 npx dotenv -- next dev -p 3000
 ```
 
-To switch the AI step on, add `ANTHROPIC_API_KEY=...` to `.env`. It uses a small model by default; set `CLAIM_AI_MODEL` to change it.
+To switch the AI step on, add `ANTHROPIC_API_KEY=...` to `.env`. It uses a small model by default; set `CLAIM_AI_MODEL` to change it. If the step is asked and adds nothing, the answer to that log or preview says why.
 
 ### Tests
 
@@ -176,16 +191,16 @@ Two things that will fail a deploy:
 ## Connect Claude and your phone
 
 - **Claude** (Claude Code, and the web, desktop and phone apps): [docs/connect-claude.md](docs/connect-claude.md)
-- **iPhone Shortcut** that dictates a hunch and shows the app's first question: [docs/iphone-shortcut.md](docs/iphone-shortcut.md)
-- **Your own scripts:** sign in and open **Connect** in the menu for your key and interactive documentation of every endpoint.
+- **iPhone Shortcut** that takes a hunch by voice or keyboard, lets me check it, and shows the grade: [docs/iphone-shortcut.md](docs/iphone-shortcut.md)
+- **Your own scripts:** sign in and open **Claude, iPhone and scripts** in the menu for your key and interactive documentation of every endpoint.
 
 ## Honest limits
 
-- The AI step has been tested with a stand-in for the Claude API, not yet against the real one. `extract.live.test.ts` does that once a key is available.
-- The MCP server is tested with the official MCP client library. I have used it from the Claude app for my first real entries; what that showed (dates a day ahead, compound outcomes graded as predictions) is fixed and covered by tests built from those entries.
+- **The app's own AI step is not working in production yet.** The key is set, but a live check on November 11, 2026 showed the step adding nothing to any entry, whether it came from the web, the phone or the API. The step is the same for all three, so this is not a phone problem. Until this change the app discarded the reason; it now reports it in the answer to every log and preview, which is how the cause will be found. Logging through Claude is not affected: there Claude does the sharpening and the app only grades it. `extract.live.test.ts` runs the step against the real API when a key is available on the machine running the tests.
+- The MCP server is tested with the official MCP client library, and I use it from the Claude app for my real entries. What the first ones showed (dates a day ahead, compound outcomes graded as predictions) is fixed and covered by tests built from those entries.
+- The iPhone Shortcut is built and in use on my own phone. It has been tried on one phone and one iOS version.
 - The check for "more than one prediction" is pattern matching, not understanding. It will miss some cases and occasionally stop a fine one.
 - Nothing checks that a headline or outcome means the same thing as my raw words. That is deliberate: sharpening is the point, I approve every headline, and my raw words stay on record beside it.
-- The iPhone Shortcut instructions have not been built on a phone.
 - The MCP server signs in with an API key. It does not implement OAuth.
 - Confidence words are read by plain pattern matching, so a word that is part of the hunch itself ("the Fed says a cut is likely") is read as my confidence. The app shows what it read so I can correct it.
 

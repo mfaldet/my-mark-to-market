@@ -85,6 +85,12 @@ const claim = z.object({
         "The approved clean statement shown everywhere, or null when there is none yet",
     })
     .nullable(),
+  aiNote: z
+    .string({
+      description:
+        "Only when logging: why the AI step added nothing, if it was asked and could not read your words",
+    })
+    .nullish(),
   shown: z.string({
     description: "The headline, or your words when there is none",
   }),

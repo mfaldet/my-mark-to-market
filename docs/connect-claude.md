@@ -6,12 +6,25 @@ My Mark-to-Market includes an MCP server, so Claude can log your hunches, help s
 https://YOUR-APP-ADDRESS/api/mcp
 ```
 
-It offers ten tools: `preview_claim`, `log_claim`, `confirm_proposal`, `edit_claim`, `withdraw_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a hunch or prediction, and Claude is told to say "hunch" and "prediction" to you. Everything Claude logs is recorded as entered through an **agent**, which shows on the claim and in its history.
+It offers ten tools: `preview_claim`, `log_claim`, `confirm_proposal`, `edit_claim`, `withdraw_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a hunch or prediction, and Claude is told to say "hunch" and "prediction" to you. Everything Claude logs is recorded as entered through an **agent**, which shows on the item and in its history.
+
+| Tool                | What it does                                                                        |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `preview_claim`     | Shows how a hunch and Claude's proposed sharpening would be graded. Saves nothing   |
+| `log_claim`         | Saves what you approved. Refuses a headline or proposal that is not marked approved |
+| `confirm_proposal`  | Confirms or corrects the unconfirmed parts of an item that is already saved         |
+| `edit_claim`        | Changes a headline, outcome parts or dates, as a recorded version                   |
+| `withdraw_claim`    | Hides an item. Nothing is deleted; it keeps its history                             |
+| `answer_question`   | Gives your reply to the question the app is asking about an item                    |
+| `update_confidence` | Records how sure you are now, with an optional reason                               |
+| `link_parent`       | Links a prediction to the earlier hunch it grew out of                              |
+| `list_claims`       | Lists your items, or what is due soon or overdue                                    |
+| `resolve_claim`     | Records how a prediction turned out: right, wrong or can't tell                     |
 
 ## Before you start
 
 1. Deploy the app and sign in.
-2. Open **API** in the menu (`/api-setup`) and click **Generate**. Copy the key; it is shown only once.
+2. Open **Claude, iPhone and scripts** in the menu (`/api-setup`) and click **Generate**. Copy the key; it is shown only once.
 
 In the steps below, replace `YOUR-APP-ADDRESS` with your address and `YOUR_API_KEY` with that key.
 
@@ -47,7 +60,11 @@ At the time of writing, request headers on custom connectors are in beta and not
 https://YOUR-APP-ADDRESS/api/mcp?key=YOUR_API_KEY
 ```
 
-**Know the trade-off.** A key in an address can end up in server logs and in anything that records addresses. That is why this is off by default. If you use it, treat the address itself as the secret, and regenerate your key on the API page if it is ever exposed. The proper fix is OAuth sign-in, which this server does not implement yet.
+**Know the trade-off.** A key in an address can end up in server logs and in anything that records addresses. That is why this is off by default. If you use it, treat the address itself as the secret, and regenerate your key on the same page if it is ever exposed. The proper fix is OAuth sign-in, which this server does not implement yet.
+
+## Picking up changes: "Refresh tool list"
+
+Claude reads the tool list and the instructions once, when the connector is added. After the app is updated, open **Settings → Connectors**, choose this connector and click **Refresh tool list**. Until you do, Claude keeps using the old tools and the old instructions. In Claude Code, restart the session or run `/mcp` and reconnect.
 
 ## How Claude is told to behave
 
@@ -66,6 +83,7 @@ https://YOUR-APP-ADDRESS/api/mcp?key=YOUR_API_KEY
 - Change the headline, outcome parts or dates later with `edit_claim` (this is also how to add a headline to an older item). Your raw words are changed only when you say they were recorded wrongly.
 - Withdraw, never delete.
 - Record how a prediction turned out only when you say. A hunch can't be resolved.
+- When talking about an item, use its headline; mention your raw words only if you ask what you originally said.
 
 The app enforces the main rule itself: `log_claim` refuses a proposal that is not marked as approved, and saves nothing.
 
@@ -93,13 +111,14 @@ Dates follow the time zone saved on your account (the default is America/Chicago
 
 ## What has and has not been tested
 
-The endpoint was tested with the official MCP client library: sign-in, the tool list and the tools. It has **not** yet been tested from inside the Claude apps themselves, so the app steps above follow Anthropic's documentation and may need small adjustments.
+The endpoint is tested with the official MCP client library: sign-in, the tool list and every tool. I also use it from the Claude app for my real entries, through a custom connector with the key in a request header. The address-key fallback has only been tested locally.
 
 ## Troubleshooting
 
-| What you see                       | Likely cause                                                                        |
-| ---------------------------------- | ----------------------------------------------------------------------------------- |
-| "Missing or unknown API key"       | The key is wrong, was regenerated, or the header value is missing the word `Bearer` |
-| Claude connects but shows no tools | The address is missing `/api/mcp`                                                   |
-| 401 with `?key=` in the address    | `MCP_ALLOW_URL_KEY` is not set to `true` on the deployment                          |
-| "Method not allowed"               | Something opened the address in a browser. It only answers MCP requests             |
+| What you see                                 | Likely cause                                                                        |
+| -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| "Missing or unknown API key"                 | The key is wrong, was regenerated, or the header value is missing the word `Bearer` |
+| Claude connects but shows no tools           | The address is missing `/api/mcp`                                                   |
+| 401 with `?key=` in the address              | `MCP_ALLOW_URL_KEY` is not set to `true` on the deployment                          |
+| "Method not allowed"                         | Something opened the address in a browser. It only answers MCP requests             |
+| Claude uses old wording or is missing a tool | The app was updated after the connector was added. Click **Refresh tool list**      |

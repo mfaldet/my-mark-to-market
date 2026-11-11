@@ -92,6 +92,8 @@ export function summarize(claim: ClaimView) {
     ...(claim.compound
       ? { split: "needed: this holds more than one prediction" }
       : {}),
+    // the app's own AI step was asked to read the words and added nothing
+    ...(claim.aiNote ? { appAiStep: `added nothing: ${claim.aiNote}` } : {}),
     shape: claim.shape,
     outcome: Object.fromEntries(
       Object.entries(claim.parts).map(([name, part]) => [

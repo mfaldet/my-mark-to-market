@@ -163,6 +163,11 @@ export type ClaimView = {
   gradeReason: string
   /** true when the outcome holds more than one prediction and should be split */
   compound: boolean
+  /**
+   * Only on the answer to logging or previewing: why the AI step added
+   * nothing, when it was asked to read my words and could not. Not stored.
+   */
+  aiNote?: string | null
   missing: PartName[]
   canPublish: boolean
   publishBlockers: string[]
@@ -681,6 +686,11 @@ async function planClaim(input: LogClaimInput) {
     (input.proposal
       ? extractionFrom(input.proposal)
       : await extractClaim({ text, claimDate }))
+  // the AI step was asked and came back empty-handed: say why
+  const aiNote =
+    !input.extraction && !input.proposal && extraction.source === "manual"
+      ? extraction.note ?? null
+      : null
   const headline = input.headline?.trim() || null
   // what a preview shows: my approved headline, or the one the AI proposes
   const proposedHeadline = headline ?? extraction.headline?.trim() ?? null
@@ -752,6 +762,7 @@ async function planClaim(input: LogClaimInput) {
     claimDate,
     parent,
     extraction,
+    aiNote,
     analysis,
     probability,
     confidenceWord,
@@ -802,7 +813,7 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
     await writeVersion(tx, created, input.userId, input.source)
     return created
   })
-  return toClaimView(row, plan.now, plan.zone)
+  return { ...toClaimView(row, plan.now, plan.zone), aiNote: plan.aiNote }
 }
 
 /** What a preview returns: the same view logging would, minus an id. Nothing is saved. */
@@ -857,7 +868,7 @@ export async function previewClaim(
   } as unknown as ClaimRow
   // eslint-disable-next-line no-unused-vars
   const { id, url, ...view } = toClaimView(row, plan.now, plan.zone)
-  return { ...view, saved: false }
+  return { ...view, aiNote: plan.aiNote, saved: false }
 }
 
 // --- Reading ---------------------------------------------------------------

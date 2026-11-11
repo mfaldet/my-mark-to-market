@@ -1169,6 +1169,43 @@ db("claim service, against the database", () => {
       expect(JSON.stringify(piece)).not.toContain("i reckon")
     })
 
+    it("when the AI step is asked and cannot help, the answer says why; it is not stored", async () => {
+      const saved = process.env.ANTHROPIC_API_KEY
+      delete process.env.ANTHROPIC_API_KEY
+      try {
+        const preview = await previewClaim({
+          userId,
+          text: "CoreWeave gets acquired by SpaceX in 2027",
+          source: "API",
+        })
+        expect(preview.aiNote).toMatch(/No ANTHROPIC_API_KEY set/)
+        const logged = await logClaim({
+          userId,
+          text: "CoreWeave gets acquired by SpaceX in 2027",
+          source: "API",
+        })
+        expect(logged.aiNote).toMatch(/No ANTHROPIC_API_KEY set/)
+        expect(logged.grade).toBe(1)
+        // read back later, there is no note: it described that one attempt
+        expect((await getClaim(userId, logged.id)).aiNote).toBeUndefined()
+        // a proposal I approved never asks the AI, so there is nothing to say
+        const mine = await logClaim({
+          userId,
+          text: "Rates get cut",
+          source: "AGENT",
+          extraction: {
+            source: "manual",
+            shape: null,
+            parts: {},
+            deadline: null,
+          },
+        })
+        expect(mine.aiNote).toBeNull()
+      } finally {
+        if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved
+      }
+    })
+
     it("no headline: my words show, as before", async () => {
       const claim = await logClaim({
         userId,
