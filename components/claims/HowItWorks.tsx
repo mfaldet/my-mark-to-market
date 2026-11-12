@@ -2,12 +2,12 @@
 export function HowItWorks() {
   const steps = [
     {
-      title: "Log a hunch",
-      body: "Say it in your own words. It can be loose. Your words are kept exactly as you wrote them.",
+      title: "Write a hunch",
+      body: "Say it in your own words. It can be loose.",
     },
     {
-      title: "Answer one question at a time",
-      body: "The app asks what you would see, by when, and how you would tell, until your hunch becomes a prediction you can check.",
+      title: "Approve a clear version",
+      body: "The app proposes a headline and the parts that make it checkable. Nothing is saved until you approve, and you can edit anything first. Your original words are always kept under the headline.",
     },
     {
       title: "Say how sure you are",
@@ -47,12 +47,12 @@ export function HowItWorks() {
 export function SignedOutIntro() {
   const points = [
     {
-      title: "Log hunches in your own words",
+      title: "Write hunches in your own words",
       body: "Write down what you think will happen, as loosely as you first thought it.",
     },
     {
-      title: "Sharpen them into predictions you can check",
-      body: "One question at a time: what would you see, by when, and how would you tell?",
+      title: "Approve a clear, checkable version",
+      body: "The app proposes a headline and what would make it checkable. Nothing is saved until you approve, and your original words are always kept underneath.",
     },
     {
       title: "Keep a locked history of every change",

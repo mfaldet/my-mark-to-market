@@ -28,7 +28,6 @@ import { InfoButton } from "../ui/InfoButton"
 import { PromptDialog } from "../ui/PromptDialog"
 import { Username } from "../ui/Username"
 import { CommentBox, DeleteCommentOverflow } from "./CommentBox"
-import { TagsSelect } from "./TagsSelect"
 import { resultLabel } from "../../lib/claims/words"
 
 interface QuestionDetailsProps {
@@ -50,14 +49,6 @@ export const QuestionDetails = forwardRef(function QuestionDetails(
     !forecastsAreHidden(question, userId)
   const [showEvents, setShowEvents] = useState<boolean>(!hideOthersForecasts)
 
-  const utils = api.useContext()
-  const setTags = api.tags.setQuestionTags.useMutation({
-    async onSuccess() {
-      await invalidateQuestion(utils, question)
-      await utils.tags.getAll.invalidate()
-    },
-  })
-
   return (
     <div
       className="bg-neutral-50 border border-t-0 border-neutral-200 px-4 sm:px-8 py-4 text-sm flex flex-col gap-4 rounded-b-xl"
@@ -78,18 +69,7 @@ export const QuestionDetails = forwardRef(function QuestionDetails(
 
         {userId && (
           <div className="flex gap-2">
-            <div className="grow">
-              <TagsSelect
-                disabled={!userId}
-                tags={question.tags.map((t) => t.name)}
-                setTags={(tags) => {
-                  setTags.mutate({
-                    questionId: question.id,
-                    tags,
-                  })
-                }}
-              />
-            </div>
+            <div className="grow" />
             {userId && userId === question.userId && (
               <EditQuestionOverflow question={question} />
             )}

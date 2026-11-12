@@ -22,7 +22,7 @@ Built on [Fatebook](https://fatebook.io) by [Sage](https://sage-future.org), und
 
 I voice a lot of hunches in conversation: "the labor market is weakening", "rates get cut this year". Most are too vague to ever be shown right or wrong, which makes it easy to remember the hits and forget the misses.
 
-This app is where I write those down in my own words, at the moment I say them. It uses two words. A **hunch** is anything I log; it can be loose, and it stays private. A **prediction** is a hunch sharpened until it can be checked: an outcome, a deadline and a way to tell. The app asks one question at a time to help turn a hunch into a prediction, and grades how checkable it is: grades 1 to 3 are hunches, grades 4 and 5 are predictions. Only predictions can be made public and scored, and every change I make is kept in a history I cannot quietly edit.
+This app is where I write those down in my own words, at the moment I say them. It uses two words. A **hunch** is anything I log; it can be loose, and it stays private. A **prediction** is a hunch sharpened until it can be checked: an outcome, a deadline and a way to tell. The app proposes a clear headline and the parts that would make a hunch checkable, I approve or edit them, and it grades how checkable the result is: grades 1 to 3 are hunches, grades 4 and 5 are predictions. Only predictions can be made public and scored, and every change I make is kept in a history I cannot quietly edit.
 
 In the code, the API paths and the tool names, both are called a "claim". That is the internal name only.
 
@@ -45,24 +45,24 @@ It is also a portfolio piece: I took a working open-source app, read it, and ext
 
 One line each. [More detail on each row](docs/what-i-added.md).
 
-|                              | What                                                                       | Where                               |
-| ---------------------------- | -------------------------------------------------------------------------- | ----------------------------------- |
-| A standard for what I said   | My words, the date I said them, and an outcome in one of five shapes       | `lib/claims/types.ts`               |
-| A headline over my words     | A clean sentence I approve, shown everywhere; my raw words kept underneath | `lib/claims/service.ts`             |
-| Honest provenance            | Every outcome part is marked as stated by me, read by the AI, or a default | `components/claims/ClaimPanel.tsx`  |
-| A grade from 1 to 5          | Plain code, no AI: the same words always get the same grade                | `lib/claims/grade.ts`               |
-| One question at a time       | The most important gap, never more than three questions                    | `lib/claims/next_question.ts`       |
-| Confidence words             | "likely", "toss-up" and so on, each mapped to a range                      | `lib/claims/confidence.ts`          |
-| Deadlines from the date said | "This year" means the year I said it, whenever I log it                    | `lib/claims/dates.ts`               |
-| My time zone                 | Dates follow the time zone saved on my account                             | `lib/claims/timezone.ts`            |
-| Close calls                  | "About 6%" landing at 5.8% is wrong, and marked a near miss                | `lib/claims/tolerance.ts`           |
-| A publish gate               | Private by default; public only at grade 4 or 5, fully confirmed           | `lib/claims/service.ts`             |
-| Append-only history          | Every change is a full snapshot in a hash chain that can be re-checked     | `lib/claims/history.ts`             |
-| Where it came from           | A link from a prediction back to the hunch it grew out of                  | `lib/claims/service.ts`             |
-| Preview before saving        | The sharpening is shown first; nothing is saved until I approve            | `components/claims/PreviewCard.tsx` |
-| Daily backups                | A read-only export behind its own token, kept in a private repo            | `lib/backup/export.ts`              |
-| Logging from anywhere        | An API, an MCP server for Claude and an iPhone Shortcut                    | `lib/mcp/server.ts`                 |
-| A public track record        | A JSON feed and a page showing only predictions I made public              | `lib/claims/public_record.ts`       |
+|                              | What                                                                       | Where                                  |
+| ---------------------------- | -------------------------------------------------------------------------- | -------------------------------------- |
+| A standard for what I said   | My words, the date I said them, and an outcome in one of five shapes       | `lib/claims/types.ts`                  |
+| A headline over my words     | A clean sentence I approve, shown everywhere; my raw words kept underneath | `lib/claims/service.ts`                |
+| Honest provenance            | Every outcome part is marked as stated by me, read by the AI, or a default | `components/claims/ClaimPanel.tsx`     |
+| A grade from 1 to 5          | Plain code, no AI: the same words always get the same grade                | `lib/claims/grade.ts`                  |
+| Sharpening a hunch           | The app proposes a headline and parts; nothing changes until I approve     | `components/claims/card/ClaimCard.tsx` |
+| Confidence words             | "likely", "toss-up" and so on, each mapped to a range                      | `lib/claims/confidence.ts`             |
+| Deadlines from the date said | "This year" means the year I said it, whenever I log it                    | `lib/claims/dates.ts`                  |
+| My time zone                 | Dates follow the time zone saved on my account                             | `lib/claims/timezone.ts`               |
+| Close calls                  | "About 6%" landing at 5.8% is wrong, and marked a near miss                | `lib/claims/tolerance.ts`              |
+| A publish gate               | Private by default; public only at grade 4 or 5, fully confirmed           | `lib/claims/service.ts`                |
+| Append-only history          | Every change is a full snapshot in a hash chain that can be re-checked     | `lib/claims/history.ts`                |
+| Where it came from           | A link from a prediction back to the hunch it grew out of                  | `lib/claims/service.ts`                |
+| Preview before saving        | The sharpening is shown first; nothing is saved until I approve            | `components/claims/PreviewCard.tsx`    |
+| Daily backups                | A read-only export behind its own token, kept in a private repo            | `lib/backup/export.ts`                 |
+| Logging from anywhere        | An API, an MCP server for Claude and an iPhone Shortcut                    | `lib/mcp/server.ts`                    |
+| A public track record        | A JSON feed and a page showing only predictions I made public              | `lib/claims/public_record.ts`          |
 
 **I changed in Fatebook itself**
 
@@ -109,9 +109,9 @@ The AI step is deliberately small. It picks the shape of the outcome, reads the 
 
 ## What it looks like
 
-**A hunch.** Grade 1 and private. The app asks what I would actually see, and my answer moves it up a grade.
+**A hunch.** Loose, private, and fine left that way. "Sharpen this hunch" asks the app for a clear headline and the parts that would make it checkable; nothing changes until I approve.
 
-![A hunch after answering the app's first question](docs/images/hunch-question.png)
+![A hunch's card, with the Sharpen this hunch button](docs/images/hunch.png)
 
 **A prediction with a headline.** The approved headline on top, my original words underneath, and the timeline: every version, what changed, how it came in, and the result of recomputing the hash chain.
 

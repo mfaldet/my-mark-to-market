@@ -19,8 +19,9 @@ const toProposal = ({ shape, parts, deadline }: Proposal) => ({
 })
 
 /**
- * The front door: type a claim in your own words and log it. The rigor
- * engine then shows its grade and asks one question at a time.
+ * The front door: type a hunch in your own words. With the AI step on, the
+ * app shows a proposed headline and parts first, and nothing is saved until
+ * I approve; otherwise my words are saved as a hunch.
  */
 export function LogClaim() {
   const userId = useUserId()

@@ -15,6 +15,7 @@ import {
   confirmProposal,
   editClaim,
   previewClaim,
+  proposeSharpening,
   restoreClaim,
   getTimeline,
   linkParent,
@@ -285,6 +286,13 @@ export const claimsRouter = router({
     )
     .mutation(({ input: { claimId, ...edit }, ctx }) =>
       editClaim(requireUser(ctx), claimId, edit, "WEB").catch(toTrpcError),
+    ),
+
+  /** "Sharpen this hunch": a proposal for an item I already saved. Saves nothing. */
+  proposeSharpening: publicProcedure
+    .input(id)
+    .mutation(({ input, ctx }) =>
+      proposeSharpening(requireUser(ctx), input.claimId).catch(toTrpcError),
     ),
 
   /** "These are right": every unconfirmed part becomes mine, as one version. */
