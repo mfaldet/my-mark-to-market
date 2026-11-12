@@ -79,7 +79,11 @@ export const EXTRACTION_SCHEMA = {
     shape: { type: "string", enum: SHAPES },
     headline: nullableString,
     measure: nullableString,
-    comparison: { type: ["string", "null"], enum: [...COMPARISONS, null] },
+    // One of the fixed words, or null. Written as two alternatives because
+    // the API rejects a list of allowed values on a field with two types.
+    comparison: {
+      anyOf: [{ type: "string", enum: [...COMPARISONS] }, { type: "null" }],
+    },
     value: { type: ["number", "null"] },
     valueHigh: { type: ["number", "null"] },
     unit: nullableString,
