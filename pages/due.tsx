@@ -7,8 +7,8 @@ export default function DuePage() {
       <NextSeo title="Due" />
       <h2 className="text-xl font-bold mb-1">Due</h2>
       <p className="text-sm text-neutral-500 mb-4">
-        Predictions due within 7 days, anything past its deadline, and hunches
-        to check back on. Most pressing first.
+        Predictions due within 7 days, anything past its deadline, and ones that
+        are not checkable yet to check back on. Most pressing first.
       </p>
       <DueList />
     </div>

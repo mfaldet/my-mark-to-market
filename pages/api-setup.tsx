@@ -35,13 +35,13 @@ export default function ApiPage() {
     <div className="px-4 pt-12 lg:pt-16 mx-auto max-w-6xl">
       <NextSeo
         title="API"
-        description="Log hunches and update predictions from anywhere"
+        description="Log and update predictions from anywhere"
       />
       <div className="mx-auto prose">
         <h2>Connect</h2>
         <p>
-          Log a hunch, answer the next question, change how sure you are, or
-          check what is due, from Claude, your phone or your own scripts.
+          Log a prediction, change how sure you are, publish one, or check what
+          is due, from Claude, your phone or your own scripts.
         </p>
         <h3>Your key</h3>
         {!userId && (
@@ -138,8 +138,8 @@ export default function ApiPage() {
         )}
         <h3>Claude</h3>
         <p>
-          Claude can log a hunch for you in the middle of a conversation, ask
-          you the next question, and tell you what is due. Setup takes a few
+          Claude can log a prediction for you in the middle of a conversation,
+          sharpen it with you, and tell you what is due. Setup takes a few
           minutes:{" "}
           <a
             href={`${REPO_URL}/blob/main/docs/connect-claude.md`}
@@ -153,8 +153,8 @@ export default function ApiPage() {
 
         <h3>iPhone</h3>
         <p>
-          A Shortcut that listens to you say a hunch, logs it, and shows the
-          first question:{" "}
+          A Shortcut that takes a prediction by voice or keyboard, logs it, and
+          shows its grade:{" "}
           <a
             href={`${REPO_URL}/blob/main/docs/iphone-shortcut.md`}
             target="_blank"
@@ -166,18 +166,19 @@ export default function ApiPage() {
         </p>
 
         <h3>Your own scripts</h3>
-        <p>Log a hunch:</p>
+        <p>Log a prediction:</p>
         <pre className="whitespace-pre-wrap break-words">{`curl -X POST ${getBaseUrl()}/api/v0/claims/log \\
   -H "Authorization: Bearer ${shownKey}" \\
   -H "Content-Type: application/json" \\
   -d '{"text": "Rates get cut this year, likely"}'`}</pre>
         <p>
-          The reply says whether it is a hunch or a prediction, its grade, and
-          the next question to answer. The main endpoints:
+          The reply gives its grade (4 or 5 means checkable) and the next
+          question to answer. The main endpoints:
         </p>
         <ul>
           <li>
-            <code>POST /api/v0/claims/log</code>: log a hunch in your own words
+            <code>POST /api/v0/claims/log</code>: log a prediction in your own
+            words
           </li>
           <li>
             <code>GET /api/v0/claims/nextQuestion</code>: the one question to
@@ -202,7 +203,10 @@ export default function ApiPage() {
         </ul>
         <p>
           The addresses and field names say “claim” for technical reasons. A
-          claim is the same thing as a hunch or prediction.
+          claim is the same thing as a prediction. The field called{" "}
+          <code>kind</code> still answers “hunch” for grades 1 to 3 (not
+          checkable yet) and “prediction” for grades 4 and 5, so existing setups
+          keep working.
         </p>
 
         <h3>Older endpoints</h3>

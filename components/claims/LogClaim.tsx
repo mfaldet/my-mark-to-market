@@ -83,7 +83,7 @@ export function LogClaim() {
           className="button primary"
           onClick={() => void signInToFatebook()}
         >
-          Sign in to log a hunch
+          Sign in to log a prediction
         </button>
       </div>
     )

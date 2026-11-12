@@ -21,10 +21,8 @@ export default async function handler(
   const record = await loadPublicRecord(String(req.query.userId))
   if (!record) return res.status(404).json({ error: "Not found." })
 
-  // let other sites and their CDNs reuse the answer for a few minutes
-  res.setHeader(
-    "Cache-Control",
-    "public, s-maxage=300, stale-while-revalidate=600",
-  )
+  // Never served from a cache: when I unpublish something it is gone from
+  // the very next read, not a few minutes later.
+  res.setHeader("Cache-Control", "no-store")
   res.status(200).json(record)
 }

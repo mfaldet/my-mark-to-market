@@ -13,7 +13,7 @@ import { Question } from "./questions/Question"
 export function Questions({
   title,
   filterClientSide,
-  noQuestionsText = "Log your first hunch to see it here.",
+  noQuestionsText = "Log your first prediction to see it here.",
   filterTagIds = undefined,
   filterTournamentId = undefined,
   filterUserListId = undefined,
@@ -96,7 +96,7 @@ export function Questions({
     <div>
       <div className="flex max-sm:flex-col justify-between pt-6 pb-4">
         <h3 className="select-none flex gap-4 mt-2 mb-0 max-w-[80%]">
-          {title || "Your hunches and predictions"}
+          {title || "Your predictions"}
           {questionsQ.isLoading && (
             <div className="mt-2.5">
               <LoaderIcon />

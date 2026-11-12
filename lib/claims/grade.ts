@@ -146,7 +146,7 @@ export function canPublish(input: GradeInput): PublishCheck {
 
   if (grade < 4) {
     reasons.push(
-      `This is still a hunch (grade ${grade}). Only a prediction, grade 4 or 5, can be public. ${reason}`,
+      `Not checkable yet (grade ${grade}). Only a checkable prediction, grade 4 or 5, can be published. ${reason}`,
     )
   }
 

@@ -140,7 +140,7 @@ const zodExtraFilters = z.object({
     .optional(),
   showAllPublic: z
     .boolean({
-      description: `Show all public items from ${getBaseHost()}/public (if false, get only your own hunches and predictions)`,
+      description: `Show all public items from ${getBaseHost()}/public (if false, get only your own predictions)`,
     })
     .optional(),
   searchString: z
@@ -1386,7 +1386,7 @@ export const questionRouter = router({
         path: "/v0/deleteQuestion",
         tags: ["Older endpoints"],
         description:
-          "Withdraws the item. Nothing is ever deleted: a withdrawn hunch or prediction is hidden everywhere, including the public track record, and is kept with its full history.",
+          "Withdraws the item. Nothing is ever deleted: a withdrawn prediction is hidden everywhere, including the public track record, and is kept with its full history.",
       },
     })
     .mutation(async ({ input, ctx }) => {

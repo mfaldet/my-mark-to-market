@@ -41,8 +41,8 @@ export function DueList() {
 
 function DueRow({ item }: { item: ClaimView }) {
   const overdue = item.due === "overdue"
-  // an imported entry has no outcome, but it is not a hunch to sharpen:
-  // it only needs its result recorded
+  // not checkable yet (grades 1 to 3). An imported entry has no outcome
+  // either, but it only needs its result recorded.
   const isHunch = item.kind === "hunch" && !item.imported
   return (
     <li>
@@ -52,9 +52,11 @@ function DueRow({ item }: { item: ClaimView }) {
       >
         <div className="font-semibold text-neutral-900">{item.shown}</div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <span className={isHunch ? "kind-hunch" : "kind-prediction"}>
-            {isHunch ? "Hunch" : item.imported ? "Imported" : "Prediction"}
-          </span>
+          {item.imported && (
+            <span className="rounded border border-neutral-300 px-1 text-xs text-neutral-500">
+              Imported
+            </span>
+          )}
           <span
             className={clsx(
               "font-medium",
@@ -69,7 +71,7 @@ function DueRow({ item }: { item: ClaimView }) {
         </div>
         <div className="mt-1 text-xs text-neutral-500">
           {isHunch
-            ? "Sharpen it into a prediction, move the date, or withdraw it."
+            ? "Not checkable yet: sharpen it, move the date, or withdraw it."
             : overdue
               ? "How did it turn out? Open it to mark it right or wrong."
               : "Coming up."}

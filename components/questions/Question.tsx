@@ -275,9 +275,9 @@ export function Question({
                   // only predictions can be marked right or wrong
                   <span
                     className="text-sm text-neutral-400 my-auto text-center"
-                    title="A hunch can't be marked right or wrong. Sharpen it into a prediction first."
+                    title="Not checkable yet, so it can't be marked right or wrong. Sharpen it first."
                   >
-                    Hunch
+                    Not checkable yet
                   </span>
                 ))}
               {isImported(question.id) && (

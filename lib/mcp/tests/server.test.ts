@@ -28,6 +28,7 @@ jest.mock("../../claims/service", () => {
     withdrawClaim: jest.fn(),
     previewClaim: jest.fn(),
     previewWithSplit: jest.fn(),
+    setPublic: jest.fn(),
   }
 })
 
@@ -50,6 +51,7 @@ const service: Record<string, jest.Mock> = {
   withdrawClaim: mocked.withdrawClaim,
   previewClaim: mocked.previewClaim,
   previewWithSplit: mocked.previewWithSplit,
+  setPublic: mocked.setPublic,
 }
 
 const view = {
@@ -100,6 +102,7 @@ describe("the MCP tools", () => {
       "update_confidence",
       "link_parent",
       "list_claims",
+      "publish_claim",
       "resolve_claim",
     ])
     for (const tool of TOOLS) {
@@ -590,6 +593,72 @@ describe("the MCP tools", () => {
       expect(result).toMatchObject({ isError: true })
     }
     expect(service.answerQuestion).not.toHaveBeenCalled()
+  })
+
+  describe("publish_claim", () => {
+    it("is described as explicit-request-only, in the tool and in the instructions", () => {
+      const tool = TOOLS.find((t) => t.name === "publish_claim")!
+      expect(tool.description).toMatch(/ONLY when the user explicitly asks/)
+      expect(tool.description).toMatch(/Never on your own initiative/)
+      expect(tool.inputSchema.required).toEqual(["claim_id", "publish"])
+      expect(MCP_INSTRUCTIONS).toMatch(
+        /call publish_claim ONLY when the user asks, in so many words/,
+      )
+      expect(MCP_INSTRUCTIONS).toMatch(/Never on your own initiative/)
+    })
+
+    it("publishes and unpublishes through the same rule as the app", async () => {
+      service.setPublic.mockResolvedValue({ ...view, sharedPublicly: true })
+      const on = parse(
+        await callTool("u1", "publish_claim", {
+          claim_id: "c1",
+          publish: true,
+        }),
+      )
+      expect(service.setPublic).toHaveBeenLastCalledWith(
+        "u1",
+        "c1",
+        true,
+        "AGENT",
+      )
+      expect(on.public).toBe(true)
+      await callTool("u1", "publish_claim", { claim_id: "c1", publish: false })
+      expect(service.setPublic).toHaveBeenLastCalledWith(
+        "u1",
+        "c1",
+        false,
+        "AGENT",
+      )
+    })
+
+    it("needs to be told which way, and passes on a refusal in plain words", async () => {
+      const missing = await callTool("u1", "publish_claim", { claim_id: "c1" })
+      expect(missing.isError).toBe(true)
+      service.setPublic.mockRejectedValue(
+        makeClaimError("BLOCKED", "This can't be published yet.", [
+          "Not checkable yet (grade 2). Only a checkable prediction, grade 4 or 5, can be published. Missing a deadline.",
+        ]),
+      )
+      const refused = await callTool("u1", "publish_claim", {
+        claim_id: "c1",
+        publish: true,
+      })
+      expect(refused.isError).toBe(true)
+      expect(refused.content[0].text).toBe(
+        "This can't be published yet.\nNot checkable yet (grade 2). Only a checkable prediction, grade 4 or 5, can be published. Missing a deadline.",
+      )
+    })
+  })
+
+  it("the instructions use one word, and say what checkable means", () => {
+    expect(MCP_INSTRUCTIONS).toMatch(/everything the user logs is a prediction/)
+    expect(MCP_INSTRUCTIONS).toMatch(/Grades 4 and 5 are checkable/)
+    expect(MCP_INSTRUCTIONS).toMatch(/private until the user publishes it/)
+    // "hunch" appears only to explain the unchanged field value
+    expect(MCP_INSTRUCTIONS.match(/hunch/g)).toHaveLength(2)
+    for (const tool of TOOLS) {
+      expect(`${tool.title} ${tool.description}`).not.toMatch(/hunch/i)
+    }
   })
 
   it("a broken rule comes back as a readable error, with its reasons", async () => {

@@ -119,7 +119,8 @@ export function ClaimCard({
   const [menuOpen, setMenuOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
-  // "Sharpen this hunch": a proposal shown on the card; nothing changes until I approve
+  const [confirmingPublish, setConfirmingPublish] = useState(false)
+  // "Sharpen": a proposal shown on the card; nothing changes until I approve
   const [proposal, setProposal] = useState<ClaimPreview | null>(null)
   const [sharpenNote, setSharpenNote] = useState<string | null>(null)
   const sharpen = api.claims.proposeSharpening.useMutation({
@@ -231,6 +232,14 @@ export function ClaimCard({
             >
               Restore
             </button>
+          </div>
+        )}
+        {claim.sharedPublicly && !claim.withdrawn && (
+          <div>
+            {/* blue = information: this one is on my public track record */}
+            <span className="tone-info inline-flex rounded px-2 py-0.5 text-xs font-semibold">
+              Public
+            </span>
           </div>
         )}
         {claim.resolved && claim.result && (
@@ -474,7 +483,41 @@ export function ClaimCard({
               </div>
             )}
 
-            {!claim.withdrawn && !proposed && (
+            {confirmingPublish && !proposed && (
+              // asked once, inside the card, never with a browser pop-up
+              <div
+                role="group"
+                aria-label="Publish?"
+                className="flex flex-col gap-3"
+              >
+                <p className="m-0 text-sm font-semibold text-ink">
+                  Publish to your public track record?
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className={BTN_MAIN}
+                    disabled={setPublic.isLoading}
+                    onClick={() =>
+                      setPublic.mutate(
+                        { claimId, sharedPublicly: true },
+                        { onSettled: () => setConfirmingPublish(false) },
+                      )
+                    }
+                  >
+                    {setPublic.isLoading ? "Publishing..." : "Publish"}
+                  </button>
+                  <button
+                    className={BTN_OUTLINE}
+                    disabled={setPublic.isLoading}
+                    onClick={() => setConfirmingPublish(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!claim.withdrawn && !proposed && !confirmingPublish && (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
                   {!claim.resolved &&
@@ -500,7 +543,7 @@ export function ClaimCard({
                     </button>
                   )}
                   {!locked && claim.kind === "hunch" && !claim.imported && (
-                    // outlined, not filled: a hunch is fine left as a hunch
+                    // outlined, not filled: a loose prediction is fine left loose
                     <button
                       className={BTN_OUTLINE}
                       disabled={sharpen.isLoading}
@@ -510,36 +553,32 @@ export function ClaimCard({
                         sharpen.mutate({ claimId })
                       }}
                     >
-                      {sharpen.isLoading ? "Working..." : "Sharpen this hunch"}
+                      {sharpen.isLoading ? "Working..." : "Sharpen"}
                     </button>
                   )}
-                  <label
-                    className={clsx(
-                      "ml-auto flex items-center gap-2 text-sm",
-                      claim.sharedPublicly || claim.canPublish
-                        ? "cursor-pointer text-ink"
-                        : "text-neutral-400",
-                    )}
-                  >
-                    <span>{claim.sharedPublicly ? "Public" : "Private"}</span>
-                    <input
-                      type="checkbox"
-                      role="switch"
-                      aria-label="Public"
-                      className="toggle toggle-sm"
-                      checked={claim.sharedPublicly}
-                      disabled={
-                        setPublic.isLoading ||
-                        (!claim.sharedPublicly && !claim.canPublish)
+                  {claim.sharedPublicly ? (
+                    // one press: taking something off the public record is never held up
+                    <button
+                      className={BTN_OUTLINE}
+                      disabled={setPublic.isLoading}
+                      onClick={() =>
+                        setPublic.mutate({ claimId, sharedPublicly: false })
                       }
-                      onChange={(e) =>
-                        setPublic.mutate({
-                          claimId,
-                          sharedPublicly: e.target.checked,
-                        })
-                      }
-                    />
-                  </label>
+                    >
+                      Unpublish
+                    </button>
+                  ) : (
+                    <button
+                      className={BTN_OUTLINE}
+                      disabled={!claim.canPublish || setPublic.isLoading}
+                      onClick={() => {
+                        setChangingSure(false)
+                        setConfirmingPublish(true)
+                      }}
+                    >
+                      Publish
+                    </button>
+                  )}
                 </div>
                 {sharpenNote && (
                   <p role="status" className="m-0 text-sm text-neutral-600">
@@ -547,9 +586,10 @@ export function ClaimCard({
                   </p>
                 )}
                 {!claim.sharedPublicly && !claim.canPublish && (
-                  <p className="m-0 text-xs text-neutral-500 sm:text-right">
-                    Can&apos;t be made public yet.{" "}
-                    {claim.publishBlockers.join(" ")}
+                  <p className="m-0 text-xs text-neutral-500">
+                    {claim.kind === "hunch"
+                      ? `Not checkable yet, so it can't be published. ${claim.gradeReason}`
+                      : `Can't be published yet. ${claim.publishBlockers.join(" ")}`}
                   </p>
                 )}
               </div>

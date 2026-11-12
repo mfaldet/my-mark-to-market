@@ -39,7 +39,7 @@ export function EngineQuestionCard({
     <div className="flex flex-col gap-2 border-t border-neutral-200 pt-3 not-prose">
       <div className="text-xs text-neutral-500">
         {claim.kind === "hunch"
-          ? "Turn this hunch into a prediction, one question at a time."
+          ? "Make this checkable, one question at a time."
           : "One more thing to pin down."}
       </div>
       <div className="flex justify-between items-baseline gap-2">

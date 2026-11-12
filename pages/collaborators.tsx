@@ -78,7 +78,11 @@ export default function CollaboratorsPage() {
     if (container) {
       const preventScroll = (e: TouchEvent) => {
         const target = e.target as Element
-        if (isDrawerOpen && e.touches.length === 1 && !target.closest('.drawer')) {
+        if (
+          isDrawerOpen &&
+          e.touches.length === 1 &&
+          !target.closest(".drawer")
+        ) {
           e.preventDefault()
         }
       }
@@ -91,9 +95,9 @@ export default function CollaboratorsPage() {
 
   useEffect(() => {
     if (isDrawerOpen) {
-      document.body.classList.add('overflow-hidden')
+      document.body.classList.add("overflow-hidden")
     } else {
-      document.body.classList.remove('overflow-hidden')
+      document.body.classList.remove("overflow-hidden")
     }
   }, [isDrawerOpen])
 

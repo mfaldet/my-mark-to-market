@@ -1,25 +1,26 @@
 # Connect Claude
 
-My Mark-to-Market includes an MCP server, so Claude can log your hunches, help sharpen them into predictions, and tell you what is due, in the middle of a conversation. It is hosted by the app itself at:
+My Mark-to-Market includes an MCP server, so Claude can log your predictions, help sharpen them until they can be checked, and tell you what is due, in the middle of a conversation. It is hosted by the app itself at:
 
 ```
 https://YOUR-APP-ADDRESS/api/mcp
 ```
 
-It offers ten tools: `preview_claim`, `log_claim`, `confirm_proposal`, `edit_claim`, `withdraw_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a hunch or prediction, and Claude is told to say "hunch" and "prediction" to you. Everything Claude logs is recorded as entered through an **agent**, which shows on the item and in its history.
+It offers eleven tools: `preview_claim`, `log_claim`, `confirm_proposal`, `edit_claim`, `withdraw_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims`, `publish_claim` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a prediction, and Claude is told to say "prediction" to you, and "checkable" for grade 4 or 5. One field in the replies, `kind`, still answers "hunch" for grades 1 to 3 and "prediction" for grades 4 and 5, so existing setups keep working. Everything Claude logs is recorded as entered through an **agent**, which shows on the item and in its history.
 
-| Tool                | What it does                                                                        |
-| ------------------- | ----------------------------------------------------------------------------------- |
-| `preview_claim`     | Shows how a hunch and Claude's proposed sharpening would be graded. Saves nothing   |
-| `log_claim`         | Saves what you approved. Refuses a headline or proposal that is not marked approved |
-| `confirm_proposal`  | Confirms or corrects the unconfirmed parts of an item that is already saved         |
-| `edit_claim`        | Changes a headline, outcome parts or dates, as a recorded version                   |
-| `withdraw_claim`    | Hides an item. Nothing is deleted; it keeps its history                             |
-| `answer_question`   | Gives your reply to the question the app is asking about an item                    |
-| `update_confidence` | Records how sure you are now, with an optional reason                               |
-| `link_parent`       | Links a prediction to the earlier hunch it grew out of                              |
-| `list_claims`       | Lists your items, or what is due soon or overdue                                    |
-| `resolve_claim`     | Records how a prediction turned out: right, wrong or can't tell                     |
+| Tool                | What it does                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| `preview_claim`     | Shows how a prediction and Claude's proposed sharpening would be graded. Saves nothing                  |
+| `log_claim`         | Saves what you approved. Refuses a headline or proposal that is not marked approved                     |
+| `confirm_proposal`  | Confirms or corrects the unconfirmed parts of an item that is already saved                             |
+| `edit_claim`        | Changes a headline, outcome parts or dates, as a recorded version                                       |
+| `withdraw_claim`    | Hides an item. Nothing is deleted; it keeps its history                                                 |
+| `answer_question`   | Gives your reply to the question the app is asking about an item                                        |
+| `update_confidence` | Records how sure you are now, with an optional reason                                                   |
+| `link_parent`       | Links a prediction to the earlier, looser one it grew out of                                            |
+| `list_claims`       | Lists your items, or what is due soon or overdue                                                        |
+| `publish_claim`     | Publishes a prediction to your public track record, or takes it off. Only when you ask in so many words |
+| `resolve_claim`     | Records how a prediction turned out: right, wrong or can't tell                                         |
 
 ## Before you start
 
@@ -70,26 +71,27 @@ Claude reads the tool list and the instructions once, when the connector is adde
 
 **Nothing is saved until you approve it.** The server sends Claude these instructions with the tools:
 
-- Log a hunch only when you ask, or clearly state one and want it recorded.
+- Log a prediction only when you ask, or clearly state one and want it recorded.
 - Every item has two texts. Your raw words are saved unchanged underneath. On top goes a **headline**: your words rewritten by Claude into one clear, sharp sentence. The approved headline is what shows everywhere; your raw words show on the detail page and in the history as "Originally said".
 - Clean aggressively, up front: write the headline, the shape, every outcome part (for an event, including a way to tell), a deadline and a suggested confidence, using precise terms even where yours were loose, and guessing sensibly at anything you left out. If your words hold several predictions, make one piece for each, each with its own headline.
 - The hard rules that stay: each piece is one outcome, with no "if … then", and an event needs a way to tell.
 - Call `preview_claim` first. It saves nothing; it returns how the app would grade and store the proposal.
-- Show you the headline and every part in **one reply**, with the grade and whether each would be a hunch or a prediction. Ask you to approve or steer it all at once, and expect you to steer.
+- Show you the headline and every part in **one reply**, with the grade and whether that is checkable. Ask you to approve or steer it all at once, and expect you to steer.
 - Only when you approve (or approve with edits) call `log_claim`, with the version you approved. Those parts are saved as yours. Nothing Claude guessed is saved unless you said yes to it.
 - The date is when you first said it, not when you approved it.
-- If you say "just log it as it is", save your words alone as a hunch.
+- If you say "just log it as it is", save your words alone. A loose prediction is fine.
 - Pass your confidence as you said it: "30%", "0.3" or a word such as "likely". For a bare number like "3", ask what you mean.
 - Change the headline, outcome parts or dates later with `edit_claim` (this is also how to add a headline to an older item). Your raw words are changed only when you say they were recorded wrongly.
 - Withdraw, never delete.
-- Record how a prediction turned out only when you say. A hunch can't be resolved.
+- Record how a prediction turned out only when you say. One that is not checkable yet can't be resolved.
+- Publish or unpublish a prediction only when you ask in so many words, never on its own initiative. Only a checkable prediction can be published; if the app refuses, Claude passes on the reason.
 - When talking about an item, use its headline; mention your raw words only if you ask what you originally said.
 
 The app enforces the main rule itself: `log_claim` refuses a proposal that is not marked as approved, and saves nothing.
 
 ## Try it
 
-> Log a hunch: The board won't fire the CEO, and the stock will still beat the Mag 7 average over 2027.
+> Log this: The board won't fire the CEO, and the stock will still beat the Mag 7 average over 2027.
 
 Claude should reply once with a preview: two proposed predictions (each with a headline, an outcome, a deadline, a way to tell and a suggested confidence), the grade each would get, and a note that nothing is saved yet. Answer in one message:
 
@@ -104,6 +106,12 @@ Only then are they saved. Later:
 And any time:
 
 > What's due?
+
+And when you want one on your public track record:
+
+> Publish the first one.
+
+> Unpublish it.
 
 ## Dates and time zone
 

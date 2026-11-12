@@ -23,10 +23,8 @@ export const getServerSideProps: GetServerSideProps<{
 }> = async ({ params, res }) => {
   const record = await loadPublicRecord(String(params?.userId))
   if (!record) return { notFound: true }
-  res.setHeader(
-    "Cache-Control",
-    "public, s-maxage=300, stale-while-revalidate=600",
-  )
+  // never cached: an unpublished prediction is gone from the next load
+  res.setHeader("Cache-Control", "no-store")
   return { props: { record } }
 }
 
@@ -77,8 +75,8 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
           </p>
           <p className="mt-4 text-sm text-neutral-700 max-w-xl">
             Predictions logged in advance, each with a deadline and a stated
-            outcome, then marked right or wrong. Only predictions made public
-            are shown.
+            outcome, then marked right or wrong. Only published predictions are
+            shown.
           </p>
         </header>
 
@@ -138,7 +136,7 @@ export default function TrackRecordEmbed({ record }: { record: PublicRecord }) {
           <h2 className="font-semibold mb-2">Predictions</h2>
           {record.predictions.length === 0 && (
             <p className="text-sm text-neutral-500">
-              No predictions have been made public yet.
+              No predictions have been published yet.
             </p>
           )}
           <ul className="flex flex-col gap-3">

@@ -152,7 +152,7 @@ export function TagsSelect({
         noOptionsMessage={() =>
           allowCreation
             ? "Type to add a tag. Your tags are visible only to you."
-            : "Add tags to your hunches and predictions, then filter by them here."
+            : "Add tags to your predictions, then filter by them here."
         }
         closeMenuOnSelect={false}
         components={{

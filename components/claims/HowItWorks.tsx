@@ -2,8 +2,8 @@
 export function HowItWorks() {
   const steps = [
     {
-      title: "Write a hunch",
-      body: "Say it in your own words. It can be loose.",
+      title: "Write a prediction",
+      body: "Say it in your own words. It can be loose; the grade says how checkable it is.",
     },
     {
       title: "Approve a clear version",
@@ -37,7 +37,8 @@ export function HowItWorks() {
         ))}
       </ol>
       <p className="mt-3 text-neutral-500">
-        A hunch stays private. Only a prediction can be made public.
+        A prediction stays private until you publish it, and only a checkable
+        one can be published.
       </p>
     </div>
   )
@@ -47,7 +48,7 @@ export function HowItWorks() {
 export function SignedOutIntro() {
   const points = [
     {
-      title: "Write hunches in your own words",
+      title: "Write predictions in your own words",
       body: "Write down what you think will happen, as loosely as you first thought it.",
     },
     {

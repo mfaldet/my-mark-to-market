@@ -34,43 +34,45 @@ import {
   logClaim,
   logWithSplit,
   resolveClaim,
+  setPublic,
   updateConfidence,
   withdrawClaim,
 } from "../claims/service"
 
 /** What Claude is told about how to use these tools. */
-export const MCP_INSTRUCTIONS = `${APP_NAME} is the user's personal tracker for their own hunches and predictions.
+export const MCP_INSTRUCTIONS = `${APP_NAME} is the user's personal tracker for their own predictions.
 
-Two words matter here:
-- A hunch is anything the user logs. It can be loose ("the labor market is weakening"). Hunches are private.
-- A prediction is a hunch sharpened until it can be checked: ONE outcome, a deadline and a way to tell. Only predictions can be made public, resolved and scored. It is the same item throughout; the app says when a hunch has become a prediction.
+One word: everything the user logs is a prediction. It can be loose ("the labor market is weakening"). A grade from 1 to 5 says how checkable it is:
+- Grades 1 to 3 are not checkable yet. That is fine: a loose prediction is still worth keeping.
+- Grades 4 and 5 are checkable: ONE outcome, a deadline and a way to tell. Only a checkable prediction can be published, resolved and scored.
+Every prediction is private until the user publishes it.
 
-Every item has two texts:
+Every prediction has two texts:
 - the user's raw words, saved exactly as they said them and never changed ("originally said");
 - a headline: your clean, sharp rewrite of what they meant, which they approve. The headline is what shows everywhere: lists, the detail page, the Due tab, the public track record.
 
 Logging: clean it hard, preview it, save only what the user approves.
-1. Log a hunch only when the user asks you to, or clearly states one and wants it recorded. Never log things other people said.
+1. Log a prediction only when the user asks you to, or clearly states one and wants it recorded. Never log things other people said.
 2. Pass the user's raw words unchanged as text. Do all your cleaning in the headline and the outcome parts, never in text.
 3. Clean aggressively, up front. People talk loosely; your job is to turn that into something that can be checked. Write a headline: one clear, sharp sentence in plain words, naming exactly who or what, the measure, the threshold and the date. Prefer precise terms to the user's loose ones, and fill gaps with your best reading of what they meant. Then work out the shape, every outcome part (for an event, including howToTell: a source, a measure or a fact anyone could look up), a deadline and a confidence word.
-4. If their words hold several predictions ("X won't happen, and Y will beat Z, but W"), split them: one piece per prediction, each with its own headline, parts, deadline and confidence. The original sentence is kept as the hunch they grew out of, and stays under every piece as what was originally said.
-5. The hard rules, which the app enforces: each prediction is ONE outcome (no "if … then", no "and/or", no two results joined by "and"), and an event needs a way to tell. Anything that breaks them stays a hunch.
+4. If their words hold several predictions ("X won't happen, and Y will beat Z, but W"), split them: one piece per prediction, each with its own headline, parts, deadline and confidence. The original sentence is kept as the one they grew out of, and stays under every piece as what was originally said.
+5. The hard rules, which the app enforces: a checkable prediction is ONE outcome (no "if … then", no "and/or", no two results joined by "and"), and an event needs a way to tell. Anything that breaks them stays below grade 4.
 6. Call preview_claim with their raw words and your whole proposal. It saves NOTHING. It returns how the app would grade and store it.
-7. In ONE reply, show the user the whole preview: each headline, its parts, the deadline, the confidence you suggest, the grade, and whether it would be a hunch or a prediction. Say plainly that nothing is saved yet. Expect them to steer: they will often change your wording, a number or a date. Do not ask one field per message.
+7. In ONE reply, show the user the whole preview: each headline, its parts, the deadline, the confidence you suggest, and the grade with whether that is checkable. Say plainly that nothing is saved yet. Expect them to steer: they will often change your wording, a number or a date. Do not ask one field per message.
 8. When they steer, apply what they said and, if the change is more than small, preview again. Only when they approve call log_claim, with their raw words, the version they approved, their confidence, and approved: true. Nothing you wrote or guessed is saved unless they said yes to it.
 9. Pass claim_date from the preview's claimDate, so the date is when they first said it, not when they approved it.
-10. If they do not answer or say no, save nothing. If they say "just log it as it is", call log_claim with their words only: a hunch with no headline is fine.
+10. If they do not answer or say no, save nothing. If they say "just log it as it is", call log_claim with their words only: a loose prediction with no headline is fine.
 
 Other rules:
-- A hunch is fine as a hunch. Do not push the user to sharpen it.
+- A loose prediction is fine left loose. Do not push the user to sharpen it.
 - Confidence: pass what the user said ("30%", "0.3", "likely"). If they give a bare number like "3", ask what they mean before sending it.
 - Older items may have no headline. To add or change one, propose it, and once the user approves call edit_claim with headline. Use edit_claim for outcome parts and dates too. The raw words never change; pass corrected_text only when the user explicitly says their words were recorded wrongly.
-- When you talk about an item, use its headline. Mention the raw words only if the user asks what they originally said.
-- Use withdraw_claim when the user wants something gone. Nothing is ever deleted; a withdrawn item is hidden but kept with its history.
-- When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each item's headline and its "due" line.
-- Record how a prediction turned out only when the user tells you. A hunch cannot be resolved.
-- Dates use the time zone saved on the user's account. If the user tells you they are somewhere else, pass time_zone.
-- Say "hunch" and "prediction" to the user. The tool and field names say "claim" for technical reasons; do not repeat that word to them.`
+- When you talk about a prediction, use its headline. Mention the raw words only if the user asks what they originally said.
+- Publishing: call publish_claim ONLY when the user asks, in so many words, to publish or unpublish a specific prediction. Never on your own initiative, never as part of logging or sharpening, and never because it "seems ready". Only a checkable prediction can be published; if the app refuses, tell the user its reason.
+- Use withdraw_claim when the user wants something gone. Nothing is ever deleted; a withdrawn prediction is hidden but kept with its history.
+- When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each prediction's headline and its "due" line.
+- Record how a prediction turned out only when the user tells you. One that is not checkable yet cannot be resolved.
+- Say "prediction" to the user, and "checkable" for grade 4 or 5. The tool and field names say "claim", and the field called kind still answers "hunch" (grades 1 to 3) or "prediction" (grades 4 and 5), for technical reasons; do not repeat "claim" or "hunch" to them.`
 
 /** A compact, readable summary of a claim for the model. */
 export function summarize(claim: ClaimView) {
@@ -211,7 +213,7 @@ const hunchProperties = {
   proposal: {
     type: "object",
     description:
-      "The sharpening, when the hunch is ONE prediction. Leave out if you are sending split.",
+      "The sharpening, when the user's words are ONE prediction. Leave out if you are sending split.",
     properties: proposalSchema,
     required: ["shape"],
   },
@@ -234,7 +236,7 @@ const hunchProperties = {
     "YYYY-MM-DD. The day the user first said it. In log_claim, pass the claimDate the preview returned.",
   ),
   parent_id: str(
-    "Id of an earlier, vaguer hunch this one grew out of, if the user says so.",
+    "Id of an earlier, looser prediction this one grew out of, if the user says so.",
   ),
   time_zone: timeZoneProp,
 }
@@ -308,9 +310,9 @@ function confidenceFrom(raw: string | number, note?: string): ConfidenceUpdate {
 export const TOOLS: Tool[] = [
   {
     name: "preview_claim",
-    title: "Preview a hunch (saves nothing)",
+    title: "Preview a prediction (saves nothing)",
     description:
-      "Shows how the app would grade and save a hunch with your proposed sharpening, WITHOUT saving anything. Call this first, every time, then show the user the whole result in one reply and ask them to approve or correct it. Returns the original and any pieces, each with its headline, kind (hunch or prediction), grade, the reason for the grade and what is missing.",
+      "Shows how the app would grade and save a prediction with your proposed sharpening, WITHOUT saving anything. Call this first, every time, then show the user the whole result in one reply and ask them to approve or correct it. Returns the original and any pieces, each with its headline, grade (4 or 5 is checkable), the reason for the grade and what is missing.",
     inputSchema: {
       type: "object",
       properties: hunchProperties,
@@ -338,9 +340,9 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "log_claim",
-    title: "Log a hunch (after the user approves)",
+    title: "Log a prediction (after the user approves)",
     description:
-      "Saves a hunch in the user's exact words. With a proposal or a split, call it only after the user has seen the preview and approved it, and pass approved: true with exactly the version they approved: those parts are saved as theirs. Without a proposal it saves their words alone, as a hunch. Returns the saved item(s) with ids.",
+      "Saves a prediction in the user's exact words. With a proposal or a split, call it only after the user has seen the preview and approved it, and pass approved: true with exactly the version they approved: those parts are saved as theirs. Without a proposal it saves their words alone, as a loose prediction. Returns the saved item(s) with ids.",
     inputSchema: {
       type: "object",
       properties: {
@@ -360,7 +362,7 @@ export const TOOLS: Tool[] = [
       if (sharpened && args.approved !== true) {
         throw new ClaimError(
           "BLOCKED",
-          "Nothing was saved. A headline or a proposal is saved only after the user approves it: call preview_claim, show them the result, and call log_claim with approved: true once they say yes. To save their words alone as a hunch, send text on its own.",
+          "Nothing was saved. A headline or a proposal is saved only after the user approves it: call preview_claim, show them the result, and call log_claim with approved: true once they say yes. To save their words alone, send text on its own.",
         )
       }
       const input = hunchArgs(userId, args, true)
@@ -433,7 +435,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "edit_claim",
-    title: "Edit a hunch or prediction",
+    title: "Edit a prediction",
     description:
       "Change the headline, shape, outcome parts, deadline or check-back date of an item. Each call is one recorded version; nothing is overwritten silently. The original text stays as the user said it: pass corrected_text only when the user explicitly says their words were recorded wrongly.",
     inputSchema: {
@@ -446,7 +448,7 @@ export const TOOLS: Tool[] = [
           description: `${PARTS_HELP} Give only the parts to change; null removes one.`,
         },
         deadline: str(
-          "YYYY-MM-DD. The deadline, or for a hunch the check-back date.",
+          "YYYY-MM-DD. The deadline, or the check-back date of one that is not checkable yet.",
         ),
         headline: {
           type: ["string", "null"],
@@ -495,7 +497,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "withdraw_claim",
-    title: "Withdraw a hunch or prediction",
+    title: "Withdraw a prediction",
     description:
       "Withdraw an item at the user's request. It is hidden everywhere, including the public track record, but it is never deleted: it is kept with its full history.",
     inputSchema: {
@@ -511,7 +513,7 @@ export const TOOLS: Tool[] = [
     name: "answer_question",
     title: "Answer the app's question",
     description:
-      "Give the user's reply to the open question on a hunch or prediction. Send exactly one of: accept=true (the user agreed to the suggested default), value (the user's own answer, in their words; a date as YYYY-MM-DD), or skip=true. Returns the updated item, whether it has become a prediction, and the next question, if any.",
+      "Give the user's reply to the open question on a prediction. Send exactly one of: accept=true (the user agreed to the suggested default), value (the user's own answer, in their words; a date as YYYY-MM-DD), or skip=true. Returns the updated item, whether it has become a prediction, and the next question, if any.",
     inputSchema: {
       type: "object",
       properties: {
@@ -597,9 +599,9 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "link_parent",
-    title: "Link to an earlier hunch",
+    title: "Link to an earlier prediction",
     description:
-      "Link an item to the earlier, vaguer hunch it grew out of, so the user can see how a hunch became a sharper prediction. Pass parent_id null to remove the link.",
+      "Link a prediction to the earlier, looser one it grew out of, so the user can see how it was sharpened. Pass parent_id null to remove the link.",
     inputSchema: {
       type: "object",
       properties: {
@@ -616,9 +618,9 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "list_claims",
-    title: "List hunches and predictions",
+    title: "List predictions",
     description:
-      'List the user\'s hunches and predictions, newest first, with ids, grades, dates and confidence. Use it to find an id before updating something. To answer "what\'s due?", set due: "soon" for open items due today or within within_days (default 7), "overdue" for open items whose date has passed, or "soon_or_overdue" for both. Those come back most pressing first, each with a "due" line such as "overdue by 3 days".',
+      'List the user\'s predictions, newest first, with ids, grades, dates and confidence. Use it to find an id before updating something. To answer "what\'s due?", set due: "soon" for open items due today or within within_days (default 7), "overdue" for open items whose date has passed, or "soon_or_overdue" for both. Those come back most pressing first, each with a "due" line such as "overdue by 3 days".',
     inputSchema: {
       type: "object",
       properties: {
@@ -658,10 +660,31 @@ export const TOOLS: Tool[] = [
       ).map(summarize),
   },
   {
+    name: "publish_claim",
+    title: "Publish or unpublish a prediction",
+    description:
+      "Publishes a prediction to the user's public track record, or takes it off again. Use it ONLY when the user explicitly asks, in so many words, to publish or unpublish that prediction. Never on your own initiative, and never as a step of logging, sharpening or resolving. Only a checkable prediction (grade 4 or 5, every part confirmed) that is not withdrawn can be published, at any time including after it is resolved; if the app refuses, it says why in plain words: pass that on. Unpublishing always works and takes effect at once. Each change is recorded in the user's private history.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        claim_id: str(),
+        publish: {
+          type: "boolean",
+          description:
+            "true to publish, false to unpublish. Exactly what the user asked for.",
+        },
+      },
+      required: ["claim_id", "publish"],
+    },
+    input: z.object({ claim_id: z.string(), publish: z.boolean() }),
+    handler: async (userId, args) =>
+      summarize(await setPublic(userId, args.claim_id, args.publish, "AGENT")),
+  },
+  {
     name: "resolve_claim",
     title: "Resolve a prediction",
     description:
-      "Record how a prediction turned out. Only on the user's say-so, and only for a prediction: a hunch cannot be resolved. Give result (right, wrong or can't tell), or for a prediction about a number give actual and the app works out right or wrong itself. A near miss on an \"about\" number is marked as a close call.",
+      "Record how a prediction turned out. Only on the user's say-so, and only for a checkable prediction (grade 4 or 5): one that is not checkable yet cannot be resolved. Give result (right, wrong or can't tell), or for a prediction about a number give actual and the app works out right or wrong itself. A near miss on an \"about\" number is marked as a close call.",
     inputSchema: {
       type: "object",
       properties: {

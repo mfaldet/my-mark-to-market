@@ -15,9 +15,8 @@ const RESULT_STYLE: Record<string, string> = {
 }
 
 /**
- * One of my items in a list: the headline (or my words when there is
- * none), whether it is a hunch or a prediction, its date, and how sure I
- * am. Everything else is on the card, which opens when the row is clicked.
+ * One of my predictions in a list: the headline (or my words when there
+ * is none), its date, how sure I am, and a tag when it is public. Everything else is on the card, which opens when the row is clicked.
  */
 export function ClaimRow({
   question,
@@ -27,6 +26,7 @@ export function ClaimRow({
   onOpen: () => void
 }) {
   const imported = isImported(question.id)
+  // not checkable yet (grades 1 to 3): it has a date to check back, not a deadline
   const hunch = kindForGrade(question.grade) === "hunch" && !imported
   const result = question.resolved ? resultFor(question.resolution) : null
   const past = !question.resolved && isPastDay(question.resolveBy)
@@ -71,8 +71,18 @@ export function ClaimRow({
         </span>
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-500">
-        <span>{imported ? "Imported" : hunch ? "Hunch" : "Prediction"}</span>
-        <span aria-hidden>·</span>
+        {question.sharedPublicly && !question.withdrawnAt && (
+          // blue = information: this one is on my public track record
+          <span className="tone-info rounded px-1.5 py-0.5 text-xs font-semibold">
+            Public
+          </span>
+        )}
+        {imported && (
+          <>
+            <span>Imported</span>
+            <span aria-hidden>·</span>
+          </>
+        )}
         {question.withdrawnAt ? (
           <span className="tone-plain rounded px-1.5 py-0.5 text-xs font-semibold">
             Withdrawn

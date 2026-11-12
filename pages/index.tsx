@@ -25,7 +25,8 @@ export default function HomePage() {
             <div className="not-prose brand-surface rounded-3xl border border-ink/10 px-6 py-8 sm:px-10 sm:py-10">
               <h1 className="wordmark text-3xl sm:text-4xl">{APP_NAME}</h1>
               <p className="tagline mt-1 text-lg">
-                Log a hunch. Sharpen it into a prediction. See how it turns out.
+                Log a prediction. Sharpen it until it can be checked. See how it
+                turns out.
               </p>
             </div>
           )}

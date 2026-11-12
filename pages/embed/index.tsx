@@ -28,7 +28,7 @@ export default function EmbedPage() {
       <div className="mx-auto prose">
         <h2>Embed your predictions</h2>
         <p>
-          Only predictions you have made public are ever shown. Hunches, private
+          Only predictions you have published are ever shown. Private
           predictions and anything withdrawn never leave this app.
         </p>
 

@@ -104,7 +104,7 @@ export function buildPublicRecord(
     },
     generatedAt: now.toISOString(),
     about:
-      "Only claims the owner has chosen to share publicly. A claim can be public only once it is complete and checkable (grade 4 or 5).",
+      "Only predictions the owner has published. A prediction can be published only once it is checkable (grade 4 or 5).",
     summary: {
       publicPredictions: claims.length,
       open: claims.length - resolved.length,

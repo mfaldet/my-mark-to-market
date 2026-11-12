@@ -16,11 +16,11 @@ Every outcome part is marked _stated_ (I said it), _extracted_ (the AI read it f
 
 ## A grade from 1 to 5
 
-Plain code, no AI: the same words always get the same grade. Grades 1 to 3 are hunches; 4 and 5 are predictions. An outcome that is really two predictions ("if … then", "and/or"), or an event with no stated way to tell, stays below grade 4. Sharper terms than mine in the outcome are fine: that is the point. Code: `lib/claims/grade.ts`.
+Plain code, no AI: the same words always get the same grade. Everything I log is a prediction; the grade says how checkable it is. Grades 4 and 5 are checkable: one outcome, a deadline and a way to tell. Grades 1 to 3 are not yet. An outcome that is really two predictions ("if … then", "and/or"), or an event with no stated way to tell, stays below grade 4. Sharper terms than mine in the outcome are fine: that is the point. Code: `lib/claims/grade.ts`.
 
-## Sharpening a hunch
+## Sharpening a prediction
 
-On the web, a hunch's card has a "Sharpen this hunch" button. It runs the same step a preview uses on my original words and shows a proposed headline and parts, each marked "suggested". Nothing changes until I approve; I can edit anything first, or discard it. Approving is one recorded version of the same item, and the date I first said it stays as it was. Code: `components/claims/card/ClaimCard.tsx`, `proposeSharpening` in `lib/claims/service.ts`.
+On the web, the card of a prediction that is not checkable yet has a "Sharpen" button. It runs the same step a preview uses on my original words and shows a proposed headline and parts, each marked "suggested". Nothing changes until I approve; I can edit anything first, or discard it. Approving is one recorded version of the same item, and the date I first said it stays as it was. Code: `components/claims/card/ClaimCard.tsx`, `proposeSharpening` in `lib/claims/service.ts`.
 
 The API and the Claude connector also still offer the older way: the app names the most important gap as one question, with a default where one makes sense, never more than three. Code: `lib/claims/next_question.ts`.
 
@@ -30,7 +30,7 @@ The API and the Claude connector also still offer the older way: the app names t
 
 ## Deadlines from the date said
 
-"This year" in a hunch voiced in July 2025 means December 31, 2025, whenever I log it. Code: `lib/claims/dates.ts`.
+"This year" in a prediction voiced in July 2025 means December 31, 2025, whenever I log it. Code: `lib/claims/dates.ts`.
 
 ## My time zone
 
@@ -40,9 +40,9 @@ The API and the Claude connector also still offer the older way: the app names t
 
 "About 6%" that lands at 5.8% is scored wrong, and marked as a near miss. Code: `lib/claims/tolerance.ts`.
 
-## A publish gate
+## Publish and unpublish
 
-Everything is private by default. An item can be made public only at grade 4 or 5 with every part confirmed. An edit that would break that is blocked, never silently fixed. Code: `lib/claims/service.ts`.
+Every prediction is private until I publish it. Only a checkable one (grade 4 or 5) with every part confirmed can be published, at any time, including after it is resolved. The card asks once before publishing; unpublishing takes one press and removes it from the public feed and the embed page at once. Each publish and unpublish is a recorded version in my private history; nothing about unpublishing shows publicly. A withdrawn prediction cannot be published. An edit that would leave a published prediction no longer checkable is blocked, never silently fixed. Claude can publish or unpublish through the connector, only when I ask in so many words. Code: `setPublic` in `lib/claims/service.ts`, `components/claims/card/ClaimCard.tsx`.
 
 ## Append-only history
 
@@ -50,7 +50,7 @@ Every change writes a full snapshot, chained to the one before by a hash, with a
 
 ## Where it came from
 
-A prediction links back to the hunch it grew out of. Code: `lib/claims/service.ts`.
+A prediction links back to the earlier, looser one it grew out of. Code: `lib/claims/service.ts`.
 
 ## Preview before saving
 
@@ -66,4 +66,4 @@ API endpoints, a hosted MCP server for Claude, and an iPhone Shortcut. Each item
 
 ## A public track record
 
-A JSON feed and an embeddable page showing only the predictions I have made public, each with its grade, dates, result and latest history hash. Code: `lib/claims/public_record.ts`.
+A JSON feed and an embeddable page showing only the predictions I have published, each with its grade, dates, result and latest history hash. Code: `lib/claims/public_record.ts`.

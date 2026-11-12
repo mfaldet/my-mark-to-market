@@ -141,6 +141,68 @@ db("claim service, against the database", () => {
     ).toBe(true)
   })
 
+  it("publish and unpublish: any time, resolved included; each is a recorded version; nothing public is left behind", async () => {
+    const claim = await log()
+    await confirmAll(claim.id)
+    const versions = () =>
+      prisma.claimVersion.count({ where: { questionId: claim.id } })
+    const inFeed = async () =>
+      (await loadPublicRecord(userId))!.predictions.some(
+        (p) => p.id === claim.id,
+      )
+
+    let before = await versions()
+    await setPublic(userId, claim.id, true, "WEB")
+    expect(await versions()).toBe(before + 1)
+    expect(await inFeed()).toBe(true)
+
+    // unpublish: gone from the feed at once, recorded privately
+    before = await versions()
+    const off = await setPublic(userId, claim.id, false, "AGENT")
+    expect(off.sharedPublicly).toBe(false)
+    expect(await versions()).toBe(before + 1)
+    expect(await inFeed()).toBe(false)
+    // the feed holds no trace that it was ever there
+    expect(JSON.stringify(await loadPublicRecord(userId))).not.toContain(
+      claim.id,
+    )
+
+    // after it is resolved, both still work
+    await resolveClaim(userId, claim.id, { resolution: "YES" }, "WEB")
+    before = await versions()
+    expect(
+      (await setPublic(userId, claim.id, true, "WEB")).sharedPublicly,
+    ).toBe(true)
+    expect(await inFeed()).toBe(true)
+    expect(
+      (await setPublic(userId, claim.id, false, "WEB")).sharedPublicly,
+    ).toBe(false)
+    expect(await versions()).toBe(before + 2)
+    expect(await inFeed()).toBe(false)
+
+    // the history says so, in the private timeline
+    const changes = (await getTimeline(userId, claim.id)).flatMap((e) =>
+      e.kind === "version" ? e.changedFields : [],
+    )
+    expect(changes.filter((f) => f === "sharedPublicly")).toHaveLength(4)
+    expect(await verifyHistory(userId, claim.id)).toMatchObject({ ok: true })
+  })
+
+  it("a withdrawn prediction cannot be published, and withdrawing a published one takes it off the feed", async () => {
+    const claim = await log()
+    await confirmAll(claim.id)
+    await setPublic(userId, claim.id, true, "WEB")
+    await withdrawClaim(userId, claim.id, "WEB")
+    expect(
+      (await loadPublicRecord(userId))!.predictions.some(
+        (p) => p.id === claim.id,
+      ),
+    ).toBe(false)
+    await expect(setPublic(userId, claim.id, true, "WEB")).rejects.toThrow(
+      /withdrawn/,
+    )
+  })
+
   it("an edit that drops a public claim below grade 4 is blocked, and the claim stays public and unchanged", async () => {
     const claim = await log()
     await confirmAll(claim.id)
@@ -150,7 +212,7 @@ db("claim service, against the database", () => {
     await expect(attempt).rejects.toBeInstanceOf(ClaimError)
     await expect(attempt).rejects.toMatchObject({
       code: "BLOCKED",
-      reasons: [expect.stringContaining("still a hunch (grade 3)")],
+      reasons: [expect.stringContaining("Not checkable yet (grade 3)")],
     })
 
     const row = await prisma.question.findUniqueOrThrow({
@@ -456,13 +518,13 @@ db("claim service, against the database", () => {
         resolveClaim(userId, claim.id, { resolution: "YES" }, "WEB"),
       ).rejects.toMatchObject({
         code: "BLOCKED",
-        message: expect.stringContaining("still a hunch"),
+        message: expect.stringContaining("not checkable yet"),
       })
       const row = await prisma.question.findUniqueOrThrow({
         where: { id: claim.id },
       })
       expect(row.resolved).toBe(false)
-      expect(() => assertCanResolve(row)).toThrow(/still a hunch/)
+      expect(() => assertCanResolve(row)).toThrow(/not checkable yet/)
       expect(
         await prisma.questionScore.count({ where: { questionId: claim.id } }),
       ).toBe(0)
