@@ -1,11 +1,11 @@
 import clsx from "clsx"
 import Link from "next/link"
-import { isPastDay } from "../../../lib/claims/calendar"
+import { calendarDay, isPastDay } from "../../../lib/claims/calendar"
 import { isImported, kindForGrade } from "../../../lib/claims/kind"
 import { resultFor } from "../../../lib/claims/words"
 import { getQuestionUrl } from "../../../lib/web/question_url"
 import { QuestionWithStandardIncludes } from "../../../prisma/additional"
-import { CalendarDate } from "../../ui/CalendarDate"
+import { formatDay } from "../labels"
 import { percent } from "./shared"
 
 const RESULT_STYLE: Record<string, string> = {
@@ -105,7 +105,10 @@ export function ClaimRow({
               : hunch
                 ? "Check back by "
                 : "Due "}
-            <CalendarDate className="num" date={question.resolveBy} />
+            {/* the same format as the card, always with the year */}
+            <span className="num">
+              {formatDay(calendarDay(question.resolveBy))}
+            </span>
           </span>
         )}
       </div>
