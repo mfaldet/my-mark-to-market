@@ -1,5 +1,4 @@
 import { ClaimShape } from "@prisma/client"
-import clsx from "clsx"
 import { ReactNode } from "react"
 import { ClaimView } from "../../../lib/claims/service"
 import { allowedParts, SHAPE_PARTS } from "../../../lib/claims/types"
@@ -56,17 +55,21 @@ export const SHAPE_PLAIN: Record<ClaimShape, string> = {
 /** A label with its value: stacked on a phone, side by side on a desktop. */
 export function Field({
   label,
+  marker,
   children,
   action,
 }: {
   label: string
+  /** sits beside the label, so it never ends up alone on a line of its own */
+  marker?: ReactNode
   children: ReactNode
   action?: ReactNode
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[9rem_1fr_auto] gap-x-4 gap-y-0.5 items-baseline">
-      <div className="text-xs text-neutral-500 max-sm:col-span-2 sm:text-sm">
-        {label}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-500 max-sm:col-span-2 sm:text-sm">
+        <span>{label}</span>
+        {marker}
       </div>
       <div className="min-w-0 break-words text-ink">{children}</div>
       {action ? <div className="justify-self-end">{action}</div> : <span />}
@@ -85,7 +88,7 @@ export function Marker({
   return (
     <span
       title={title}
-      className="tone-change ml-2 inline-flex rounded px-1.5 py-0.5 align-middle text-[11px] font-medium whitespace-nowrap"
+      className="tone-change inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight whitespace-nowrap"
     >
       {children}
     </span>
@@ -140,6 +143,64 @@ export function Headline({ claim }: { claim: CardClaim }) {
   )
 }
 
+const NOT_MINE =
+  "Suggested by the AI or the app. Not yours until you approve it"
+
+/** The four parts of a number prediction that read as one line. */
+const NUMBER_PARTS = [
+  "measure",
+  "comparison",
+  "value",
+  "valueHigh",
+  "unit",
+] as const
+
+/** "6%", "20% decline", "6 index points" */
+function withUnit(value: string | number, unit?: string | number) {
+  if (unit === undefined || unit === "") return String(value)
+  const text = String(unit)
+  return text.startsWith("%") ? `${value}${text}` : `${value} ${text}`
+}
+
+/**
+ * A number prediction as one line: "unemployment at least 6%", or
+ * "inflation between 2 and 3%". Anything still missing is said so.
+ */
+function NumberLine({ claim }: { claim: CardClaim }) {
+  const { measure, comparison, value, valueHigh, unit } = claim.parts
+  const missing = [
+    !measure && "what is measured",
+    !comparison && "the comparison",
+    !value && "the number",
+    comparison?.value === "between" && !valueHigh && "the upper number",
+    !unit && "the unit",
+  ].filter(Boolean)
+  const number =
+    value === undefined
+      ? null
+      : comparison?.value === "between" && valueHigh
+        ? `${value.value} and ${withUnit(valueHigh.value, unit?.value)}`
+        : withUnit(value.value, unit?.value)
+  return (
+    <>
+      {measure && <span>{String(measure.value)} </span>}
+      {comparison && (
+        <span>
+          {COMPARISON_LABELS[String(comparison.value)] ??
+            String(comparison.value)}{" "}
+        </span>
+      )}
+      {number && <span className="num">{number}</span>}
+      {missing.length > 0 && (
+        <Empty>
+          {measure || comparison || number ? " · " : ""}missing:{" "}
+          {missing.join(", ")}
+        </Empty>
+      )}
+    </>
+  )
+}
+
 /**
  * The rows, each fact once: the outcome parts, the deadline, how sure,
  * the check link.
@@ -161,49 +222,62 @@ export function ClaimFields({
   const deadlinePart = claim.parts.deadline
   return (
     <div className="flex flex-col gap-3 text-base sm:text-sm">
-      {partNamesFor(claim).map((name) => {
-        const part = claim.parts[name as keyof typeof claim.parts]
-        const numeric = name === "value" || name === "valueHigh"
-        return (
-          <Field key={name} label={PART_LABELS[name] ?? name}>
-            {part ? (
-              <>
-                <span className={clsx(numeric && "num")}>
-                  {name === "comparison"
-                    ? COMPARISON_LABELS[String(part.value)] ??
-                      String(part.value)
-                    : String(part.value)}
-                </span>
-                {part.status !== "stated" && (
-                  <Marker
-                    title={
-                      part.status === "extracted"
-                        ? "Read from your words by the AI. Not yours until you approve it"
-                        : "A default the app suggested. Not yours until you approve it"
-                    }
-                  >
-                    {unconfirmed}
-                  </Marker>
-                )}
-              </>
-            ) : (
-              <Empty>{required.includes(name) ? "missing" : "not set"}</Empty>
-            )}
-          </Field>
+      {shape === "NUMBER_BY_DATE" && (
+        <Field
+          label="What's measured"
+          marker={
+            NUMBER_PARTS.some((name) => {
+              const part = claim.parts[name]
+              return part && part.status !== "stated"
+            }) && <Marker title={NOT_MINE}>{unconfirmed}</Marker>
+          }
+        >
+          <NumberLine claim={claim} />
+        </Field>
+      )}
+      {partNamesFor(claim)
+        // a number prediction reads as one line, above
+        .filter(
+          (name) =>
+            shape !== "NUMBER_BY_DATE" ||
+            !(NUMBER_PARTS as readonly string[]).includes(name),
         )
-      })}
+        .map((name) => {
+          const part = claim.parts[name as keyof typeof claim.parts]
+          return (
+            <Field
+              key={name}
+              label={PART_LABELS[name] ?? name}
+              marker={
+                part &&
+                part.status !== "stated" && (
+                  <Marker title={NOT_MINE}>{unconfirmed}</Marker>
+                )
+              }
+            >
+              {part ? (
+                String(part.value)
+              ) : (
+                <Empty>{required.includes(name) ? "missing" : "not set"}</Empty>
+              )}
+            </Field>
+          )
+        })}
       <Field
         label={claim.deadlineKind === "deadline" ? "Deadline" : "Check back by"}
+        marker={
+          deadlinePart ? (
+            deadlinePart.status !== "stated" && (
+              <Marker title={NOT_MINE}>{unconfirmed}</Marker>
+            )
+          ) : (
+            <Marker title="You gave no date, so the app picked this one. Change it any time.">
+              default
+            </Marker>
+          )
+        }
       >
         <span className="num">{formatDay(claim.deadline)}</span>
-        {deadlinePart && deadlinePart.status !== "stated" && (
-          <Marker>{unconfirmed}</Marker>
-        )}
-        {!deadlinePart && (
-          <Marker title="You gave no date, so the app picked this one. Change it any time.">
-            default
-          </Marker>
-        )}
       </Field>
       <Field label="How sure" action={howSureAction}>
         {claim.probability === null ? (
@@ -226,7 +300,18 @@ export function ClaimFields({
           </>
         )}
       </Field>
-      <Field label="Check link" action={checkLinkAction}>
+      <Field
+        label="Check link"
+        action={checkLinkAction}
+        marker={
+          claim.checkLinkUrl &&
+          !claim.checkLinkConfirmed && (
+            <Marker title="Open it, check it shows the thing measured, then confirm">
+              not confirmed
+            </Marker>
+          )
+        }
+      >
         {claim.checkLinkUrl ? (
           <>
             <a
@@ -237,11 +322,6 @@ export function ClaimFields({
             >
               {claim.checkLinkUrl}
             </a>
-            {!claim.checkLinkConfirmed && (
-              <Marker title="Open it, check it shows the thing measured, then confirm">
-                not confirmed
-              </Marker>
-            )}
           </>
         ) : (
           <Empty>

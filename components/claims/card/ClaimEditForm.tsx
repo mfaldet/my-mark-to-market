@@ -3,7 +3,14 @@ import { ReactNode, useState } from "react"
 import TextareaAutosize from "react-textarea-autosize"
 import { COMPARISONS, SHAPE_PARTS } from "../../../lib/claims/types"
 import { COMPARISON_LABELS, PART_LABELS, SHAPE_LABELS } from "../labels"
-import { BTN_MAIN, BTN_OUTLINE, BTN_TEXT, CardClaim, INPUT } from "./shared"
+import {
+  BTN_MAIN,
+  BTN_OUTLINE,
+  BTN_TEXT,
+  CardClaim,
+  INPUT,
+  SHAPE_PLAIN,
+} from "./shared"
 
 /** Everything the one Edit form can change. Empty text means "none". */
 export type Draft = {
@@ -157,7 +164,7 @@ export function ClaimEditForm({
         >
           {shapes.map((shape) => (
             <option key={shape} value={shape}>
-              {SHAPE_LABELS[shape]}
+              {SHAPE_PLAIN[shape]}
             </option>
           ))}
         </select>
@@ -234,13 +241,13 @@ export function ClaimEditForm({
 
       <p className="m-0 text-xs text-neutral-500">
         {mode === "preview"
-          ? "Saving here updates the preview. Nothing is stored until you approve it."
+          ? "This updates the preview. Nothing is stored until you approve it."
           : "Saving records one new version in the history, and what you save counts as yours. How sure you are is changed on the card itself."}
       </p>
 
       <div className="flex flex-wrap gap-2">
         <button type="submit" className={BTN_MAIN} disabled={busy}>
-          {busy ? "Saving..." : "Save"}
+          {mode === "preview" ? "Update preview" : busy ? "Saving..." : "Save"}
         </button>
         <button
           type="button"
