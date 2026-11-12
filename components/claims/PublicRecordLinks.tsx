@@ -14,8 +14,8 @@ export function PublicRecordLinks({ userId }: { userId: string }) {
     <div className="not-prose flex flex-col gap-2 text-sm">
       <h3 className="font-semibold text-base">Public track record</h3>
       <p className="text-neutral-500">
-        Only predictions you have made public appear. Hunches, private
-        predictions and anything withdrawn never do.
+        Only predictions you have published appear. Private predictions and
+        anything withdrawn never do.
       </p>
       <a className="link" href={page} target="_blank" rel="noreferrer">
         Open the public page

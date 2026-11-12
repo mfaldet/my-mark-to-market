@@ -240,7 +240,7 @@ describe("canPublish: the publish gate", () => {
       checkLinkConfirmed: false,
     })
     expect(free.ok).toBe(false)
-    expect(!free.ok && free.reasons[0]).toMatch(/still a hunch \(grade 1\)/)
+    expect(!free.ok && free.reasons[0]).toMatch(/Not checkable yet \(grade 1\)/)
 
     const rest = without(completeNumber, "value")
     const three = canPublish({

@@ -1,6 +1,6 @@
-# Log a hunch from your iPhone
+# Log a prediction from your iPhone
 
-A Shortcut that takes a hunch by voice or keyboard, lets you read it back before anything is sent, and then shows the grade the app gave it. Anything logged this way is marked as entered by **phone**.
+A Shortcut that takes a prediction by voice or keyboard, lets you read it back before anything is sent, and then shows the grade the app gave it. Anything logged this way is marked as entered by **phone**.
 
 This is the version I use on my own phone. It takes about ten minutes to build, once.
 
@@ -11,18 +11,18 @@ This is the version I use on my own phone. It takes about ten minutes to build, 
 
 Below, replace `YOUR-APP-ADDRESS` with your address and `YOUR_API_KEY` with your key.
 
-The address says "claims" for technical reasons. A claim is the same thing as a hunch or prediction.
+The address says "claims" for technical reasons. A claim is the same thing as a prediction.
 
 ## How it works
 
 1. A text box opens. Type, or tap the microphone on the keyboard and speak. You can fix any word before going on.
 2. If the box is empty, the shortcut stops. Nothing is sent.
 3. A menu shows your words with three choices: **Send**, **Redo** or **Don't send**.
-4. **Send** logs the hunch and shows its grade.
+4. **Send** logs the prediction and shows its grade.
 
 ## Build it
 
-Open the **Shortcuts** app, tap **+**, and name the shortcut **Log a hunch**. Add these actions in order. To add one, tap the search bar at the bottom and type its name.
+Open the **Shortcuts** app, tap **+**, and name the shortcut **Log a hunch** (the app's own entry box and button still say "hunch", and so does mine; any name works). Add these actions in order. To add one, tap the search bar at the bottom and type its name.
 
 ### 1. Ask for Input
 
@@ -83,7 +83,7 @@ Try: _"Unemployment will hit six percent by 2028, probably."_ Choose **Send** an
 
 ## Things to know
 
-- **Grades 1 to 3 are hunches, 4 and 5 are predictions.** A hunch logged from the phone is usually a low grade at first. Open the app, or ask Claude, to sharpen it and give it a headline.
+- **The grade says how checkable it is.** Grades 4 and 5 are checkable; 1 to 3 are not yet. A prediction logged from the phone is usually a low grade at first. Open the app, or ask Claude, to sharpen it and give it a headline.
 - **Your words are saved exactly as sent.** That is why the shortcut shows them to you first.
 - **Your key is stored inside the shortcut.** Do not share the shortcut with anyone. If your phone is lost, open the same page in the app and click **Regenerate**; the old key stops working at once.
 

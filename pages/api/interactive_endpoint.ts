@@ -124,7 +124,10 @@ async function blockActions(payload: BlockActionPayload) {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
   const reqbody = typeof req.body === "string" ? JSON.parse(req.body) : req.body
   const payload = JSON.parse(reqbody.payload) as BlockActionPayload
   switch (payload.type) {

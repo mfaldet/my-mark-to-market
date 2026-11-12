@@ -8,8 +8,7 @@
  * This file must not import anything from the app.
  */
 export const APP_NAME = "My Mark-to-Market"
-export const APP_TAGLINE =
-  "My hunches and predictions: logged, sharpened and scored."
+export const APP_TAGLINE = "My predictions: logged, sharpened and scored."
 
 export const UPSTREAM = {
   name: "Fatebook",

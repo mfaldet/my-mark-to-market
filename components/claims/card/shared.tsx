@@ -344,16 +344,7 @@ export function QuietLine({
   claim: CardClaim
   mode: "preview" | "detail"
 }) {
-  const kind =
-    mode === "preview"
-      ? claim.kind === "prediction"
-        ? "Would be a prediction"
-        : "Would be a hunch"
-      : claim.kind === "prediction"
-        ? "Prediction"
-        : "Hunch"
   const bits = [
-    kind,
     `Grade ${claim.grade}: ${claim.gradeReason}`,
     SHAPE_PLAIN[claim.shape ?? "FREE_TEXT"],
     `Said ${formatDay(claim.claimDate)}${

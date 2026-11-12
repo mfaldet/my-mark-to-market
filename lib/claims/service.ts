@@ -532,8 +532,8 @@ async function updateClaim(
     throw new ClaimError(
       "BLOCKED",
       row.sharedPublicly
-        ? "This prediction is public, and that change would turn it back into a hunch or leave a part unconfirmed. Fix the points below, or make it private first."
-        : "This can't be made public yet.",
+        ? "This prediction is public, and that change would leave it no longer checkable or leave a part unconfirmed. Fix the points below, or unpublish it first."
+        : "This can't be published yet.",
       publish.reasons,
     )
   }
@@ -1023,7 +1023,7 @@ export async function notifyReadyToResolve(
           content:
             kindForGrade(claim.grade) === "prediction" || isImported(claim.id)
               ? `This prediction came due on ${isoDay(claim.resolveBy)}. How did it turn out?`
-              : `This hunch's check-back date was ${isoDay(claim.resolveBy)}. Sharpen it into a prediction, move the date, or withdraw it.`,
+              : `This prediction's check-back date was ${isoDay(claim.resolveBy)}. It is not checkable yet: sharpen it, move the date, or withdraw it.`,
           url: getQuestionUrl(claim),
           tags: ["ready_to_resolve"],
           userId: claim.userId,
@@ -1308,7 +1308,7 @@ export function assertCanResolve(row: Question) {
   if (kindForGrade(grade.grade) === "hunch") {
     throw new ClaimError(
       "BLOCKED",
-      "This is still a hunch, so it can't be marked right or wrong. Sharpen it into a prediction, move its check-back date, or withdraw it.",
+      "This is not checkable yet, so it can't be marked right or wrong. Sharpen it, move its check-back date, or withdraw it.",
       [grade.reason],
     )
   }

@@ -128,7 +128,7 @@ const claim = z.object({
   questionsAsked: z.number(),
 })
 
-const tags = ["Hunches and predictions"]
+const tags = ["Predictions"]
 
 export const claimsApiRouter = router({
   log: publicProcedure
@@ -138,7 +138,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/log",
         tags,
         description:
-          "Log a hunch from raw text. The text is saved exactly as given. Returns the item with its kind (hunch or prediction), its grade and the first question to answer (nextQuestion), if there is one.",
+          "Log a prediction from raw text. The text is saved exactly as given. Returns the item with its grade, its kind (a field that answers 'hunch' for grades 1 to 3, not checkable yet, and 'prediction' for grades 4 and 5, checkable) and the first question to answer (nextQuestion), if there is one.",
         example: {
           request: {
             text: "S&P 500 falls 20% from today's close by end of 2027, likely",
@@ -185,7 +185,7 @@ export const claimsApiRouter = router({
         method: "GET",
         path: "/v0/claims/get",
         tags,
-        description: "Get one of your hunches or predictions.",
+        description: "Get one of your predictions.",
       },
     })
     .input(z.object({ claimId: z.string(), apiKey }))
@@ -203,7 +203,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/nextQuestion",
         tags,
         description:
-          "The one open question on a hunch or prediction: the most important gap, with a suggested default where there is one. `question` is null when there is nothing to ask or three have been asked.",
+          "The one open question on a prediction: the most important gap, with a suggested default where there is one. `question` is null when there is nothing to ask or three have been asked.",
       },
     })
     .input(z.object({ claimId: z.string(), apiKey }))
@@ -348,7 +348,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/linkParent",
         tags,
         description:
-          "Link an item to the earlier, vaguer hunch it grew out of. Send parentId null to remove the link.",
+          "Link a prediction to the earlier, looser one it grew out of. Send parentId null to remove the link.",
       },
     })
     .input(
@@ -376,7 +376,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/list",
         tags,
         description:
-          'List your hunches and predictions, newest first. To ask "what\'s due?", set `due`: "soon" (deadline today or within `withinDays`, default 7), "overdue" (deadline passed, not resolved) or "soon_or_overdue". Those come back most pressing first.',
+          'List your predictions, newest first. To ask "what\'s due?", set `due`: "soon" (deadline today or within `withinDays`, default 7), "overdue" (deadline passed, not resolved) or "soon_or_overdue". Those come back most pressing first.',
       },
     })
     .input(
@@ -412,7 +412,7 @@ export const claimsApiRouter = router({
         path: "/v0/claims/resolve",
         tags,
         description:
-          'Resolve a prediction. Give `result` (right, wrong or can\'t tell), or for a prediction about a number just give `actual` and the code works out right or wrong. A near miss on an "about" number is marked as a close call. A hunch cannot be resolved.',
+          'Resolve a prediction. Give `result` (right, wrong or can\'t tell), or for a prediction about a number just give `actual` and the code works out right or wrong. A near miss on an "about" number is marked as a close call. One that is not checkable yet (below grade 4) cannot be resolved.',
         example: { request: { claimId: "CLAIM_ID", actual: 5.8 } },
       },
     })

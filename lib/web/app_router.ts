@@ -363,7 +363,4 @@ export const openApiDocument = generateOpenApiDocument(appRouter, {
   baseUrl: getClientBaseUrl(false) + "/api",
 })
 // newest first in the docs: this app's own endpoints, then Fatebook's
-openApiDocument.tags = [
-  { name: "Hunches and predictions" },
-  { name: "Older endpoints" },
-]
+openApiDocument.tags = [{ name: "Predictions" }, { name: "Older endpoints" }]

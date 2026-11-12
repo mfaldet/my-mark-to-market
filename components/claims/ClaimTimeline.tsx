@@ -146,8 +146,8 @@ export function TimelineList({ claimId }: { claimId: string }) {
               <div>
                 <span className="tone-change rounded px-1.5 py-0.5 font-semibold">
                   {event.became === "prediction"
-                    ? "Became a prediction"
-                    : "Became a hunch again"}
+                    ? "Became checkable"
+                    : "No longer checkable"}
                 </span>
               </div>
             ) : event.kind === "confidence" ? (

@@ -11,7 +11,10 @@ import { truncateString } from "../../../lib/web/utils"
 import { QuestionWithUserAndForecasts } from "../../../prisma/additional"
 import { getBaseHost } from "../../../lib/base_url"
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
   console.log("Handling interaction")
 
   const { type, data } = req.body
@@ -208,7 +211,10 @@ function showApiInputModal(res: NextApiResponse) {
   })
 }
 
-async function handleLoginModalSubmit(req: NextApiRequest, res: NextApiResponse) {
+async function handleLoginModalSubmit(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
   const apiKey = req.body?.data?.components?.[0]?.components?.[0]?.value
   if (!apiKey) {
     return sendDiscordEphemeral(res, "You must provide an API key")
