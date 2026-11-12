@@ -429,6 +429,18 @@ describe("the MCP tools", () => {
       expect(saved).not.toHaveProperty("text")
     })
 
+    it("says so when the app's own AI step was asked and added nothing", () => {
+      const quiet = summarize(view) as any
+      expect(quiet).not.toHaveProperty("appAiStep")
+      const failed = summarize({
+        ...view,
+        aiNote: "The AI returned an error (400): bad schema",
+      }) as any
+      expect(failed.appAiStep).toBe(
+        "added nothing: The AI returned an error (400): bad schema",
+      )
+    })
+
     it("an item with no headline is reported with my words, as before", () => {
       const summary = summarize(view) as any
       expect(summary.text).toBe(view.text)

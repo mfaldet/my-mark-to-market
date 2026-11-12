@@ -184,7 +184,7 @@ describe("extractClaim", () => {
       ],
       [
         new Anthropic.InternalServerError(500, undefined, "boom", headers),
-        "The AI returned an error (500).",
+        "The AI returned an error (500): 500 boom",
       ],
     ]
     for (const [error, note] of cases) {
