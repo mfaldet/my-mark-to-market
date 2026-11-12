@@ -243,6 +243,33 @@ describe("toExtraction", () => {
     expect(analysis.publish.ok).toBe(false)
   })
 
+  it("the answer format is one the real API accepts: no list of allowed values on a two-type field", () => {
+    // The real API answered 400 "Enum value 'above' does not match declared
+    // type '['string', 'null']'" to exactly that. The local stand-in never
+    // checks the format, so this guards it.
+    const walk = (node: any, path: string) => {
+      if (!node || typeof node !== "object") return
+      if (Array.isArray(node.enum)) {
+        expect({ path, type: node.type }).toEqual({
+          path,
+          type: expect.any(String),
+        })
+        for (const value of node.enum) {
+          expect(typeof value).toBe(node.type)
+        }
+      }
+      for (const [key, child] of Object.entries(node)) {
+        if (key !== "enum") walk(child, `${path}.${key}`)
+      }
+    }
+    walk(EXTRACTION_SCHEMA, "schema")
+    // every object says it takes no other fields, as the API requires
+    expect(EXTRACTION_SCHEMA.additionalProperties).toBe(false)
+    expect([...EXTRACTION_SCHEMA.required].sort()).toEqual(
+      Object.keys(EXTRACTION_SCHEMA.properties).sort(),
+    )
+  })
+
   it("carries a proposed headline through, for me to approve", () => {
     const result = toExtraction({
       ...EMPTY,
