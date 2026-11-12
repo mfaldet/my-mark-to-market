@@ -14,15 +14,20 @@ import { resultLabel } from "../../lib/claims/words"
 export function ResolveButton({
   question,
   optionId,
+  buttonClassName,
 }: {
   question: QuestionWithStandardIncludes
   optionId?: string
+  /** replaces the button's own look (the item card styles it as its main button) */
+  buttonClassName?: string
 }) {
   const userId = useUserId()
   const utils = api.useContext()
   const resolveQuestion = api.question.resolveQuestion.useMutation({
     async onSettled() {
       await invalidateQuestion(utils, question)
+      // the item card reads the same item through the claims service
+      await utils.claims.invalidate()
       await utils.question.getQuestionScores.invalidate()
       await utils.question.getBucketedForecasts.invalidate()
     },
@@ -30,6 +35,8 @@ export function ResolveButton({
   const undoResolution = api.question.undoResolution.useMutation({
     async onSettled() {
       await invalidateQuestion(utils, question)
+      // the item card reads the same item through the claims service
+      await utils.claims.invalidate()
       await utils.question.getQuestionScores.invalidate()
       await utils.question.getBucketedForecasts.invalidate()
     },
@@ -78,23 +85,26 @@ export function ResolveButton({
           className={`w-full ${question.exclusiveAnswers === true ? "" : "h-full"}`}
         >
           <Menu.Button
-            className={clsx(
-              "inline-flex w-full justify-center rounded-md px-4 py-1.5 text-sm font-semibold disabled:opacity-90 h-full items-center",
-              // TODO: clean this up
-              // green = right, red = wrong, no colour for "can't tell"
-              resolution === "YES"
-                ? "tone-positive ring-1 ring-inset ring-positive/40"
-                : resolution === "NO" || resolution === "Other"
-                  ? "tone-negative ring-1 ring-inset ring-negative/40"
-                  : resolution === "AMBIGUOUS"
-                    ? "bg-neutral-100 text-neutral-700 ring-1 ring-inset ring-neutral-300"
-                    : resolution // Has resolved to an MCQ option
-                      ? "tone-positive ring-1 ring-inset ring-positive/40"
-                      : isPastDay(question.resolveBy)
-                        ? // red ring = urgent: past its deadline
-                          "bg-neutral-100 text-ink ring-2 ring-inset ring-negative/60 hover:bg-neutral-200"
-                        : "bg-neutral-100 text-ink hover:bg-neutral-200",
-            )}
+            className={
+              buttonClassName ??
+              clsx(
+                "inline-flex w-full justify-center rounded-md px-4 py-1.5 text-sm font-semibold disabled:opacity-90 h-full items-center",
+                // TODO: clean this up
+                // green = right, red = wrong, no colour for "can't tell"
+                resolution === "YES"
+                  ? "tone-positive ring-1 ring-inset ring-positive/40"
+                  : resolution === "NO" || resolution === "Other"
+                    ? "tone-negative ring-1 ring-inset ring-negative/40"
+                    : resolution === "AMBIGUOUS"
+                      ? "bg-neutral-100 text-neutral-700 ring-1 ring-inset ring-neutral-300"
+                      : resolution // Has resolved to an MCQ option
+                        ? "tone-positive ring-1 ring-inset ring-positive/40"
+                        : isPastDay(question.resolveBy)
+                          ? // red ring = urgent: past its deadline
+                            "bg-neutral-100 text-ink ring-2 ring-inset ring-negative/60 hover:bg-neutral-200"
+                          : "bg-neutral-100 text-ink hover:bg-neutral-200",
+              )
+            }
             disabled={
               resolveQuestion.isLoading ||
               undoResolution.isLoading ||
@@ -107,7 +117,10 @@ export function ResolveButton({
             {resolution ? resultLabel(resolution) : "Resolve"}
             {!resolution && (
               <ChevronDownIcon
-                className="ml-2 -mr-2 h-5 w-5 text-neutral-400"
+                className={clsx(
+                  "ml-2 -mr-2 h-5 w-5",
+                  buttonClassName ? "text-white/70" : "text-neutral-400",
+                )}
                 aria-hidden="true"
               />
             )}

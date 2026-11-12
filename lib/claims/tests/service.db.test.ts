@@ -19,6 +19,7 @@ import {
   answerQuestion,
   applyRuleUpdates,
   claimState,
+  confirmCheckLink,
   confirmProposal,
   editClaim,
   getClaim,
@@ -1204,6 +1205,72 @@ db("claim service, against the database", () => {
       } finally {
         if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved
       }
+    })
+
+    it("the card's one Save: headline, a part and the check link together are one recorded version", async () => {
+      const claim = await logClaim({
+        userId,
+        text: "jensen stays thru 2027",
+        headline: "Jensen Huang is NVIDIA's CEO at the end of 2027",
+        proposal: {
+          shape: "EVENT_BY_DATE",
+          parts: { event: "Jensen Huang is CEO of NVIDIA", howToTell: "news" },
+          deadline: "2027-12-31",
+        },
+        proposalStatus: "stated",
+        source: "WEB",
+      })
+      const versions = () =>
+        prisma.claimVersion.count({ where: { questionId: claim.id } })
+      const before = await versions()
+      const edited = await editClaim(
+        userId,
+        claim.id,
+        {
+          headline: "Jensen Huang is NVIDIA's CEO on Dec 31, 2027",
+          parts: { howToTell: "NVIDIA's leadership page" },
+          checkLinkUrl: "https://investor.nvidia.com/governance",
+        },
+        "WEB",
+      )
+      expect(await versions()).toBe(before + 1)
+      expect(edited.headline).toBe(
+        "Jensen Huang is NVIDIA's CEO on Dec 31, 2027",
+      )
+      expect(edited.parts.howToTell?.value).toBe("NVIDIA's leadership page")
+      expect(edited.checkLinkUrl).toBe("https://investor.nvidia.com/governance")
+      // a new link has not been opened yet
+      expect(edited.checkLinkConfirmed).toBe(false)
+
+      // saving the same link again does not un-confirm it
+      await confirmCheckLink(userId, claim.id, "WEB")
+      const same = await editClaim(
+        userId,
+        claim.id,
+        { checkLinkUrl: "https://investor.nvidia.com/governance" },
+        "WEB",
+      )
+      expect(same.checkLinkConfirmed).toBe(true)
+      await expect(
+        editClaim(userId, claim.id, { checkLinkUrl: "not a link" }, "WEB"),
+      ).rejects.toThrow(/web address/)
+      // an edit that leaves the link out leaves it alone
+      const untouched = await editClaim(
+        userId,
+        claim.id,
+        { parts: { howToTell: "NVIDIA's leadership page and 8-K filings" } },
+        "WEB",
+      )
+      expect(untouched.checkLinkUrl).toBe(
+        "https://investor.nvidia.com/governance",
+      )
+      const removed = await editClaim(
+        userId,
+        claim.id,
+        { checkLinkUrl: null },
+        "WEB",
+      )
+      expect(removed.checkLinkUrl).toBeNull()
     })
 
     it("no headline: my words show, as before", async () => {

@@ -16,6 +16,7 @@ import { ErrorBoundary } from "react-error-boundary"
 import { QuestionWithStandardIncludes } from "../../prisma/additional"
 import { FormattedDate } from "../ui/FormattedDate"
 import { Username } from "../ui/Username"
+import { ClaimCard } from "../claims/card/ClaimCard"
 import { QuestionDetails } from "./QuestionDetails"
 import { isImported, kindForGrade } from "../../lib/claims/kind"
 import { ResolveButton } from "./ResolveButton"
@@ -79,6 +80,28 @@ export function Question({
   // a hunch has a date to check back, not a deadline to resolve by
   const isHunch =
     kindForGrade(question.grade) === "hunch" && !isImported(question.id)
+
+  // My own item, opened: the one card, with each fact shown once.
+  if (
+    !embedded &&
+    userId &&
+    question.userId === userId &&
+    question.type === "BINARY" &&
+    (alwaysExpand || manuallyExpanded)
+  ) {
+    return (
+      <ErrorBoundary fallback={<div>Something went wrong</div>}>
+        <div className={className} style={zIndex ? { zIndex } : undefined}>
+          <ClaimCard
+            claimId={question.id}
+            onClose={
+              alwaysExpand ? undefined : () => setManuallyExpanded(false)
+            }
+          />
+        </div>
+      </ErrorBoundary>
+    )
+  }
 
   return (
     <ErrorBoundary fallback={<div>Something went wrong</div>}>
