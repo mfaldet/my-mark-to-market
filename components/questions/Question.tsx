@@ -17,6 +17,7 @@ import { QuestionWithStandardIncludes } from "../../prisma/additional"
 import { FormattedDate } from "../ui/FormattedDate"
 import { Username } from "../ui/Username"
 import { ClaimCard } from "../claims/card/ClaimCard"
+import { ClaimRow } from "../claims/card/ClaimRow"
 import { QuestionDetails } from "./QuestionDetails"
 import { isImported, kindForGrade } from "../../lib/claims/kind"
 import { ResolveButton } from "./ResolveButton"
@@ -81,23 +82,30 @@ export function Question({
   const isHunch =
     kindForGrade(question.grade) === "hunch" && !isImported(question.id)
 
-  // My own item, opened: the one card, with each fact shown once.
+  // My own item: a plain row in a list, and when opened the one card,
+  // with each fact shown once.
   if (
     !embedded &&
     userId &&
     question.userId === userId &&
-    question.type === "BINARY" &&
-    (alwaysExpand || manuallyExpanded)
+    question.type === "BINARY"
   ) {
     return (
       <ErrorBoundary fallback={<div>Something went wrong</div>}>
         <div className={className} style={zIndex ? { zIndex } : undefined}>
-          <ClaimCard
-            claimId={question.id}
-            onClose={
-              alwaysExpand ? undefined : () => setManuallyExpanded(false)
-            }
-          />
+          {alwaysExpand || manuallyExpanded ? (
+            <ClaimCard
+              claimId={question.id}
+              onClose={
+                alwaysExpand ? undefined : () => setManuallyExpanded(false)
+              }
+            />
+          ) : (
+            <ClaimRow
+              question={question}
+              onOpen={() => setManuallyExpanded(true)}
+            />
+          )}
         </div>
       </ErrorBoundary>
     )
