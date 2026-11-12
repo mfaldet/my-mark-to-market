@@ -12,6 +12,7 @@ import {
   confirmCheckLink,
   confirmPart,
   getClaim,
+  confirmProposal,
   editClaim,
   previewClaim,
   restoreClaim,
@@ -265,6 +266,34 @@ export const claimsRouter = router({
         { headline: input.headline },
         "WEB",
       ).catch(toTrpcError),
+    ),
+
+  /**
+   * The card's one Edit form: every field I changed, saved as one recorded
+   * version. Parts I save are mine (stated).
+   */
+  edit: publicProcedure
+    .input(
+      id.extend({
+        headline: z.string().max(500).nullable().optional(),
+        shape: z.nativeEnum(ClaimShape).optional(),
+        parts: z.record(z.union([z.string(), z.number(), z.null()])).optional(),
+        deadline: z.string().optional(),
+        checkLinkUrl: z.string().max(2000).nullable().optional(),
+        correctedText: z.string().max(5000).optional(),
+      }),
+    )
+    .mutation(({ input: { claimId, ...edit }, ctx }) =>
+      editClaim(requireUser(ctx), claimId, edit, "WEB").catch(toTrpcError),
+    ),
+
+  /** "These are right": every unconfirmed part becomes mine, as one version. */
+  confirmAll: publicProcedure
+    .input(id)
+    .mutation(({ input, ctx }) =>
+      confirmProposal(requireUser(ctx), input.claimId, {}, "WEB").catch(
+        toTrpcError,
+      ),
     ),
 
   restore: publicProcedure

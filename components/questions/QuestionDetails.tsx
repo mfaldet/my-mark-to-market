@@ -23,7 +23,6 @@ import {
   useUserId,
 } from "../../lib/web/utils"
 import { QuestionWithStandardIncludes } from "../../prisma/additional"
-import { ClaimPanel } from "../claims/ClaimPanel"
 import { FormattedDate } from "../ui/FormattedDate"
 import { InfoButton } from "../ui/InfoButton"
 import { PromptDialog } from "../ui/PromptDialog"
@@ -66,10 +65,6 @@ export const QuestionDetails = forwardRef(function QuestionDetails(
       ref={ref}
     >
       <ErrorBoundary fallback={<div>Something went wrong</div>}>
-        {/* the claim standard: grade, engine question, outcome parts */}
-        {userId && userId === question.userId && (
-          <ClaimPanel claimId={question.id} />
-        )}
         {!userId && (
           <div className="flex w-full p-4">
             <button

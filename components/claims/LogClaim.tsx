@@ -5,7 +5,8 @@ import TextareaAutosize from "react-textarea-autosize"
 import { ClaimPreview, ClaimView } from "../../lib/claims/service"
 import { api } from "../../lib/web/trpc"
 import { signInToFatebook, useUserId } from "../../lib/web/utils"
-import { ClaimPanel } from "./ClaimPanel"
+import { ClaimCard } from "./card/ClaimCard"
+import { BTN_OUTLINE } from "./card/shared"
 import { PreviewCard, Proposal, proposalOf } from "./PreviewCard"
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -129,7 +130,13 @@ export function LogClaim() {
           )}
           <button
             type="submit"
-            className="button primary ml-auto"
+            // one filled button on screen: with a card open below, the
+            // card's own main button takes that place
+            className={
+              preview || logged
+                ? `${BTN_OUTLINE} ml-auto`
+                : "button primary ml-auto"
+            }
             disabled={!text.trim() || busy}
           >
             {previewIt.isLoading
@@ -178,20 +185,12 @@ export function LogClaim() {
       )}
 
       {logged && (
-        <div className="glass rounded-xl p-4 flex flex-col gap-1">
-          <div className="flex justify-between gap-2">
-            <span className="font-semibold">
-              {logged.headline ?? `“${logged.text}”`}
-            </span>
-            <button
-              className="btn btn-xs btn-ghost normal-case"
-              onClick={() => setLogged(null)}
-            >
-              Done
-            </button>
-          </div>
-          <ClaimPanel claimId={logged.id} initial={logged} />
-        </div>
+        <ClaimCard
+          claimId={logged.id}
+          initial={logged}
+          onClose={() => setLogged(null)}
+          closeLabel="Done"
+        />
       )}
     </div>
   )

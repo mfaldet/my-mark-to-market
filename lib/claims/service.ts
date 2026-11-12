@@ -1471,6 +1471,11 @@ export type ClaimEdit = {
   correctedText?: string
   /** set or replace the headline I approved; null removes it */
   headline?: string | null
+  /**
+   * Set, replace or (null) remove the check link in the same save. A link
+   * that changed has not been opened and confirmed yet.
+   */
+  checkLinkUrl?: string | null
 }
 
 function applyEdit(row: ClaimRow, edit: ClaimEdit) {
@@ -1493,6 +1498,14 @@ function applyEdit(row: ClaimRow, edit: ClaimEdit) {
   }
   const checked = parseOutcomeParts(shape, parts)
   if (!checked.ok) throw new ClaimError("BAD_REQUEST", checked.error)
+  const link =
+    edit.checkLinkUrl === undefined
+      ? undefined
+      : edit.checkLinkUrl?.trim() || null
+  if (link && !/^https?:\/\/\S+$/i.test(link)) {
+    throw new ClaimError("BAD_REQUEST", "The check link must be a web address.")
+  }
+  const linkChanged = link !== undefined && link !== (row.checkLinkUrl ?? null)
   const text = edit.correctedText?.trim()
   if (edit.correctedText !== undefined && !text) {
     throw new ClaimError("BAD_REQUEST", "The corrected text is empty.")
@@ -1508,6 +1521,9 @@ function applyEdit(row: ClaimRow, edit: ClaimEdit) {
       title: text || undefined,
       headline:
         edit.headline === undefined ? undefined : edit.headline?.trim() || null,
+      ...(linkChanged
+        ? { checkLinkUrl: link, checkLinkConfirmedAt: null }
+        : {}),
     } satisfies Prisma.QuestionUncheckedUpdateInput,
     parts: checked.parts as Record<string, OutcomePart>,
   }

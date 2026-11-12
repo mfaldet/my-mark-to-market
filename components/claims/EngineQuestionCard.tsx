@@ -3,6 +3,7 @@ import { toast } from "react-hot-toast"
 import { ClaimView } from "../../lib/claims/service"
 import { MAX_ENGINE_QUESTIONS } from "../../lib/claims/next_question"
 import { api } from "../../lib/web/trpc"
+import { BTN_OUTLINE, BTN_TEXT, INPUT } from "./card/shared"
 
 /**
  * The rigor engine's one question. One tap accepts the suggested default;
@@ -35,7 +36,7 @@ export function EngineQuestionCard({
     answer.mutate({ claimId: claim.id, answer: a })
 
   return (
-    <div className="glass rounded-xl p-3 flex flex-col gap-2 not-prose">
+    <div className="flex flex-col gap-2 border-t border-neutral-200 pt-3 not-prose">
       <div className="text-xs text-neutral-500">
         {claim.kind === "hunch"
           ? "Turn this hunch into a prediction, one question at a time."
@@ -50,7 +51,7 @@ export function EngineQuestionCard({
       <div className="flex flex-wrap gap-2 items-center">
         {question.suggestion && (
           <button
-            className="btn btn-sm btn-primary normal-case"
+            className={BTN_OUTLINE}
             disabled={answer.isLoading}
             onClick={() => send({ accept: true })}
           >
@@ -65,7 +66,7 @@ export function EngineQuestionCard({
           }}
         >
           <input
-            className="input input-sm input-bordered grow w-0 min-w-[8rem]"
+            className={`${INPUT} grow w-0 min-w-[8rem]`}
             type={question.part === "deadline" ? "date" : "text"}
             placeholder={
               question.suggestion ? "or type your own" : "Your answer"
@@ -74,7 +75,7 @@ export function EngineQuestionCard({
             onChange={(e) => setValue(e.target.value)}
           />
           <button
-            className="btn btn-sm btn-primary normal-case"
+            className={BTN_OUTLINE}
             type="submit"
             disabled={answer.isLoading || !value.trim()}
           >
@@ -82,7 +83,7 @@ export function EngineQuestionCard({
           </button>
         </form>
         <button
-          className="btn btn-sm btn-ghost normal-case text-neutral-500"
+          className={BTN_TEXT}
           disabled={answer.isLoading}
           onClick={() => send({ skip: true })}
         >
