@@ -22,7 +22,6 @@ import {
 import { api } from "../lib/web/trpc"
 import { useUserId } from "../lib/web/utils"
 import { CalibrationChart } from "./CalibrationChart"
-import { TagsSelect } from "./questions/TagsSelect"
 import { InfoButton } from "./ui/InfoButton"
 
 export function TrackRecord({
@@ -74,7 +73,8 @@ export function TrackRecord({
     },
   )
 
-  const [tags, setTags] = useState<string[]>([])
+  // tags are no longer offered anywhere on screen, so nothing is filtered by them
+  const tags: string[] = []
   const allScoresQuery = api.question.getQuestionScores.useQuery({
     userId: trackRecordUserId,
     tags: tags,
@@ -121,14 +121,6 @@ export function TrackRecord({
         </h2>
         {!isCollapsed && (
           <>
-            <div className="text-sm pb-4 px-2">
-              <TagsSelect
-                tags={tags}
-                setTags={(tags) => setTags(tags)}
-                placeholder="Filter by tags..."
-                allowCreation={false}
-              />
-            </div>
             <CalibrationChart tags={tags} userId={trackRecordUserId} />
 
             <div className="flex flex-col gap-4 pt-6">

@@ -3,7 +3,7 @@ import clsx from "clsx"
 import { useRouter } from "next/router"
 import { useState } from "react"
 import { toast } from "react-hot-toast"
-import { ClaimView } from "../../../lib/claims/service"
+import { ClaimPreview, ClaimView } from "../../../lib/claims/service"
 import { api } from "../../../lib/web/trpc"
 import { QuestionWithStandardIncludes } from "../../../prisma/additional"
 import { CommentBox, DeleteCommentOverflow } from "../../questions/CommentBox"
@@ -11,9 +11,14 @@ import { ResolveButton } from "../../questions/ResolveButton"
 import { ConfirmDialog } from "../../ui/ConfirmDialog"
 import { TimelineList } from "../ClaimTimeline"
 import { ConfidenceForm } from "../ConfidenceRow"
-import { EngineQuestionCard } from "../EngineQuestionCard"
 import { formatDay } from "../labels"
-import { ClaimEditForm, Draft, partFields, partValue } from "./ClaimEditForm"
+import {
+  ClaimEditForm,
+  Draft,
+  draftOf,
+  partFields,
+  partValue,
+} from "./ClaimEditForm"
 import {
   BTN_MAIN,
   BTN_OUTLINE,
@@ -34,7 +39,12 @@ const formatMoment = (when: string | Date) =>
   })
 
 /** What the edit form changed, as one edit to save. */
-function editFrom(draft: Draft, claim: ClaimView) {
+function editFrom(
+  draft: Draft,
+  claim: ClaimView,
+  /** the date in the form is one I am approving, even if it matches today's */
+  dateIsMine = false,
+) {
   const parts: Record<string, string | number | null> = {}
   for (const name of [...partFields(draft.shape), "valueHigh"]) {
     parts[name] = partValue(name, draft.parts[name] ?? "")
@@ -50,7 +60,7 @@ function editFrom(draft: Draft, claim: ClaimView) {
     parts,
     // a date I did not touch stays what it was: mine, or the app's default
     deadline:
-      draft.deadline && draft.deadline !== claim.deadline
+      draft.deadline && (dateIsMine || draft.deadline !== claim.deadline)
         ? draft.deadline
         : undefined,
     checkLinkUrl: link !== claim.checkLinkUrl ? link : undefined,
@@ -109,11 +119,33 @@ export function ClaimCard({
   const [menuOpen, setMenuOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
+  // "Sharpen this hunch": a proposal shown on the card; nothing changes until I approve
+  const [proposal, setProposal] = useState<ClaimPreview | null>(null)
+  const [sharpenNote, setSharpenNote] = useState<string | null>(null)
+  const sharpen = api.claims.proposeSharpening.useMutation({
+    onSuccess: (result) => {
+      setProposal(result.preview)
+      setSharpenNote(
+        result.preview
+          ? null
+          : result.reason === "nothing"
+            ? "The app has nothing to add to this one; you can edit it yourself."
+            : "The app couldn't suggest a sharper version just now; you can edit it yourself.",
+      )
+    },
+    onError: () => {
+      setSharpenNote(
+        "The app couldn't suggest a sharper version just now; you can edit it yourself.",
+      )
+    },
+  })
 
   const edit = api.claims.edit.useMutation({
     ...after,
     onSuccess: async () => {
       setEditing(false)
+      setProposal(null)
+      setSharpenNote(null)
       await refresh()
     },
   })
@@ -149,6 +181,29 @@ export function ClaimCard({
     action()
   }
   const comments = question?.comments ?? []
+  // The proposal as this item would look with it: the suggested headline and
+  // parts, on top of what is already mine (how sure, the check link, the
+  // date I said it, and my own date when the proposal has none).
+  const proposed: ClaimView | null = proposal && {
+    ...claim,
+    headline: proposal.headline,
+    shown: proposal.headline ?? claim.text,
+    shape: proposal.shape,
+    kind: proposal.kind,
+    grade: proposal.grade,
+    gradeReason: proposal.gradeReason,
+    compound: proposal.compound,
+    approximate: proposal.approximate,
+    parts: {
+      ...proposal.parts,
+      ...(proposal.parts.deadline || !claim.parts.deadline
+        ? {}
+        : { deadline: claim.parts.deadline }),
+    },
+    ...(proposal.parts.deadline
+      ? { deadline: proposal.deadline, deadlineKind: proposal.deadlineKind }
+      : {}),
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -211,18 +266,29 @@ export function ClaimCard({
 
         {editing ? (
           <ClaimEditForm
-            claim={claim}
+            // with a proposal showing, the form opens filled in with it
+            claim={proposed ?? claim}
             mode="detail"
             busy={edit.isLoading}
             onCancel={() => setEditing(false)}
             onSave={(draft) =>
-              edit.mutate({ claimId, ...editFrom(draft, claim) })
+              edit.mutate({
+                claimId,
+                ...editFrom(draft, claim, !!proposal?.parts.deadline),
+              })
             }
           />
         ) : (
           <>
+            {proposed && (
+              <div>
+                <span className="tone-info inline-flex rounded px-2 py-0.5 text-xs font-semibold">
+                  Suggested. Nothing has changed yet.
+                </span>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-2">
-              <Headline claim={claim} />
+              <Headline claim={proposed ?? claim} />
               <div className="relative shrink-0 -mr-2 -mt-1 flex items-center">
                 {onClose && (
                   <button className={BTN_SMALL} onClick={onClose}>
@@ -287,10 +353,11 @@ export function ClaimCard({
             </div>
 
             <ClaimFields
-              claim={claim}
-              mode="detail"
+              claim={proposed ?? claim}
+              mode={proposed ? "preview" : "detail"}
               howSureAction={
                 !locked &&
+                !proposed &&
                 !changingSure && (
                   <button
                     className={BTN_SMALL}
@@ -302,6 +369,7 @@ export function ClaimCard({
               }
               checkLinkAction={
                 !locked &&
+                !proposed &&
                 claim.checkLinkUrl &&
                 !claim.checkLinkConfirmed && (
                   <button
@@ -323,7 +391,7 @@ export function ClaimCard({
               />
             )}
 
-            {!locked && suggestions > 0 && (
+            {!locked && !proposed && suggestions > 0 && (
               <p className="m-0 text-sm text-neutral-600">
                 {suggestions === 1
                   ? "One part is a suggestion, not yet yours. "
@@ -337,8 +405,6 @@ export function ClaimCard({
                 </button>
               </p>
             )}
-
-            {!locked && <EngineQuestionCard claim={claim} />}
 
             {(claim.parent || claim.children.length > 0) && (
               <div className="flex flex-col gap-1 text-sm text-neutral-600">
@@ -367,9 +433,48 @@ export function ClaimCard({
               </div>
             )}
 
-            <QuietLine claim={claim} mode="detail" />
+            <QuietLine
+              claim={proposed ?? claim}
+              mode={proposed ? "preview" : "detail"}
+            />
 
-            {!claim.withdrawn && (
+            {proposed && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={BTN_MAIN}
+                  disabled={edit.isLoading}
+                  onClick={() =>
+                    // the same save as the Edit form, untouched: one version
+                    edit.mutate({
+                      claimId,
+                      ...editFrom(
+                        draftOf(proposed),
+                        claim,
+                        !!proposal?.parts.deadline,
+                      ),
+                    })
+                  }
+                >
+                  {edit.isLoading ? "Saving..." : "Approve and save"}
+                </button>
+                <button
+                  className={BTN_OUTLINE}
+                  disabled={edit.isLoading}
+                  onClick={() => setEditing(true)}
+                >
+                  Edit
+                </button>
+                <button
+                  className={BTN_OUTLINE}
+                  disabled={edit.isLoading}
+                  onClick={() => setProposal(null)}
+                >
+                  Discard
+                </button>
+              </div>
+            )}
+
+            {!claim.withdrawn && !proposed && (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
                   {!claim.resolved &&
@@ -392,6 +497,20 @@ export function ClaimCard({
                       }}
                     >
                       Edit
+                    </button>
+                  )}
+                  {!locked && claim.kind === "hunch" && !claim.imported && (
+                    // outlined, not filled: a hunch is fine left as a hunch
+                    <button
+                      className={BTN_OUTLINE}
+                      disabled={sharpen.isLoading}
+                      onClick={() => {
+                        setSharpenNote(null)
+                        setChangingSure(false)
+                        sharpen.mutate({ claimId })
+                      }}
+                    >
+                      {sharpen.isLoading ? "Working..." : "Sharpen this hunch"}
                     </button>
                   )}
                   <label
@@ -422,6 +541,11 @@ export function ClaimCard({
                     />
                   </label>
                 </div>
+                {sharpenNote && (
+                  <p role="status" className="m-0 text-sm text-neutral-600">
+                    {sharpenNote}
+                  </p>
+                )}
                 {!claim.sharedPublicly && !claim.canPublish && (
                   <p className="m-0 text-xs text-neutral-500 sm:text-right">
                     Can&apos;t be made public yet.{" "}

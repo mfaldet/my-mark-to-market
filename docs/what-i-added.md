@@ -18,9 +18,11 @@ Every outcome part is marked _stated_ (I said it), _extracted_ (the AI read it f
 
 Plain code, no AI: the same words always get the same grade. Grades 1 to 3 are hunches; 4 and 5 are predictions. An outcome that is really two predictions ("if … then", "and/or"), or an event with no stated way to tell, stays below grade 4. Sharper terms than mine in the outcome are fine: that is the point. Code: `lib/claims/grade.ts`.
 
-## One question at a time
+## Sharpening a hunch
 
-The app asks about the most important gap, with a one-tap default where one makes sense, and never asks more than three questions. Code: `lib/claims/next_question.ts`.
+On the web, a hunch's card has a "Sharpen this hunch" button. It runs the same step a preview uses on my original words and shows a proposed headline and parts, each marked "suggested". Nothing changes until I approve; I can edit anything first, or discard it. Approving is one recorded version of the same item, and the date I first said it stays as it was. Code: `components/claims/card/ClaimCard.tsx`, `proposeSharpening` in `lib/claims/service.ts`.
+
+The API and the Claude connector also still offer the older way: the app names the most important gap as one question, with a default where one makes sense, never more than three. Code: `lib/claims/next_question.ts`.
 
 ## Confidence words
 

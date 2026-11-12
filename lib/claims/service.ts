@@ -871,6 +871,42 @@ export async function previewClaim(
   return { ...view, aiNote: plan.aiNote, saved: false }
 }
 
+/**
+ * "Sharpen this hunch": runs the same proposal step a preview uses, on the
+ * raw words of an item I already saved. Saves nothing and records nothing.
+ * Approving it is an ordinary edit of that same item.
+ */
+export async function proposeSharpening(
+  userId: string,
+  claimId: string,
+): Promise<{
+  preview: ClaimPreview | null
+  reason: "failed" | "nothing" | null
+}> {
+  const row = await loadOwned(userId, claimId)
+  if (row.resolved || row.withdrawnAt) {
+    throw new ClaimError("BAD_REQUEST", "This can no longer be changed.")
+  }
+  // the date I first said it: relative dates in my words are read from it
+  const claimDate = isoDay(row.claimDate ?? row.createdAt)
+  const extraction = await extractClaim({
+    text: row.title,
+    claimDate: day(claimDate),
+  })
+  if (extraction.source !== "ai") return { preview: null, reason: "failed" }
+  if (!extraction.shape || extraction.shape === "FREE_TEXT") {
+    return { preview: null, reason: "nothing" }
+  }
+  const preview = await previewClaim({
+    userId,
+    text: row.title,
+    claimDate,
+    extraction,
+    source: row.entrySource ?? "WEB",
+  })
+  return { preview, reason: null }
+}
+
 // --- Reading ---------------------------------------------------------------
 
 export async function getClaim(userId: string, claimId: string) {
