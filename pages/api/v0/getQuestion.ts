@@ -173,7 +173,8 @@ const getQuestionPublicApi = async (req: Request, res: NextApiResponse) => {
                 : {}),
             })),
           createdAt: question?.createdAt,
-          notes: question?.notes,
+          // notes are the owner's; nobody else gets them, even on a published prediction
+          notes: question?.userId === authedUserId ? question?.notes : null,
           questionScores: question?.questionScores,
         },
         ["email", "discordUserId", "unsubscribedFromEmailsAt"],

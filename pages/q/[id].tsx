@@ -9,8 +9,10 @@ import { QuestionOrSignIn } from "../../components/questions/QuestionOrSignIn"
 import prisma from "../../lib/prisma"
 import { extractQuestionId } from "../../lib/web/question_url"
 
+type IndexFacts = Pick<Question, "id" | "sharedPublicly" | "unlisted">
+
 export const getServerSideProps: GetServerSideProps<{
-  question: Question | null
+  question: IndexFacts | null
 }> = async (context) => {
   const questionId =
     typeof context.params?.id === "string"
@@ -23,7 +25,14 @@ export const getServerSideProps: GetServerSideProps<{
   // only pass if shared publicly and not unlisted, to set robots to index
   if (question && question.sharedPublicly && !question.unlisted) {
     return {
-      props: { question: JSON.parse(JSON.stringify(question)) },
+      // only what the page needs to decide about indexing; never the notes
+      props: {
+        question: {
+          id: question.id,
+          sharedPublicly: question.sharedPublicly,
+          unlisted: question.unlisted,
+        },
+      },
     }
   }
 
@@ -35,7 +44,7 @@ export const getServerSideProps: GetServerSideProps<{
 export default function QuestionPage({
   question,
 }: {
-  question: Question | undefined
+  question: IndexFacts | undefined
 }) {
   const router = useRouter()
   const { ext } = router.query
