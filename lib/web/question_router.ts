@@ -1890,6 +1890,13 @@ export function scrubHiddenForecastsAndSensitiveDetailsFromQuestion<
 >(question: QuestionX, userId: string | undefined) {
   question = scrubApiKeyPropertyRecursive(question, ["email", "discordUserId"])
 
+  // My notes are mine. Anyone else who can open a published prediction gets
+  // the prediction, never the notes on it: not the notes list, not the
+  // reason given with a confidence change, not the older free-text field.
+  if (question.userId !== userId) {
+    question = withoutPrivateNotes(question)
+  }
+
   if (!forecastsAreHidden(question, userId)) {
     return question
   }
@@ -1930,6 +1937,37 @@ export function scrubHiddenForecastsAndSensitiveDetailsFromQuestion<
       ...option,
       forecasts: option.forecasts?.map(hideForecasts),
     })),
+  }
+}
+
+/** The same prediction with every note removed. For anyone who is not its owner. */
+export function withoutPrivateNotes<
+  QuestionX extends {
+    notes?: string | null
+    comment?: string | null
+    comments?: unknown[]
+    forecasts?: { comment?: string | null }[]
+    options?: { forecasts?: { comment?: string | null }[] }[]
+  },
+>(question: QuestionX): QuestionX {
+  const quiet = <F extends { comment?: string | null }>(f: F) => ({
+    ...f,
+    comment: null,
+  })
+  return {
+    ...question,
+    notes: null,
+    comment: null,
+    ...(question.comments ? { comments: [] } : {}),
+    ...(question.forecasts ? { forecasts: question.forecasts.map(quiet) } : {}),
+    ...(question.options
+      ? {
+          options: question.options.map((o) => ({
+            ...o,
+            ...(o.forecasts ? { forecasts: o.forecasts.map(quiet) } : {}),
+          })),
+        }
+      : {}),
   }
 }
 
