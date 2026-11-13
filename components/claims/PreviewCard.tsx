@@ -23,6 +23,8 @@ export type Proposal = {
   shape: ClaimShape
   parts: Record<string, string | number>
   deadline?: string
+  /** the story I picked for it, by name */
+  story?: string
 }
 
 /** The proposal behind a preview: what Approve will save. */
@@ -38,6 +40,7 @@ export function proposalOf(preview: ClaimPreview): Proposal | null {
     shape: preview.shape,
     parts,
     deadline: deadline === undefined ? undefined : String(deadline),
+    story: preview.story?.name,
   }
 }
 
@@ -63,6 +66,7 @@ function proposalFrom(draft: Draft, preview: ClaimPreview): Proposal {
     shape: draft.shape,
     parts,
     deadline,
+    story: draft.story.trim() || undefined,
   }
 }
 

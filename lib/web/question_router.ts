@@ -108,6 +108,8 @@ const questionIncludes = (userId: string | undefined) => ({
       user: true,
     },
   },
+  // the story it belongs to, shown quietly in my lists
+  story: { select: { id: true, name: true } },
   tags: {
     where: {
       user: {
@@ -137,6 +139,9 @@ const zodExtraFilters = z.object({
     .optional(),
   filterTagIds: z
     .array(z.string({ description: "Only get items with any of these tags" }))
+    .optional(),
+  filterStoryId: z
+    .string({ description: "Only get your items in this story" })
     .optional(),
   showAllPublic: z
     .boolean({
@@ -1699,6 +1704,13 @@ async function getQuestionsUserCreatedOrForecastedOnOrIsSharedWith(
               resolution: null,
             }
           : {},
+        input.extraFilters?.filterStoryId
+          ? {
+              storyId: input.extraFilters.filterStoryId,
+              // a story is its owner's own grouping
+              userId: userIdIfAuthed ?? "no such user",
+            }
+          : {},
         input.extraFilters?.filterTagIds
           ? {
               tags: {
@@ -1946,6 +1958,7 @@ export function withoutPrivateNotes<
     notes?: string | null
     comment?: string | null
     comments?: unknown[]
+    story?: unknown
     forecasts?: { comment?: string | null }[]
     options?: { forecasts?: { comment?: string | null }[] }[]
   },
@@ -1959,6 +1972,8 @@ export function withoutPrivateNotes<
     notes: null,
     comment: null,
     ...(question.comments ? { comments: [] } : {}),
+    // which story it sits in is my own filing, like a note
+    ...(question.story ? { story: null } : {}),
     ...(question.forecasts ? { forecasts: question.forecasts.map(quiet) } : {}),
     ...(question.options
       ? {

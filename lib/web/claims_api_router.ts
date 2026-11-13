@@ -91,6 +91,12 @@ const claim = z.object({
         "Only when logging: why the AI step added nothing, if it was asked and could not read your words",
     })
     .nullish(),
+  story: z
+    .object(
+      { id: z.string(), name: z.string() },
+      { description: "The story it belongs to, or null" },
+    )
+    .nullable(),
   shown: z.string({
     description: "The headline, or your words when there is none",
   }),

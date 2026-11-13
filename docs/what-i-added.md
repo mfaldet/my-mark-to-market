@@ -44,6 +44,14 @@ The API and the Claude connector also still offer the older way: the app names t
 
 Every prediction is private until I publish it. Only a checkable one (grade 4 or 5) with every part confirmed can be published, at any time, including after it is resolved. The card asks once before publishing; unpublishing takes one press and removes it from the public feed and the embed page at once. Each publish and unpublish is a recorded version in my private history; nothing about unpublishing shows publicly. A withdrawn prediction cannot be published. An edit that would leave a published prediction no longer checkable is blocked, never silently fixed. Claude can publish or unpublish through the connector, only when I ask in so many words. Code: `setPublic` in `lib/claims/service.ts`, `components/claims/card/ClaimCard.tsx`.
 
+## Stories
+
+A story is a named group of predictions, such as "The labor market". A prediction belongs to at most one. The card shows it in one row; the Edit form has a picker that lists my stories and takes a new name. Renaming a story applies to every prediction in it, each as a recorded version. The home list shows the story quietly on each row and can be filtered by one. Claude suggests a story in every preview, preferring ones I already have, and it is saved only with my approval. Code: `storyIdFor` and `renameStory` in `lib/claims/service.ts`.
+
+## Notes, private or public
+
+Notes sit in one list under the card, newest first: a date, the text, an optional link to a source. A reason given with a change in how sure I am is a note too, shown with the change ("70% to 35%"). Every note is private unless I switch it to public, and nothing is ever made public for me. A public note is locked as written; I can set it back to private at any time, and then edit it. A public note leaves the app only while its prediction is published. Making a note public or private is a recorded version. Code: `addNote` and `setNotePublic` in `lib/claims/service.ts`, `components/claims/card/Notes.tsx`.
+
 ## Append-only history
 
 Every change writes a full snapshot, chained to the one before by a hash, with a button that re-checks the chain. The database itself rejects edits and deletes on the history table. See [what the history does and does not prove](../README.md#what-the-history-does-and-does-not-prove). Code: `lib/claims/history.ts`.
@@ -66,4 +74,4 @@ API endpoints, a hosted MCP server for Claude, and an iPhone Shortcut. Each item
 
 ## A public track record
 
-A JSON feed and an embeddable page showing only the predictions I have published, each with its grade, dates, result and latest history hash. Code: `lib/claims/public_record.ts`.
+A JSON feed and an embeddable page showing only the predictions I have published, each with its grade, dates, result and latest history hash. Each one carries the name of its story and the notes I have made public; the feed also lists the stories that hold at least one published prediction. Private notes, notes on unpublished predictions, and stories with nothing published never appear. Code: `lib/claims/public_record.ts`.

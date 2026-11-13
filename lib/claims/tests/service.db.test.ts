@@ -17,8 +17,14 @@ jest.mock("trpc-transformer", () => ({ __esModule: true, default: {} }))
 
 import {
   answerQuestion,
+  addNote,
   applyRuleUpdates,
   claimState,
+  deleteNote,
+  editNote,
+  listStories,
+  renameStory,
+  setNotePublic,
   confirmCheckLink,
   confirmProposal,
   editClaim,
@@ -1504,6 +1510,217 @@ db("claim service, against the database", () => {
       expect(pieces[0].probability).toBeNull()
       expect(pieces[0].approximate).toBe(false)
       expect(pieces[0].deadline).toBe("2026-12-31")
+    })
+  })
+
+  describe("stories, and notes that are private or public", () => {
+    let owner: string
+    const make = (text: string, story?: string) =>
+      logClaim({
+        userId: owner,
+        text,
+        claimDate: "2025-07-14",
+        source: "WEB",
+        extraction: unemployment,
+        story,
+      })
+    const publish = async (id: string) => {
+      for (const part of [
+        "measure",
+        "comparison",
+        "value",
+        "unit",
+        "deadline",
+      ]) {
+        await confirmPart(owner, id, part, "WEB")
+      }
+      await setPublic(owner, id, true, "WEB")
+    }
+    const versions = (questionId: string) =>
+      prisma.claimVersion.count({ where: { questionId } })
+
+    beforeEach(async () => {
+      owner = (
+        await prisma.user.create({
+          data: { email: `stories-${Date.now()}-${Math.random()}@test.local` },
+        })
+      ).id
+    })
+
+    it("a private note, a note on an unpublished prediction, and a story with no published predictions never reach the feed", async () => {
+      const shown = await make("Shown: unemployment hits 6% by 2028", "Labor")
+      const hidden = await make(
+        "Hidden: unemployment hits 6% by 2028",
+        "SECRET-STORY",
+      )
+      await publish(shown.id)
+
+      await addNote(owner, shown.id, { text: "PRIVATE-NOTE" }, "WEB")
+      await addNote(
+        owner,
+        shown.id,
+        { text: "PUBLIC-NOTE", link: "https://example.com/a", isPublic: true },
+        "WEB",
+      )
+      // public flag on, but its prediction is not published
+      await addNote(
+        owner,
+        hidden.id,
+        { text: "NOTE-ON-UNPUBLISHED", isPublic: true },
+        "WEB",
+      )
+      // a reason given with a confidence change is a private note too
+      await updateConfidence(
+        owner,
+        shown.id,
+        { word: "LIKELY", note: "PRIVATE-REASON" },
+        "WEB",
+      )
+
+      const record = await loadPublicRecord(owner)
+      const everything = JSON.stringify(record)
+      expect(everything).toContain("PUBLIC-NOTE")
+      expect(everything).not.toContain("PRIVATE-NOTE")
+      expect(everything).not.toContain("PRIVATE-REASON")
+      expect(everything).not.toContain("NOTE-ON-UNPUBLISHED")
+      expect(everything).not.toContain("SECRET-STORY")
+      expect(record!.stories).toEqual([{ name: "Labor", predictions: 1 }])
+      expect(record!.predictions[0].story).toBe("Labor")
+      expect(record!.predictions[0].notes).toEqual([
+        expect.objectContaining({
+          text: "PUBLIC-NOTE",
+          link: "https://example.com/a",
+          confidenceChange: null,
+        }),
+      ])
+
+      // unpublishing takes its story and its public note off the feed
+      await setPublic(owner, shown.id, false, "WEB")
+      const after = await loadPublicRecord(owner)
+      expect(after!.stories).toEqual([])
+      expect(JSON.stringify(after)).not.toContain("PUBLIC-NOTE")
+    })
+
+    it("a note is private unless I say so; making it public or private is a recorded version", async () => {
+      const claim = await make("Unemployment hits 6% by 2028")
+      const withNote = await addNote(owner, claim.id, { text: "why" }, "WEB")
+      const note = withNote.notes[0]
+      expect(note.isPublic).toBe(false)
+      const before = await versions(claim.id)
+
+      const made = await setNotePublic(owner, note.id, true, "WEB")
+      expect(made.notes[0].isPublic).toBe(true)
+      expect(await versions(claim.id)).toBe(before + 1)
+
+      const back = await setNotePublic(owner, note.id, false, "WEB")
+      expect(back.notes[0].isPublic).toBe(false)
+      expect(await versions(claim.id)).toBe(before + 2)
+
+      const timeline = await getTimeline(owner, claim.id)
+      const fields = timeline.flatMap((e) =>
+        e.kind === "version" ? e.changes.map((c) => c.field) : [],
+      )
+      expect(fields.filter((f) => f === "publicNotes")).toHaveLength(2)
+      expect((await verifyHistory(owner, claim.id)).ok).toBe(true)
+    })
+
+    it("a public note's words are locked; private again, they can change", async () => {
+      const claim = await make("Unemployment hits 6% by 2028")
+      const note = (
+        await addNote(owner, claim.id, { text: "first", isPublic: true }, "WEB")
+      ).notes[0]
+      await expect(
+        editNote(owner, note.id, { text: "changed" }),
+      ).rejects.toThrow(/locked/)
+      await expect(deleteNote(owner, note.id)).rejects.toThrow(/private first/)
+      await setNotePublic(owner, note.id, false, "WEB")
+      const edited = await editNote(owner, note.id, { text: "changed" })
+      expect(edited.notes[0].text).toBe("changed")
+    })
+
+    it("a reason given with a confidence change is a private note that shows the change", async () => {
+      const claim = await make("Unemployment hits 6% by 2028")
+      await updateConfidence(owner, claim.id, { probability: 0.7 }, "WEB")
+      const after = await updateConfidence(
+        owner,
+        claim.id,
+        { probability: 0.35, note: "the jobs report" },
+        "WEB",
+      )
+      expect(after.notes[0]).toMatchObject({
+        text: "the jobs report",
+        isPublic: false,
+        confidenceChange: { from: 0.7, to: 0.35 },
+      })
+    })
+
+    it("someone else cannot read, add, change or publish my notes", async () => {
+      const claim = await make("Unemployment hits 6% by 2028")
+      const note = (await addNote(owner, claim.id, { text: "mine" }, "WEB"))
+        .notes[0]
+      await expect(
+        addNote(otherUserId, claim.id, { text: "x" }, "WEB"),
+      ).rejects.toThrow()
+      await expect(
+        setNotePublic(otherUserId, note.id, true, "WEB"),
+      ).rejects.toThrow()
+      await expect(
+        editNote(otherUserId, note.id, { text: "x" }),
+      ).rejects.toThrow()
+    })
+
+    it("a prediction is in at most one story; a new name makes a story, an existing name reuses it", async () => {
+      const a = await make("A: unemployment hits 6% by 2028", "Labor market")
+      const b = await make("B: unemployment hits 6% by 2028", "labor MARKET")
+      expect(a.story!.name).toBe("Labor market")
+      expect(b.story!.id).toBe(a.story!.id)
+      expect(await listStories(owner)).toEqual([
+        { id: a.story!.id, name: "Labor market", predictions: 2 },
+      ])
+
+      const before = await versions(a.id)
+      const moved = await editClaim(owner, a.id, { story: "Rates" }, "WEB")
+      expect(moved.story!.name).toBe("Rates")
+      expect(await versions(a.id)).toBe(before + 1)
+      const none = await editClaim(owner, a.id, { story: null }, "WEB")
+      expect(none.story).toBeNull()
+      expect(await versions(a.id)).toBe(before + 2)
+    })
+
+    it("renaming a story applies to every prediction in it, each as a recorded version", async () => {
+      const a = await make("A: unemployment hits 6% by 2028", "Labor")
+      const b = await make("B: unemployment hits 6% by 2028", "Labor")
+      const other = await make("C: unemployment hits 6% by 2028", "Rates")
+      const [va, vb, vc] = await Promise.all(
+        [a, b, other].map((c) => versions(c.id)),
+      )
+      await renameStory(owner, a.story!.id, "Jobs", "WEB")
+      expect((await getClaim(owner, a.id)).story!.name).toBe("Jobs")
+      expect((await getClaim(owner, b.id)).story!.name).toBe("Jobs")
+      expect(await versions(a.id)).toBe(va + 1)
+      expect(await versions(b.id)).toBe(vb + 1)
+      expect(await versions(other.id)).toBe(vc)
+      expect((await verifyHistory(owner, b.id)).ok).toBe(true)
+      // a name already taken by another of my stories is refused
+      await expect(
+        renameStory(owner, a.story!.id, "rates", "WEB"),
+      ).rejects.toThrow()
+      await expect(
+        renameStory(otherUserId, a.story!.id, "Theirs", "WEB"),
+      ).rejects.toThrow()
+    })
+
+    it("a preview shows the proposed story and creates nothing", async () => {
+      const preview = await previewClaim({
+        userId: owner,
+        text: "Unemployment hits 6% by 2028",
+        claimDate: "2025-07-14",
+        source: "AGENT",
+        extraction: unemployment,
+        story: "Brand new story",
+      })
+      expect(preview.story!.name).toBe("Brand new story")
+      expect(await listStories(owner)).toEqual([])
     })
   })
 })

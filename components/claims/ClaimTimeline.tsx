@@ -25,6 +25,7 @@ const FIELD_LABELS: Record<string, string> = {
   checkLinkUrl: "Check link",
   checkLinkConfirmedAt: "Check link confirmed",
   parentId: "Grew out of",
+  story: "Story",
   sharedPublicly: "Sharing",
   withdrawnAt: "Withdrawn",
   resolution: "Result",
@@ -69,6 +70,21 @@ function showPart(
 
 /** One line per thing that changed, in plain words. */
 function describe(change: { field: string; from: unknown; to: unknown }) {
+  if (change.field === "publicNotes") {
+    // which notes are public: say what went public and what went private
+    type N = { id: number; text: string }
+    const from = (change.from ?? []) as N[]
+    const to = (change.to ?? []) as N[]
+    const short = (t: string) => (t.length > 80 ? `${t.slice(0, 80)}…` : t)
+    return [
+      ...to
+        .filter((n) => !from.some((o) => o.id === n.id))
+        .map((n) => `Note made public: “${short(n.text)}”`),
+      ...from
+        .filter((n) => !to.some((o) => o.id === n.id))
+        .map((n) => `Note made private: “${short(n.text)}”`),
+    ]
+  }
   if (change.field !== "parts") {
     return [
       `${FIELD_LABELS[change.field] ?? change.field}: ${showValue(

@@ -29,6 +29,7 @@ jest.mock("../../claims/service", () => {
     previewClaim: jest.fn(),
     previewWithSplit: jest.fn(),
     setPublic: jest.fn(),
+    addNote: jest.fn(),
   }
 })
 
@@ -52,6 +53,7 @@ const service: Record<string, jest.Mock> = {
   previewClaim: mocked.previewClaim,
   previewWithSplit: mocked.previewWithSplit,
   setPublic: mocked.setPublic,
+  addNote: mocked.addNote,
 }
 
 const view = {
@@ -102,6 +104,7 @@ describe("the MCP tools", () => {
       "update_confidence",
       "link_parent",
       "list_claims",
+      "add_note",
       "publish_claim",
       "resolve_claim",
     ])
@@ -679,6 +682,80 @@ describe("the MCP tools", () => {
           text: "This claim can't be made public yet.\nGrade 2, needs 4 or 5 to be public.",
         },
       ],
+    })
+  })
+
+  describe("stories and notes", () => {
+    it("tells Claude to suggest a story in every preview, preferring existing ones, saved only with approval", () => {
+      expect(MCP_INSTRUCTIONS).toMatch(/Suggest a story in every preview/)
+      expect(MCP_INSTRUCTIONS).toMatch(/prefer one they already have/)
+      expect(MCP_INSTRUCTIONS).toMatch(/saved only with their approval/)
+      for (const name of ["preview_claim", "log_claim", "edit_claim"]) {
+        const tool = TOOLS.find((t) => t.name === name)!
+        expect(Object.keys(tool.inputSchema.properties)).toContain("story")
+      }
+    })
+
+    it("a story is passed to the preview, and saved by log_claim only with approval", async () => {
+      await callTool("u1", "preview_claim", {
+        text: "Unemployment will hit 6% by 2028",
+        story: "Labor market",
+      })
+      expect(service.previewClaim).toHaveBeenCalledWith(
+        expect.objectContaining({ story: "Labor market" }),
+      )
+      const refused = await callTool("u1", "log_claim", {
+        text: "Unemployment will hit 6% by 2028",
+        story: "Labor market",
+      })
+      expect(refused.isError).toBe(true)
+      expect(service.logClaim).not.toHaveBeenCalled()
+      await callTool("u1", "log_claim", {
+        text: "Unemployment will hit 6% by 2028",
+        story: "Labor market",
+        approved: true,
+      })
+      expect(service.logClaim).toHaveBeenCalledWith(
+        expect.objectContaining({ story: "Labor market" }),
+      )
+    })
+
+    it("replies and list_claims include each prediction's story", async () => {
+      service.listClaims.mockResolvedValue([
+        { ...view, story: { id: "s1", name: "Labor market" } },
+      ])
+      const listed = parse(await callTool("u1", "list_claims", {}))
+      expect(JSON.stringify(listed)).toContain('"story":"Labor market"')
+      expect(summarize(view).story).toBeNull()
+    })
+
+    it("add_note is private unless public is true, and says so to Claude", async () => {
+      const tool = TOOLS.find((t) => t.name === "add_note")!
+      expect(tool.description).toMatch(/PRIVATE by default/)
+      expect(tool.description).toMatch(/in so many words/)
+      service.addNote.mockResolvedValue({
+        ...view,
+        notes: [{ text: "why", link: null, isPublic: false }],
+      })
+      await callTool("u1", "add_note", { claim_id: "c1", text: "why" })
+      expect(service.addNote).toHaveBeenLastCalledWith(
+        "u1",
+        "c1",
+        { text: "why", link: undefined, isPublic: false },
+        "AGENT",
+      )
+      await callTool("u1", "add_note", {
+        claim_id: "c1",
+        text: "why",
+        link: "https://example.com",
+        public: true,
+      })
+      expect(service.addNote).toHaveBeenLastCalledWith(
+        "u1",
+        "c1",
+        { text: "why", link: "https://example.com", isPublic: true },
+        "AGENT",
+      )
     })
   })
 

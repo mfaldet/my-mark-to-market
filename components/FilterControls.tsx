@@ -5,6 +5,7 @@ import clsx from "clsx"
 import { AnimatePresence, motion } from "framer-motion"
 import { ReactElement, ReactNode, useEffect, useState } from "react"
 import { ExtraFilters } from "../lib/web/question_router"
+import { api } from "../lib/web/trpc"
 
 function FilterButton({
   onClick,
@@ -45,6 +46,9 @@ export function FilterControls({
   const [searchString, setSearchString] = useState("")
   const [filterVisible, setFilterVisible] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  // my stories, to filter the list by one of them
+  const stories = api.claims.stories.useQuery().data ?? []
+  const activeStory = stories.find((s) => s.id === extraFilters.filterStoryId)
 
   useEffect(() => {
     const handleResize = () => {
@@ -234,6 +238,21 @@ export function FilterControls({
         </button>
       </div>
 
+      {activeStory && !filterVisible && (
+        <div className="mt-2 flex justify-end">
+          <button
+            className="rounded-full border border-ink bg-neutral-100 px-3 py-1 text-xs font-semibold text-ink shadow-[inset_0_0_0_1px_#1B2230]"
+            title="Stop filtering by this story"
+            onClick={() =>
+              setExtraFilters({ ...extraFilters, filterStoryId: undefined })
+            }
+          >
+            Story: {activeStory.name}
+            <XMarkIcon className="ml-1 inline" height={14} />
+          </button>
+        </div>
+      )}
+
       {
         // overflow filter buttons
       }
@@ -256,6 +275,37 @@ export function FilterControls({
                   {name}
                 </FilterButton>
               ),
+            )}
+            {stories.length > 0 && (
+              <div
+                className="flex w-full flex-row flex-wrap items-center justify-end gap-2 pt-1"
+                role="group"
+                aria-label="Filter by story"
+              >
+                <span className="text-xs text-neutral-500">Story</span>
+                {stories.map((story) => {
+                  const on = extraFilters.filterStoryId === story.id
+                  return (
+                    <button
+                      key={story.id}
+                      aria-pressed={on}
+                      className={
+                        on
+                          ? "rounded-full border border-ink bg-neutral-100 px-3 py-1 text-xs font-semibold text-ink shadow-[inset_0_0_0_1px_#1B2230]"
+                          : "rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-semibold text-ink hover:bg-neutral-50"
+                      }
+                      onClick={() =>
+                        setExtraFilters({
+                          ...extraFilters,
+                          filterStoryId: on ? undefined : story.id,
+                        })
+                      }
+                    >
+                      {story.name}
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </motion.div>
         )}

@@ -147,6 +147,9 @@ db("backup export, against the database", () => {
     expect(a.nextOffset).toBe(1)
     expect(a.users).toBeDefined()
     expect(b.users).toBeUndefined()
+    // stories ride along on the first page, so a restore can file items again
+    expect(Array.isArray(a.stories)).toBe(true)
+    expect(b.stories).toBeUndefined()
     const id = (page: { items: unknown[] }) =>
       (page.items[0] as any).question.id
     expect(id(a)).not.toBe(id(b))

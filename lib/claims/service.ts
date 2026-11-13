@@ -86,15 +86,44 @@ export function defaultCheckBackBy(claimDate: Date) {
   return new Date(Date.UTC(claimDate.getUTCFullYear() + 1, 11, 31))
 }
 
+type NoteRow = {
+  id: number
+  createdAt: Date
+  comment: string
+  sourceUrl: string | null
+  isPublic: boolean
+  forecastId: number | null
+}
+
 type ClaimRow = Question & {
-  forecasts: { forecast: Prisma.Decimal; createdAt: Date; userId: string }[]
+  forecasts: {
+    id?: number
+    forecast: Prisma.Decimal
+    createdAt: Date
+    userId: string
+  }[]
+  story?: { id: string; name: string } | null
+  comments?: NoteRow[]
   children?: { id: string; title: string; headline: string | null }[]
   parent?: { id: string; title: string; headline: string | null } | null
   user?: { timeZone: string } | null
 }
 
+const NOTE_SELECT = {
+  id: true,
+  createdAt: true,
+  comment: true,
+  sourceUrl: true,
+  isPublic: true,
+  forecastId: true,
+} satisfies Prisma.CommentSelect
+
 const CLAIM_INCLUDE = {
-  forecasts: { select: { forecast: true, createdAt: true, userId: true } },
+  forecasts: {
+    select: { id: true, forecast: true, createdAt: true, userId: true },
+  },
+  story: { select: { id: true, name: true } },
+  comments: { select: NOTE_SELECT, orderBy: { createdAt: "desc" } },
   children: {
     where: { withdrawnAt: null },
     select: { id: true, title: true, headline: true },
@@ -127,6 +156,58 @@ function gradeInputOf(row: Question) {
     checkLinkConfirmed: !!row.checkLinkConfirmedAt,
     hasCheckLink: !!row.checkLinkUrl,
   }
+}
+
+/** One note on a prediction. */
+export type NoteView = {
+  id: number
+  /** when I wrote it */
+  at: string
+  text: string
+  /** an optional link to a source */
+  link: string | null
+  /** private by default. A public note leaves the app only while its prediction is published. */
+  isPublic: boolean
+  /** the confidence change it was written with, if any: 0 to 1; from is null for the first */
+  confidenceChange: { from: number | null; to: number } | null
+}
+
+/** Notes as they are shown: newest first, each with the confidence change it explains. */
+export function noteViews(
+  notes: NoteRow[] | undefined,
+  forecasts: {
+    id?: number
+    forecast: Prisma.Decimal
+    createdAt: Date
+    userId: string
+  }[],
+  ownerId: string,
+): NoteView[] {
+  const mine = forecasts
+    .filter((f) => f.userId === ownerId)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+  return [...(notes ?? [])]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((n) => {
+      const i =
+        n.forecastId === null
+          ? -1
+          : mine.findIndex((f) => f.id === n.forecastId)
+      return {
+        id: n.id,
+        at: n.createdAt.toISOString(),
+        text: n.comment,
+        link: n.sourceUrl,
+        isPublic: n.isPublic,
+        confidenceChange:
+          i < 0
+            ? null
+            : {
+                from: i > 0 ? mine[i - 1].forecast.toNumber() : null,
+                to: mine[i].forecast.toNumber(),
+              },
+      }
+    })
 }
 
 /** What the UI, API and MCP server are given for one claim. */
@@ -177,6 +258,10 @@ export type ClaimView = {
   sharedPublicly: boolean
   checkLinkUrl: string | null
   checkLinkConfirmed: boolean
+  /** the larger story this belongs to, or null. In a preview the id is empty. */
+  story: { id: string; name: string } | null
+  /** my notes, newest first; private unless I made one public */
+  notes: NoteView[]
   parent: { id: string; text: string } | null
   children: { id: string; text: string }[]
   withdrawn: boolean
@@ -249,6 +334,8 @@ export function toClaimView(
     sharedPublicly: row.sharedPublicly,
     checkLinkUrl: row.checkLinkUrl,
     checkLinkConfirmed: !!row.checkLinkConfirmedAt,
+    story: row.story ? { id: row.story.id, name: row.story.name } : null,
+    notes: noteViews(row.comments, row.forecasts, row.userId),
     parent: row.parent
       ? { id: row.parent.id, text: row.parent.headline ?? row.parent.title }
       : null,
@@ -276,8 +363,26 @@ type Db = Prisma.TransactionClient
 const isoOrNull = (date: Date | null) => (date ? date.toISOString() : null)
 
 /** The full state of a claim, as stored in each history row. */
-export function claimState(row: Question): ClaimState {
+export function claimState(
+  row: Question & {
+    story?: { name: string } | null
+    comments?: {
+      id: number
+      comment: string
+      sourceUrl: string | null
+      isPublic: boolean
+    }[]
+  },
+): ClaimState {
+  const publicNotes = (row.comments ?? [])
+    .filter((n) => n.isPublic)
+    .sort((a, b) => a.id - b.id)
+    .map((n) => ({ id: n.id, text: n.comment, link: n.sourceUrl }))
   return {
+    story: row.story?.name ?? null,
+    // null, not an empty list, so an item with no public note reads the
+    // same as one written before notes could be public
+    publicNotes: publicNotes.length ? publicNotes : null,
     text: row.title,
     headline: row.headline ?? null,
     notes: row.notes,
@@ -332,12 +437,25 @@ export async function writeVersion(
     where: { questionId: row.id },
     orderBy: { version: "desc" },
   })
+  // Read the story and the public notes here, whatever the caller loaded,
+  // so no code path can record them as gone by forgetting to include them.
+  const extras = await db.question.findUnique({
+    where: { id: row.id },
+    select: {
+      story: { select: { name: true } },
+      comments: { where: { isPublic: true }, select: NOTE_SELECT },
+    },
+  })
   const next = nextVersion(last ? toRecord(last) : null, {
     questionId: row.id,
     userId,
     source,
     createdAt: new Date(),
-    state: claimState(row),
+    state: claimState({
+      ...row,
+      story: extras?.story ?? null,
+      comments: extras?.comments ?? [],
+    }),
   })
   if (!next) return
   await db.claimVersion.create({
@@ -586,6 +704,11 @@ export type LogClaimInput = {
    * confidence, "about") is read out of it. The headline is read instead.
    */
   sharedText?: boolean
+  /**
+   * The story this belongs to, by name. Saved only because I approved it;
+   * a new name makes a new story. A preview never creates one.
+   */
+  story?: string
   /** how sure I said I am; wins over a confidence read out of the text */
   confidence?: ConfidenceUpdate
   /** IANA name, e.g. "America/Chicago". Defaults to the one saved on my account. */
@@ -794,6 +917,9 @@ export async function logClaim(input: LogClaimInput): Promise<ClaimView> {
     const created = await tx.question.create({
       data: {
         ...fields,
+        storyId: input.story?.trim()
+          ? await storyIdFor(tx, input.userId, input.story)
+          : undefined,
         outcomeParts: fields.outcomeParts as Prisma.InputJsonValue,
         // no confidence given -> no forecast row: scored right or wrong only
         forecasts:
@@ -864,6 +990,11 @@ export async function previewClaim(
         }
       : null,
     children: [],
+    // shown as proposed; a preview never creates a story
+    story: input.story?.trim()
+      ? { id: "", name: input.story.trim().replace(/\s+/g, " ") }
+      : null,
+    comments: [],
     user: { timeZone: plan.zone },
   } as unknown as ClaimRow
   // eslint-disable-next-line no-unused-vars
@@ -1180,12 +1311,223 @@ export async function updateConfidence(
           userId,
           forecast: probability,
           confidenceWord: update.word ?? null,
+          // the reason as I gave it at the time...
           comment: update.note?.trim() || null,
+          // ...and the same words as a note beside my other notes: private
+          // by default, editable while private, linked to this change
+          ...(update.note?.trim()
+            ? {
+                note: {
+                  create: {
+                    comment: update.note.trim(),
+                    questionId: claimId,
+                    userId,
+                  },
+                },
+              }
+            : {}),
         },
       },
     }
   })
   return view
+}
+
+// --- Notes ------------------------------------------------------------------
+
+const cleanLink = (link: string | null | undefined) => {
+  const url = link?.trim() || null
+  if (url && !/^https?:\/\/\S+$/i.test(url)) {
+    throw new ClaimError("BAD_REQUEST", "The link must be a web address.")
+  }
+  return url
+}
+
+async function loadOwnedNote(userId: string, noteId: number) {
+  const note = await prisma.comment.findUnique({ where: { id: noteId } })
+  if (!note || note.userId !== userId) {
+    throw new ClaimError("NOT_FOUND", "No note with that id.")
+  }
+  // also checks that the prediction is mine
+  const claim = await loadOwned(userId, note.questionId)
+  return { note, claim }
+}
+
+/**
+ * Add a note to a prediction. Private unless I say public. A public note
+ * leaves the app only while its prediction is published.
+ */
+export async function addNote(
+  userId: string,
+  claimId: string,
+  input: { text: string; link?: string | null; isPublic?: boolean },
+  source: EntrySource,
+) {
+  const claim = await loadOwned(userId, claimId)
+  if (claim.withdrawnAt) {
+    throw new ClaimError("BAD_REQUEST", "This has been withdrawn.")
+  }
+  const text = input.text.trim()
+  if (!text) throw new ClaimError("BAD_REQUEST", "The note is empty.")
+  const sourceUrl = cleanLink(input.link)
+  await prisma.$transaction(async (tx) => {
+    await tx.comment.create({
+      data: {
+        comment: text,
+        sourceUrl,
+        isPublic: !!input.isPublic,
+        questionId: claimId,
+        userId,
+      },
+    })
+    // a private note is not part of the recorded state; a public one is
+    if (input.isPublic) await writeVersion(tx, claim, userId, source)
+  })
+  return await getClaim(userId, claimId)
+}
+
+/** Change a note's words or link. Only while it is private: a public note is locked. */
+export async function editNote(
+  userId: string,
+  noteId: number,
+  input: { text?: string; link?: string | null },
+) {
+  const { note } = await loadOwnedNote(userId, noteId)
+  if (note.isPublic) {
+    throw new ClaimError(
+      "BLOCKED",
+      "This note is public, so its words are locked. Make it private first to change it.",
+    )
+  }
+  const text = input.text?.trim()
+  if (input.text !== undefined && !text) {
+    throw new ClaimError("BAD_REQUEST", "The note is empty.")
+  }
+  await prisma.comment.update({
+    where: { id: noteId },
+    data: {
+      comment: text ?? undefined,
+      sourceUrl: input.link === undefined ? undefined : cleanLink(input.link),
+    },
+  })
+  return await getClaim(userId, note.questionId)
+}
+
+/** Make a note public, or private again. Either way it is recorded in the history. */
+export async function setNotePublic(
+  userId: string,
+  noteId: number,
+  isPublic: boolean,
+  source: EntrySource,
+) {
+  const { note, claim } = await loadOwnedNote(userId, noteId)
+  if (claim.withdrawnAt && isPublic) {
+    throw new ClaimError("BAD_REQUEST", "This has been withdrawn.")
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.comment.update({ where: { id: noteId }, data: { isPublic } })
+    await writeVersion(tx, claim, userId, source)
+  })
+  return await getClaim(userId, note.questionId)
+}
+
+/** Remove a note. Only while it is private. */
+export async function deleteNote(userId: string, noteId: number) {
+  const { note } = await loadOwnedNote(userId, noteId)
+  if (note.isPublic) {
+    throw new ClaimError(
+      "BLOCKED",
+      "This note is public. Make it private first to remove it.",
+    )
+  }
+  await prisma.comment.delete({ where: { id: noteId } })
+  return await getClaim(userId, note.questionId)
+}
+
+// --- Stories ----------------------------------------------------------------
+
+/** The part of an edit that moves a prediction into or out of a story. */
+async function storyChange(userId: string, edit: ClaimEdit) {
+  if (edit.story === undefined) return {}
+  if (edit.story === null || !edit.story.trim()) return { storyId: null }
+  return { storyId: await storyIdFor(prisma, userId, edit.story) }
+}
+
+const storyName = (raw: string) => raw.trim().replace(/\s+/g, " ")
+
+/** The story with this name, made if I do not have one yet. Matching ignores letter case. */
+async function storyIdFor(db: Db, userId: string, raw: string) {
+  const name = storyName(raw)
+  if (!name) throw new ClaimError("BAD_REQUEST", "The story needs a name.")
+  if (name.length > 80) {
+    throw new ClaimError(
+      "BAD_REQUEST",
+      "Keep a story's name under 80 characters.",
+    )
+  }
+  const existing = await db.story.findFirst({
+    where: { userId, name: { equals: name, mode: "insensitive" } },
+  })
+  return (existing ?? (await db.story.create({ data: { userId, name } }))).id
+}
+
+/** My stories, by name, with how many predictions (not withdrawn) each holds. */
+export async function listStories(userId: string) {
+  const stories = await prisma.story.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+    include: {
+      _count: { select: { questions: { where: { withdrawnAt: null } } } },
+    },
+  })
+  return stories.map((s) => ({
+    id: s.id,
+    name: s.name,
+    predictions: s._count.questions,
+  }))
+}
+
+/**
+ * Rename a story. The new name applies to every prediction in it, and
+ * each of those records the change in its history.
+ */
+export async function renameStory(
+  userId: string,
+  storyId: string,
+  rawName: string,
+  source: EntrySource,
+) {
+  const story = await prisma.story.findUnique({ where: { id: storyId } })
+  if (!story || story.userId !== userId) {
+    throw new ClaimError("NOT_FOUND", "No story with that id.")
+  }
+  const name = storyName(rawName)
+  if (!name) throw new ClaimError("BAD_REQUEST", "The story needs a name.")
+  if (name.length > 80) {
+    throw new ClaimError(
+      "BAD_REQUEST",
+      "Keep a story's name under 80 characters.",
+    )
+  }
+  const clash = await prisma.story.findFirst({
+    where: {
+      userId,
+      id: { not: storyId },
+      name: { equals: name, mode: "insensitive" },
+    },
+  })
+  if (clash) {
+    throw new ClaimError(
+      "BAD_REQUEST",
+      `You already have a story called "${clash.name}".`,
+    )
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.story.update({ where: { id: storyId }, data: { name } })
+    const rows = await tx.question.findMany({ where: { storyId } })
+    for (const row of rows) await writeVersion(tx, row, userId, source)
+  })
+  return { id: storyId, name }
 }
 
 // --- Check link, parent, sharing, withdrawing -------------------------------
@@ -1460,6 +1802,8 @@ const pieceOf = (
   proposal: { shape: item.shape, parts: item.parts, deadline: item.deadline },
   proposalStatus: input.proposalStatus,
   confidence: item.confidence,
+  // every piece belongs to the same story as the sentence it came from
+  story: input.story,
   timeZone: input.timeZone,
   now: input.now,
 })
@@ -1507,6 +1851,8 @@ export type ClaimEdit = {
   correctedText?: string
   /** set or replace the headline I approved; null removes it */
   headline?: string | null
+  /** put it in this story (made if new), or null to take it out of its story */
+  story?: string | null
   /**
    * Set, replace or (null) remove the check link in the same save. A link
    * that changed has not been opened and confirmed yet.
@@ -1572,11 +1918,19 @@ export async function editClaim(
   edit: ClaimEdit,
   source: EntrySource,
 ) {
-  return await updateClaim(userId, claimId, source, (row) => {
-    if (row.resolved) {
+  return await updateClaim(userId, claimId, source, async (row) => {
+    // the story is a label, not part of what was predicted, so it can
+    // still be set once a prediction is resolved
+    const onlyStory = Object.entries(edit).every(
+      ([key, value]) => key === "story" || value === undefined,
+    )
+    if (row.resolved && !onlyStory) {
       throw new ClaimError("BAD_REQUEST", "This is already resolved.")
     }
-    return applyEdit(row, edit).data
+    return {
+      ...(onlyStory ? {} : applyEdit(row, edit).data),
+      ...(await storyChange(userId, edit)),
+    }
   })
 }
 
@@ -1591,7 +1945,7 @@ export async function confirmProposal(
   input: { edit?: ClaimEdit; confidence?: ConfidenceUpdate },
   source: EntrySource,
 ) {
-  let view = await updateClaim(userId, claimId, source, (row) => {
+  let view = await updateClaim(userId, claimId, source, async (row) => {
     if (row.resolved) {
       throw new ClaimError("BAD_REQUEST", "This is already resolved.")
     }
@@ -1602,7 +1956,11 @@ export async function confirmProposal(
         { ...part, status: "stated" as const },
       ]),
     )
-    return { ...data, outcomeParts: confirmed as Prisma.InputJsonValue }
+    return {
+      ...data,
+      outcomeParts: confirmed as Prisma.InputJsonValue,
+      ...(await storyChange(userId, input.edit ?? {})),
+    }
   })
   if (input.confidence) {
     view = await updateConfidence(userId, claimId, input.confidence, source)

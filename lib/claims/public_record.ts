@@ -3,8 +3,10 @@
  *
  * buildPublicRecord is plain code that turns claim rows into the feed.
  * loadPublicRecord fetches the rows, and is the one place that decides
- * what is allowed out: a claim must be public AND not withdrawn. Private
- * claims, withdrawn claims, the notes on why I changed my mind, and
+ * what is allowed out: a prediction must be published AND not withdrawn.
+ * With it go the name of its story and the notes I have made public.
+ * Private predictions, withdrawn ones, private notes, every note on an
+ * unpublished prediction, a story holding only private predictions, and
  * unconfirmed check links never leave the app.
  *
  * Used by the JSON feed (pages/api/public/track-record/[userId].ts) and
@@ -37,7 +39,22 @@ export type PublicClaimInput = {
   checkLinkUrl: string | null
   confidenceWord: string | null
   /** my forecasts, oldest first */
-  forecasts: { at: Date; probability: number; word: string | null }[]
+  forecasts: {
+    /** only needed to tie a public note to the change it explains */
+    id?: number
+    at: Date
+    probability: number
+    word: string | null
+  }[]
+  /** the story it belongs to, by name */
+  story?: string | null
+  /** ONLY the notes I have made public. Private notes are never passed in. */
+  publicNotes?: {
+    at: Date
+    text: string
+    link: string | null
+    forecastId: number | null
+  }[]
   resolved: boolean
   resolution: string | null
   resolvedAt: Date | null
@@ -104,7 +121,7 @@ export function buildPublicRecord(
     },
     generatedAt: now.toISOString(),
     about:
-      "Only predictions the owner has published. A prediction can be published only once it is checkable (grade 4 or 5).",
+      "Only predictions the owner has published, each with the story it belongs to and the notes the owner has chosen to make public. A prediction can be published only once it is checkable (grade 4 or 5). Private notes, and every note on an unpublished prediction, are never included.",
     summary: {
       publicPredictions: claims.length,
       open: claims.length - resolved.length,
@@ -127,6 +144,16 @@ export function buildPublicRecord(
       scoredWithConfidence: scored.length,
     },
     calibration,
+    /** The stories that hold at least one published prediction, by name. */
+    stories: Array.from(
+      claims.reduce(
+        (count, c) =>
+          c.story ? count.set(c.story, (count.get(c.story) ?? 0) + 1) : count,
+        new Map<string, number>(),
+      ),
+    )
+      .map(([name, predictions]) => ({ name, predictions }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
     predictions: claims.map((c) => {
       const last = c.forecasts[c.forecasts.length - 1]
       return {
@@ -135,6 +162,8 @@ export function buildPublicRecord(
         // brought in by an importer, so not logged here in advance
         imported: isImported(c.id),
         text: c.text,
+        // the larger story this belongs to, or null
+        story: c.story ?? null,
         // a headline is a cleaned statement, so it is not shown in quote marks
         isHeadline: !!c.isHeadline,
         // my raw words sit under the headline, so anyone can compare the two
@@ -154,6 +183,31 @@ export function buildPublicRecord(
         confidence: last
           ? { probability: round(last.probability), word: c.confidenceWord }
           : null,
+        /**
+         * The notes I chose to make public, newest first. A note written
+         * with a change in how sure I was carries that change.
+         */
+        notes: [...(c.publicNotes ?? [])]
+          .sort((a, b) => b.at.getTime() - a.at.getTime())
+          .map((n) => {
+            const i =
+              n.forecastId === null
+                ? -1
+                : c.forecasts.findIndex((f) => f.id === n.forecastId)
+            return {
+              at: n.at.toISOString(),
+              text: n.text,
+              link: n.link,
+              confidenceChange:
+                i < 0
+                  ? null
+                  : {
+                      from:
+                        i > 0 ? round(c.forecasts[i - 1].probability) : null,
+                      to: round(c.forecasts[i].probability),
+                    },
+            }
+          }),
         confidenceHistory: c.forecasts.map((f) => ({
           at: f.at.toISOString(),
           probability: round(f.probability),
@@ -199,6 +253,17 @@ export async function loadPublicRecord(
       forecasts: { where: { userId }, orderBy: { createdAt: "asc" } },
       questionScores: { where: { userId } },
       versions: { orderBy: { version: "desc" }, take: 1 },
+      story: { select: { name: true } },
+      // the gate for notes: only the ones I made public are even read
+      comments: {
+        where: { isPublic: true, userId },
+        select: {
+          createdAt: true,
+          comment: true,
+          sourceUrl: true,
+          forecastId: true,
+        },
+      },
       _count: { select: { versions: true } },
     },
   })
@@ -224,7 +289,15 @@ export async function loadPublicRecord(
       // a check link only counts once I have opened and confirmed it
       checkLinkUrl: r.checkLinkConfirmedAt ? r.checkLinkUrl : null,
       confidenceWord: r.confidenceWord,
+      story: r.story?.name ?? null,
+      publicNotes: r.comments.map((n) => ({
+        at: n.createdAt,
+        text: n.comment,
+        link: n.sourceUrl,
+        forecastId: n.forecastId,
+      })),
       forecasts: r.forecasts.map((f) => ({
+        id: f.id,
         at: f.createdAt,
         probability: f.forecast.toNumber(),
         word: f.confidenceWord,

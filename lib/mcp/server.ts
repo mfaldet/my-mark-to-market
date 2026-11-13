@@ -33,6 +33,7 @@ import {
   listClaims,
   logClaim,
   logWithSplit,
+  addNote,
   resolveClaim,
   setPublic,
   updateConfidence,
@@ -51,23 +52,28 @@ Every prediction has two texts:
 - the user's raw words, saved exactly as they said them and never changed ("originally said");
 - a headline: your clean, sharp rewrite of what they meant, which they approve. The headline is what shows everywhere: lists, the detail page, the Due tab, the public track record.
 
+Stories: a story is a named group the user files predictions under, such as "NVIDIA after Jensen" or "The labor market". A prediction belongs to at most one story.
+
 Logging: clean it hard, preview it, save only what the user approves.
 1. Log a prediction only when the user asks you to, or clearly states one and wants it recorded. Never log things other people said.
 2. Pass the user's raw words unchanged as text. Do all your cleaning in the headline and the outcome parts, never in text.
 3. Clean aggressively, up front. People talk loosely; your job is to turn that into something that can be checked. Write a headline: one clear, sharp sentence in plain words, naming exactly who or what, the measure, the threshold and the date. Prefer precise terms to the user's loose ones, and fill gaps with your best reading of what they meant. Then work out the shape, every outcome part (for an event, including howToTell: a source, a measure or a fact anyone could look up), a deadline and a confidence word.
 4. If their words hold several predictions ("X won't happen, and Y will beat Z, but W"), split them: one piece per prediction, each with its own headline, parts, deadline and confidence. The original sentence is kept as the one they grew out of, and stays under every piece as what was originally said.
 5. The hard rules, which the app enforces: a checkable prediction is ONE outcome (no "if … then", no "and/or", no two results joined by "and"), and an event needs a way to tell. Anything that breaks them stays below grade 4.
-6. Call preview_claim with their raw words and your whole proposal. It saves NOTHING. It returns how the app would grade and store it.
-7. In ONE reply, show the user the whole preview: each headline, its parts, the deadline, the confidence you suggest, and the grade with whether that is checkable. Say plainly that nothing is saved yet. Expect them to steer: they will often change your wording, a number or a date. Do not ask one field per message.
-8. When they steer, apply what they said and, if the change is more than small, preview again. Only when they approve call log_claim, with their raw words, the version they approved, their confidence, and approved: true. Nothing you wrote or guessed is saved unless they said yes to it.
-9. Pass claim_date from the preview's claimDate, so the date is when they first said it, not when they approved it.
-10. If they do not answer or say no, save nothing. If they say "just log it as it is", call log_claim with their words only: a loose prediction with no headline is fine.
+6. Suggest a story in every preview. Call list_claims first if you do not already know the user's stories, and prefer one they already have, spelled exactly as it is; propose a new name only when none fits. Pass it as story. Like everything else, it is saved only with their approval.
+7. Call preview_claim with their raw words and your whole proposal. It saves NOTHING. It returns how the app would grade and store it.
+8. In ONE reply, show the user the whole preview: each headline, the story, its parts, the deadline, the confidence you suggest, and the grade with whether that is checkable. Say plainly that nothing is saved yet. Expect them to steer: they will often change your wording, a number or a date. Do not ask one field per message.
+9. When they steer, apply what they said and, if the change is more than small, preview again. Only when they approve call log_claim, with their raw words, the version they approved, their confidence, and approved: true. Nothing you wrote or guessed is saved unless they said yes to it.
+10. Pass claim_date from the preview's claimDate, so the date is when they first said it, not when they approved it.
+11. If they do not answer or say no, save nothing. If they say "just log it as it is", call log_claim with their words only: a loose prediction with no headline is fine.
 
 Other rules:
 - A loose prediction is fine left loose. Do not push the user to sharpen it.
 - Confidence: pass what the user said ("30%", "0.3", "likely"). If they give a bare number like "3", ask what they mean before sending it.
 - Older items may have no headline. To add or change one, propose it, and once the user approves call edit_claim with headline. Use edit_claim for outcome parts and dates too. The raw words never change; pass corrected_text only when the user explicitly says their words were recorded wrongly.
 - When you talk about a prediction, use its headline. Mention the raw words only if the user asks what they originally said.
+- Notes: use add_note when the user wants a note kept on a prediction (their reasoning, a source). A note is PRIVATE unless the user says, in so many words, to make that note public; never set public on your own judgement. update_confidence still takes a note for why they changed their mind; that note is private too. A public note leaves the app only while its prediction is published.
+- To move a prediction into a story, out of one, or to a different one, call edit_claim with story (null takes it out) once the user has said so.
 - Publishing: call publish_claim ONLY when the user asks, in so many words, to publish or unpublish a specific prediction. Never on your own initiative, never as part of logging or sharpening, and never because it "seems ready". Only a checkable prediction can be published; if the app refuses, tell the user its reason.
 - Use withdraw_claim when the user wants something gone. Nothing is ever deleted; a withdrawn prediction is hidden but kept with its history.
 - When the user asks what is due, coming up or overdue, call list_claims with due set, and tell them each prediction's headline and its "due" line.
@@ -85,6 +91,7 @@ export function summarize(claim: ClaimView) {
     ...(claim.headline
       ? { headline: claim.headline, originallySaid: claim.text }
       : { text: claim.text, headline: null }),
+    story: claim.story?.name ?? null,
     claimDate: claim.claimDate,
     [claim.deadlineKind === "deadline" ? "deadline" : "checkBackBy"]:
       claim.deadline,
@@ -210,6 +217,9 @@ const hunchProperties = {
     "The user's raw words, exactly as they said them. Do not rewrite them here; put your rewrite in headline.",
   ),
   headline: headlineProp,
+  story: str(
+    "The story this belongs to, by name. Prefer one the user already has, spelled exactly; a new name makes a new story. In a split, every piece goes in this story. Saved only with the user's approval.",
+  ),
   proposal: {
     type: "object",
     description:
@@ -243,6 +253,7 @@ const hunchProperties = {
 const hunchInput = z.object({
   text: z.string().min(1),
   headline: z.string().min(1).optional(),
+  story: z.string().min(1).max(80).optional(),
   proposal: proposalInput.optional(),
   confidence: confidenceInput,
   split: z
@@ -267,6 +278,7 @@ function hunchArgs(userId: string, args: any, approved: boolean) {
     userId,
     text: args.text as string,
     headline: args.headline as string | undefined,
+    story: args.story as string | undefined,
     claimDate: args.claim_date as string | undefined,
     parentId: args.parent_id as string | undefined,
     source: "AGENT" as const,
@@ -358,11 +370,14 @@ export const TOOLS: Tool[] = [
     input: hunchInput.extend({ approved: z.boolean().optional() }),
     handler: async (userId, args) => {
       const sharpened =
-        !!args.proposal || !!args.split?.length || !!args.headline
+        !!args.proposal ||
+        !!args.split?.length ||
+        !!args.headline ||
+        !!args.story
       if (sharpened && args.approved !== true) {
         throw new ClaimError(
           "BLOCKED",
-          "Nothing was saved. A headline or a proposal is saved only after the user approves it: call preview_claim, show them the result, and call log_claim with approved: true once they say yes. To save their words alone, send text on its own.",
+          "Nothing was saved. A headline, a story or a proposal is saved only after the user approves it: call preview_claim, show them the result, and call log_claim with approved: true once they say yes. To save their words alone, send text on its own.",
         )
       }
       const input = hunchArgs(userId, args, true)
@@ -437,7 +452,7 @@ export const TOOLS: Tool[] = [
     name: "edit_claim",
     title: "Edit a prediction",
     description:
-      "Change the headline, shape, outcome parts, deadline or check-back date of an item. Each call is one recorded version; nothing is overwritten silently. The original text stays as the user said it: pass corrected_text only when the user explicitly says their words were recorded wrongly.",
+      "Change the headline, story, shape, outcome parts, deadline or check-back date of an item. Each call is one recorded version; nothing is overwritten silently. The original text stays as the user said it: pass corrected_text only when the user explicitly says their words were recorded wrongly.",
     inputSchema: {
       type: "object",
       properties: {
@@ -455,6 +470,11 @@ export const TOOLS: Tool[] = [
           description:
             "Set or replace the headline, once the user has approved the wording. null removes it.",
         },
+        story: {
+          type: ["string", "null"],
+          description:
+            "Put the prediction in this story (an existing name, spelled exactly, or a new one), once the user has said so. null takes it out of its story.",
+        },
         corrected_text: str(
           "Only when the user explicitly corrects what they said. Their words, exactly.",
         ),
@@ -467,6 +487,7 @@ export const TOOLS: Tool[] = [
       parts: z.record(z.union([z.string(), z.number(), z.null()])).optional(),
       deadline: isoDay.optional(),
       headline: z.string().min(1).nullable().optional(),
+      story: z.string().min(1).max(80).nullable().optional(),
       corrected_text: z.string().min(1).optional(),
     }),
     handler: async (userId, args) => {
@@ -475,6 +496,7 @@ export const TOOLS: Tool[] = [
         args.parts === undefined &&
         args.deadline === undefined &&
         args.headline === undefined &&
+        args.story === undefined &&
         args.corrected_text === undefined
       ) {
         throw new ClaimError("BAD_REQUEST", "Nothing to change was given.")
@@ -488,6 +510,7 @@ export const TOOLS: Tool[] = [
             parts: args.parts,
             deadline: args.deadline,
             headline: args.headline,
+            story: args.story,
             correctedText: args.corrected_text,
           },
           "AGENT",
@@ -620,7 +643,7 @@ export const TOOLS: Tool[] = [
     name: "list_claims",
     title: "List predictions",
     description:
-      'List the user\'s predictions, newest first, with ids, grades, dates and confidence. Use it to find an id before updating something. To answer "what\'s due?", set due: "soon" for open items due today or within within_days (default 7), "overdue" for open items whose date has passed, or "soon_or_overdue" for both. Those come back most pressing first, each with a "due" line such as "overdue by 3 days".',
+      'List the user\'s predictions, newest first, with ids, grades, dates, confidence and the story each belongs to (story is null when it has none). Use it to find an id before updating something. To answer "what\'s due?", set due: "soon" for open items due today or within within_days (default 7), "overdue" for open items whose date has passed, or "soon_or_overdue" for both. Those come back most pressing first, each with a "due" line such as "overdue by 3 days".',
     inputSchema: {
       type: "object",
       properties: {
@@ -658,6 +681,49 @@ export const TOOLS: Tool[] = [
           timeZone: args.time_zone,
         })
       ).map(summarize),
+  },
+  {
+    name: "add_note",
+    title: "Add a note to a prediction",
+    description:
+      "Adds a note to a prediction: the user's reasoning, an observation, or a source. Notes are PRIVATE by default. Set public to true ONLY when the user says, in so many words, that this note should be public; never on your own judgement. A public note is locked as written and leaves the app only while its prediction is published. To record why the user changed how sure they are, use update_confidence with a note instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        claim_id: str(),
+        text: str("The note, in the user's words."),
+        link: str("Optional. A web address for a source."),
+        public: {
+          type: "boolean",
+          description:
+            "Default false (private). true only on the user's explicit say-so.",
+        },
+      },
+      required: ["claim_id", "text"],
+    },
+    input: z.object({
+      claim_id: z.string(),
+      text: z.string().min(1),
+      link: z.string().optional(),
+      public: z.boolean().optional(),
+    }),
+    handler: async (userId, args) => {
+      const claim = await addNote(
+        userId,
+        args.claim_id,
+        { text: args.text, link: args.link, isPublic: args.public === true },
+        "AGENT",
+      )
+      const note = claim.notes[0]
+      return {
+        ...summarize(claim),
+        note: note && {
+          text: note.text,
+          link: note.link,
+          public: note.isPublic,
+        },
+      }
+    },
   },
   {
     name: "publish_claim",
