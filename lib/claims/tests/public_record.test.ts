@@ -213,4 +213,62 @@ describe("buildPublicRecord", () => {
     expect(without.isHeadline).toBe(false)
     expect(without.originallySaid).toBeNull()
   })
+
+  describe("stories and public notes", () => {
+    it("each prediction carries its story and its public notes, newest first, with any confidence change", () => {
+      const record = buildPublicRecord(
+        { name: "Mac" },
+        [
+          claim({
+            story: "Labor market",
+            forecasts: [
+              { id: 1, at: at("2025-07-14"), probability: 0.7, word: null },
+              { id: 2, at: at("2025-09-01"), probability: 0.35, word: null },
+            ],
+            publicNotes: [
+              {
+                at: at("2025-08-01"),
+                text: "Claims are rising.",
+                link: "https://example.com/claims",
+                forecastId: null,
+              },
+              {
+                at: at("2025-09-01"),
+                text: "The jobs report changed my mind.",
+                link: null,
+                forecastId: 2,
+              },
+            ],
+          }),
+          claim({ id: "c2", story: "Labor market" }),
+          claim({ id: "c3" }),
+        ],
+        now,
+      )
+      expect(record.stories).toEqual([{ name: "Labor market", predictions: 2 }])
+      expect(record.predictions[0].story).toBe("Labor market")
+      expect(record.predictions[2].story).toBeNull()
+      expect(record.predictions[2].notes).toEqual([])
+      expect(record.predictions[0].notes).toEqual([
+        {
+          at: "2025-09-01T00:00:00.000Z",
+          text: "The jobs report changed my mind.",
+          link: null,
+          confidenceChange: { from: 0.7, to: 0.35 },
+        },
+        {
+          at: "2025-08-01T00:00:00.000Z",
+          text: "Claims are rising.",
+          link: "https://example.com/claims",
+          confidenceChange: null,
+        },
+      ])
+    })
+
+    it("says in its own description what is and is not included", () => {
+      const record = buildPublicRecord({ name: "Mac" }, [], now)
+      expect(record.stories).toEqual([])
+      expect(record.about).toMatch(/Private notes/)
+    })
+  })
 })

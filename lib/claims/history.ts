@@ -45,6 +45,17 @@ export type ClaimState = {
   resolution: string | null
   closeCall: boolean
   actualResult: string | null
+  /**
+   * The story it belongs to, by name, or null. Added later than the fields
+   * above, like the two below: a missing value is read as null.
+   */
+  story?: string | null
+  /**
+   * The notes that are public at this moment, with their text, so the
+   * history shows when a note was made public or private again and locks
+   * what it said. Null when none is public. Private notes are not here.
+   */
+  publicNotes?: { id: number; text: string; link: string | null }[] | null
 }
 
 /** One row of history, as stored. */

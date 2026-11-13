@@ -173,6 +173,7 @@ export type QuestionWithStandardIncludes =
     questionMessages: QuestionSlackMessageWithMessage[]
     comments: CommentWithUser[]
     tags: Tag[]
+    story?: { id: string; name: string } | null
   }
 
 export type CommentWithUser = Comment & {

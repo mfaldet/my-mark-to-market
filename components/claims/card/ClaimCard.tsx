@@ -6,12 +6,12 @@ import { toast } from "react-hot-toast"
 import { ClaimPreview, ClaimView } from "../../../lib/claims/service"
 import { api } from "../../../lib/web/trpc"
 import { QuestionWithStandardIncludes } from "../../../prisma/additional"
-import { CommentBox, DeleteCommentOverflow } from "../../questions/CommentBox"
 import { ResolveButton } from "../../questions/ResolveButton"
 import { ConfirmDialog } from "../../ui/ConfirmDialog"
+import { PromptDialog } from "../../ui/PromptDialog"
 import { TimelineList } from "../ClaimTimeline"
 import { ConfidenceForm } from "../ConfidenceRow"
-import { formatDay } from "../labels"
+import { Notes } from "./Notes"
 import {
   ClaimEditForm,
   Draft,
@@ -64,6 +64,10 @@ function editFrom(
         ? draft.deadline
         : undefined,
     checkLinkUrl: link !== claim.checkLinkUrl ? link : undefined,
+    story:
+      draft.story.trim() !== (claim.story?.name ?? "")
+        ? draft.story.trim() || null
+        : undefined,
     correctedText: words && words !== claim.text ? words : undefined,
   }
 }
@@ -120,6 +124,8 @@ export function ClaimCard({
   const [historyOpen, setHistoryOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [confirmingPublish, setConfirmingPublish] = useState(false)
+  const [renamingStory, setRenamingStory] = useState(false)
+  const renameStory = api.claims.renameStory.useMutation(after)
   // "Sharpen": a proposal shown on the card; nothing changes until I approve
   const [proposal, setProposal] = useState<ClaimPreview | null>(null)
   const [sharpenNote, setSharpenNote] = useState<string | null>(null)
@@ -181,7 +187,6 @@ export function ClaimCard({
     setMenuOpen(false)
     action()
   }
-  const comments = question?.comments ?? []
   // The proposal as this item would look with it: the suggested headline and
   // parts, on top of what is already mine (how sure, the check link, the
   // date I said it, and my own date when the proposal has none).
@@ -376,6 +381,18 @@ export function ClaimCard({
                   </button>
                 )
               }
+              storyAction={
+                !proposed &&
+                claim.story && (
+                  <button
+                    className={BTN_SMALL}
+                    title="Rename this story. The new name applies to every prediction in it."
+                    onClick={() => setRenamingStory(true)}
+                  >
+                    Rename
+                  </button>
+                )
+              }
               checkLinkAction={
                 !locked &&
                 !proposed &&
@@ -413,33 +430,6 @@ export function ClaimCard({
                   {suggestions === 1 ? "Confirm it" : "Confirm them"}
                 </button>
               </p>
-            )}
-
-            {(claim.parent || claim.children.length > 0) && (
-              <div className="flex flex-col gap-1 text-sm text-neutral-600">
-                {claim.parent && (
-                  <span>
-                    Grew out of:{" "}
-                    <a
-                      className="underline underline-offset-2"
-                      href={`/q/${claim.parent.id}`}
-                    >
-                      {claim.parent.text}
-                    </a>
-                  </span>
-                )}
-                {claim.children.map((child) => (
-                  <span key={child.id}>
-                    Sharpened into:{" "}
-                    <a
-                      className="underline underline-offset-2"
-                      href={`/q/${child.id}`}
-                    >
-                      {child.text}
-                    </a>
-                  </span>
-                ))}
-              </div>
             )}
 
             <QuietLine
@@ -623,34 +613,27 @@ export function ClaimCard({
         )}
       </section>
 
-      {/* notes sit below the card */}
-      {question &&
-        (!claim.withdrawn || question.notes || comments.length > 0) && (
-          <section className="not-prose flex flex-col gap-2" aria-label="Notes">
-            <h3 className="m-0 text-sm font-semibold text-ink">Notes</h3>
-            {question.notes && (
-              <p className="m-0 whitespace-pre-line text-sm text-ink">
-                {question.notes}
-              </p>
-            )}
-            {comments.map((comment) => (
-              <div key={comment.id} className="flex items-start gap-2 text-sm">
-                <div className="min-w-0 grow">
-                  <div className="num text-xs text-neutral-500">
-                    {formatDay(
-                      new Date(comment.createdAt).toISOString().slice(0, 10),
-                    )}
-                  </div>
-                  <div className="whitespace-pre-line break-words text-ink">
-                    {comment.comment}
-                  </div>
-                </div>
-                <DeleteCommentOverflow question={question} comment={comment} />
-              </div>
-            ))}
-            {!claim.withdrawn && <CommentBox question={question} />}
-          </section>
-        )}
+      {/* notes sit below the card: one list, each private unless I make it public */}
+      <Notes claim={claim} legacyNote={question?.notes} />
+
+      {claim.story && (
+        <PromptDialog
+          isOpen={renamingStory}
+          onClose={() => setRenamingStory(false)}
+          title="Rename this story"
+          description="The new name applies to every prediction in the story."
+          defaultValue={claim.story.name}
+          submitLabel="Rename"
+          onSubmit={(name) => {
+            if (name.trim() && name.trim() !== claim.story!.name) {
+              renameStory.mutate({
+                storyId: claim.story!.id,
+                name: name.trim(),
+              })
+            }
+          }}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={withdrawOpen}

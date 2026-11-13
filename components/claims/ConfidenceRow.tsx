@@ -86,10 +86,10 @@ export function ConfidenceForm({
         />
       </div>
       <input
-        aria-label="Why, if it changed"
+        aria-label="A note on why"
         className={INPUT}
         type="text"
-        placeholder="Why? (optional)"
+        placeholder="A note on why (optional; private unless you make it public)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />

@@ -12,13 +12,19 @@ import {
   confirmCheckLink,
   confirmPart,
   getClaim,
+  addNote,
   confirmProposal,
+  deleteNote,
+  editNote,
   editClaim,
   previewClaim,
   proposeSharpening,
   restoreClaim,
   getTimeline,
   linkParent,
+  listStories,
+  renameStory,
+  setNotePublic,
   listClaims,
   logClaim,
   resolveClaim,
@@ -79,6 +85,7 @@ export const claimsRouter = router({
         claimDate: isoDay.optional(),
         proposal: proposalInput.optional(),
         headline: z.string().max(500).optional(),
+        story: z.string().max(80).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -105,6 +112,8 @@ export const claimsRouter = router({
         proposal: proposalInput.optional(),
         /** the headline I approved in the preview */
         headline: z.string().max(500).optional(),
+        /** the story I chose in the preview */
+        story: z.string().max(80).optional(),
       }),
     )
     .mutation(({ input, ctx }) =>
@@ -282,6 +291,7 @@ export const claimsRouter = router({
         deadline: z.string().optional(),
         checkLinkUrl: z.string().max(2000).nullable().optional(),
         correctedText: z.string().max(5000).optional(),
+        story: z.string().max(80).nullable().optional(),
       }),
     )
     .mutation(({ input: { claimId, ...edit }, ctx }) =>
@@ -302,6 +312,63 @@ export const claimsRouter = router({
       confirmProposal(requireUser(ctx), input.claimId, {}, "WEB").catch(
         toTrpcError,
       ),
+    ),
+
+  // --- stories ---
+
+  stories: publicProcedure.query(({ ctx }) =>
+    listStories(requireUser(ctx)).catch(toTrpcError),
+  ),
+
+  renameStory: publicProcedure
+    .input(z.object({ storyId: z.string(), name: z.string().min(1).max(80) }))
+    .mutation(({ input, ctx }) =>
+      renameStory(requireUser(ctx), input.storyId, input.name, "WEB").catch(
+        toTrpcError,
+      ),
+    ),
+
+  // --- notes: private unless I make one public ---
+
+  addNote: publicProcedure
+    .input(
+      id.extend({
+        text: z.string().min(1).max(5000),
+        link: z.string().max(2000).nullable().optional(),
+        isPublic: z.boolean().optional(),
+      }),
+    )
+    .mutation(({ input: { claimId, ...note }, ctx }) =>
+      addNote(requireUser(ctx), claimId, note, "WEB").catch(toTrpcError),
+    ),
+
+  editNote: publicProcedure
+    .input(
+      z.object({
+        noteId: z.number(),
+        text: z.string().min(1).max(5000).optional(),
+        link: z.string().max(2000).nullable().optional(),
+      }),
+    )
+    .mutation(({ input: { noteId, ...note }, ctx }) =>
+      editNote(requireUser(ctx), noteId, note).catch(toTrpcError),
+    ),
+
+  setNotePublic: publicProcedure
+    .input(z.object({ noteId: z.number(), isPublic: z.boolean() }))
+    .mutation(({ input, ctx }) =>
+      setNotePublic(
+        requireUser(ctx),
+        input.noteId,
+        input.isPublic,
+        "WEB",
+      ).catch(toTrpcError),
+    ),
+
+  deleteNote: publicProcedure
+    .input(z.object({ noteId: z.number() }))
+    .mutation(({ input, ctx }) =>
+      deleteNote(requireUser(ctx), input.noteId).catch(toTrpcError),
     ),
 
   restore: publicProcedure

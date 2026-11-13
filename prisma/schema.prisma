@@ -70,6 +70,8 @@ model Forecast {
   profile        Profile?        @relation(fields: [profileId], references: [id], onDelete: Cascade, map: "Forecast_authorId_fkey")
   question       Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // the note written with this change, if any
+  note           Comment?
 }
 
 model QuestionScore {
@@ -109,7 +111,7 @@ model Question {
   title                        String                   @db.Text
   // The approved, clean statement shown everywhere. "title" above keeps my
   // raw words, unchanged. Null = no headline yet: show the raw words.
-  headline                 String?
+  headline                     String?
   type                         QuestionType             @default(BINARY)
   options                      QuestionOption[]
   resolveBy                    DateTime
@@ -173,8 +175,24 @@ model Question {
   // what actually happened, in my words (e.g. "5.8%")
   actualResult         String?
   versions             ClaimVersion[]
+  // the larger story this belongs to, if any. At most one.
+  storyId              String?
+  story                Story?          @relation(fields: [storyId], references: [id], onDelete: SetNull)
 
   @@index([parentId])
+  @@index([storyId])
+}
+
+// A named group of my predictions, such as "The labor market".
+model Story {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  name      String
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@unique([userId, name])
 }
 
 // Append-only history. Every change to a claim writes a new row holding the
@@ -284,6 +302,7 @@ model User {
   notifications            Notification[]
   questionOptions          QuestionOption[] @relation("author")
   claimVersions            ClaimVersion[]
+  stories                  Story[]
 
   // Used by next-auth:
   emailVerified DateTime?
@@ -369,14 +388,23 @@ model Account {
   @@unique([provider, providerAccountId])
 }
 
+// A note on a prediction. Private unless I make it public; a public note
+// leaves the app only while its prediction is published.
 model Comment {
-  id         Int      @id @default(autoincrement())
-  createdAt  DateTime @default(now())
+  id         Int       @id @default(autoincrement())
+  createdAt  DateTime  @default(now())
   comment    String
+  // an optional link to a source
+  sourceUrl  String?
+  // private by default. While public, the text is locked.
+  isPublic   Boolean   @default(false)
+  // the confidence change this note explains, if it was written with one
+  forecastId Int?      @unique
+  forecast   Forecast? @relation(fields: [forecastId], references: [id], onDelete: SetNull)
   questionId String
   userId     String
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserList {

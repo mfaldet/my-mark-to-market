@@ -121,6 +121,14 @@ export function ClaimRow({
             </span>
           </span>
         )}
+        {question.story && (
+          <>
+            <span aria-hidden>·</span>
+            <span className="min-w-0 break-words" title="Story">
+              {question.story.name}
+            </span>
+          </>
+        )}
       </div>
     </div>
   )

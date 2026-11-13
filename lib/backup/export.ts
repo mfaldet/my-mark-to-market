@@ -45,6 +45,8 @@ export type BackupPage = {
   users?: unknown[]
   accounts?: unknown[]
   tags?: unknown[]
+  /** the stories predictions are filed under; each item's question.storyId points at one */
+  stories?: unknown[]
   items: unknown[]
 }
 
@@ -104,7 +106,7 @@ export async function exportBackup(
   }
 
   if (skip === 0) {
-    const [users, accounts, tags] = await Promise.all([
+    const [users, accounts, tags, stories] = await Promise.all([
       prisma.user.findMany({
         orderBy: { id: "asc" },
         // account settings; never the API key or its hash
@@ -132,7 +134,9 @@ export async function exportBackup(
         },
       }),
       prisma.tag.findMany({ orderBy: { id: "asc" } }),
+      prisma.story.findMany({ orderBy: { id: "asc" } }),
     ])
+    page.stories = plain(stories) as unknown[]
     page.users = plain(users) as unknown[]
     page.accounts = plain(accounts) as unknown[]
     page.tags = plain(tags) as unknown[]

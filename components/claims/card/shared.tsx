@@ -210,11 +210,13 @@ export function ClaimFields({
   mode,
   howSureAction,
   checkLinkAction,
+  storyAction,
 }: {
   claim: CardClaim
   mode: "preview" | "detail"
   howSureAction?: ReactNode
   checkLinkAction?: ReactNode
+  storyAction?: ReactNode
 }) {
   const shape = claim.shape ?? "FREE_TEXT"
   const required = SHAPE_PARTS[shape].required as readonly string[]
@@ -331,6 +333,9 @@ export function ClaimFields({
             {mode === "preview" ? "none; add it after saving" : "none"}
           </Empty>
         )}
+      </Field>
+      <Field label="Story" action={storyAction}>
+        {claim.story ? claim.story.name : <Empty>none</Empty>}
       </Field>
     </div>
   )

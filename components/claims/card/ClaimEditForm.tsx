@@ -2,6 +2,7 @@ import { ClaimShape } from "@prisma/client"
 import { ReactNode, useState } from "react"
 import TextareaAutosize from "react-textarea-autosize"
 import { COMPARISONS, SHAPE_PARTS } from "../../../lib/claims/types"
+import { api } from "../../../lib/web/trpc"
 import { COMPARISON_LABELS, PART_LABELS, SHAPE_LABELS } from "../labels"
 import {
   BTN_MAIN,
@@ -19,6 +20,8 @@ export type Draft = {
   parts: Record<string, string>
   deadline: string
   checkLinkUrl: string
+  /** the story's name; empty means none */
+  story: string
   /** set only when I say my words were recorded wrongly */
   correctedText: string | null
 }
@@ -35,6 +38,7 @@ export function draftOf(claim: CardClaim): Draft {
     // a date of my own, or the app's default check-back date
     deadline: claim.deadline,
     checkLinkUrl: claim.checkLinkUrl ?? "",
+    story: claim.story?.name ?? "",
     correctedText: null,
   }
 }
@@ -82,6 +86,8 @@ export function ClaimEditForm({
   onCancel: () => void
 }) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(claim))
+  // my existing stories, for the picker
+  const stories = api.claims.stories.useQuery()
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
   const setPart = (name: string, value: string) =>
     set({ parts: { ...draft.parts, [name]: value } })
@@ -238,6 +244,50 @@ export function ClaimEditForm({
           />
         </Labelled>
       )}
+
+      <Labelled
+        label="Story"
+        hint="The larger story this belongs to. Pick one of yours or type a new name. Leave it empty for none."
+      >
+        <input
+          aria-label="Story"
+          className={INPUT}
+          list="story-names"
+          autoComplete="off"
+          placeholder="none"
+          maxLength={80}
+          value={draft.story}
+          onChange={(e) => set({ story: e.target.value })}
+        />
+        <datalist id="story-names">
+          {(stories.data ?? []).map((story) => (
+            <option key={story.id} value={story.name} />
+          ))}
+        </datalist>
+        {(stories.data ?? []).length > 0 && (
+          <span className="flex flex-wrap gap-2 pt-1">
+            {(stories.data ?? []).map((story) => (
+              <button
+                key={story.id}
+                type="button"
+                aria-pressed={draft.story.trim() === story.name}
+                className={
+                  draft.story.trim() === story.name
+                    ? "rounded-full border border-ink bg-neutral-100 px-3 py-1 text-xs font-semibold text-ink shadow-[inset_0_0_0_1px_#1B2230]"
+                    : "rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-semibold text-ink hover:bg-neutral-50"
+                }
+                onClick={() =>
+                  set({
+                    story: draft.story.trim() === story.name ? "" : story.name,
+                  })
+                }
+              >
+                {story.name}
+              </button>
+            ))}
+          </span>
+        )}
+      </Labelled>
 
       <p className="m-0 text-xs text-neutral-500">
         {mode === "preview"

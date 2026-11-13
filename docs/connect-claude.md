@@ -6,7 +6,7 @@ My Mark-to-Market includes an MCP server, so Claude can log your predictions, he
 https://YOUR-APP-ADDRESS/api/mcp
 ```
 
-It offers eleven tools: `preview_claim`, `log_claim`, `confirm_proposal`, `edit_claim`, `withdraw_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims`, `publish_claim` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a prediction, and Claude is told to say "prediction" to you, and "checkable" for grade 4 or 5. One field in the replies, `kind`, still answers "hunch" for grades 1 to 3 and "prediction" for grades 4 and 5, so existing setups keep working. Everything Claude logs is recorded as entered through an **agent**, which shows on the item and in its history.
+It offers twelve tools: `preview_claim`, `log_claim`, `confirm_proposal`, `edit_claim`, `withdraw_claim`, `answer_question`, `update_confidence`, `link_parent`, `list_claims`, `add_note`, `publish_claim` and `resolve_claim`. The tool names say "claim" for technical reasons; a claim is the same thing as a prediction, and Claude is told to say "prediction" to you, and "checkable" for grade 4 or 5. One field in the replies, `kind`, still answers "hunch" for grades 1 to 3 and "prediction" for grades 4 and 5, so existing setups keep working. Everything Claude logs is recorded as entered through an **agent**, which shows on the item and in its history.
 
 | Tool                | What it does                                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------------------------- |

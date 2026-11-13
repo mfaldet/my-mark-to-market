@@ -152,7 +152,12 @@ export function LogClaim() {
       {preview && (
         <PreviewCard
           // a new preview (after an edit) starts the card afresh
-          key={JSON.stringify(preview.parts) + preview.shape + preview.headline}
+          key={
+            JSON.stringify(preview.parts) +
+            preview.shape +
+            preview.headline +
+            (preview.story?.name ?? "")
+          }
           preview={preview}
           busy={busy}
           onApprove={(proposal) =>
@@ -161,6 +166,7 @@ export function LogClaim() {
               text: preview.text,
               claimDate: preview.claimDate,
               headline: proposal.headline,
+              story: proposal.story,
               proposal: toProposal(proposal),
             })
           }
@@ -170,6 +176,7 @@ export function LogClaim() {
                 text: preview.text,
                 claimDate: preview.claimDate,
                 headline: proposal.headline,
+                story: proposal.story,
                 proposal: toProposal(proposal),
               },
               {
