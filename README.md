@@ -4,7 +4,7 @@
 
 A personal tracker for my predictions: what I said, when I said it, how sure I was, and how it turned out.
 
-**[Open the live app](https://my-mark-to-market.vercel.app)** (sign-in is limited to me) · **[My public track record](https://my-mark-to-market.vercel.app/embed/track-record/cmwb5p4w90000126d06tk8ex2)**
+**[Open the live app](https://my-mark-to-market.vercel.app)** (sign-in is limited to me) · **[My public track record](https://faldetadvisory.com/track-record)**
 
 Built on [Fatebook](https://fatebook.io) by [Sage](https://sage-future.org), under the [MIT license](LICENSE).
 
@@ -117,9 +117,9 @@ The AI step is deliberately small. It picks the shape of the outcome, reads the 
 
 ![A prediction's detail page with its headline, original words and timeline](docs/images/timeline.png)
 
-**The public track record.** Only predictions I have published. This is the page my own site embeds.
+**The public track record.** Only predictions I have published. My own site does not embed the app's page: it reads the public feed and draws its own page, with a timeline grouped by story. [See the live page.](https://faldetadvisory.com/track-record)
 
-![The public track record page](docs/images/public-record.png)
+![The public track record page on my site, drawn from the app's public feed](docs/images/public-record.png)
 
 _These screenshots were taken from the app running locally with test entries, and a stand-in for the Claude API proposing the headline and parts._
 
