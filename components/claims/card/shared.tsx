@@ -257,6 +257,9 @@ export function ClaimFields({
             >
               {part ? (
                 String(part.value)
+              ) : name === "howToTell" && claim.checkLinkUrl ? (
+                // the grading rule counts a check link as a way to tell
+                "the check link"
               ) : (
                 <Empty>{required.includes(name) ? "missing" : "not set"}</Empty>
               )}
